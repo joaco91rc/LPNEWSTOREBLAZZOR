@@ -1,0 +1,201 @@
+﻿@typeparam TItem
+@using MudBlazor
+
+<style>
+    .mt-navbar-gap {
+        margin-top: 20px;
+    }
+
+    @@media (min-width: 960px) {
+        .mt-navbar-gap {
+            margin-top: 28px;
+        }
+    }
+
+    /* Fuerza misma altura en ambas cards */
+    .equal-col {
+        display: flex;
+    }
+
+    .equal-card {
+        flex: 1;
+    }
+
+    /* Más aire para los encabezados de los recuadros */
+    .paper-title {
+        padding: 6px 10px; /* separa del borde del Paper */
+        margin-bottom: 8px; /* separa del contenido */
+        display: inline-block; /* respeta padding horizontal */
+    }
+</style>
+
+
+
+
+
+
+<div class="px-4 pb-6">
+    <MudGrid GutterSize="3" AlignItems="Stretch">
+        <!-- Left: Parámetros de búsqueda -->
+        <MudItem xs="12" md="6" lg="5" Class="p-2 equal-col">
+            <MudPaper Class="p-5 space-y-3 equal-card" Elevation="1">
+                <MudText Typo="Typo.subtitle2" Class="paper-title" Color="Color.Primary"><strong>Parámetros del Reporte</strong></MudText>
+                <MudDivider Dense="true" Class="mb-3" />
+
+                <!-- misma altura entre controles -->
+                <MudGrid GutterSize="2" AlignItems="End">
+                    <MudItem xs="12" sm="6" Style="padding-left:30px">
+                        <MudDatePicker Label="Fecha Desde"
+                                       @bind-Date="DateFrom"
+                                       Dense="true" Margin="Margin.Dense"
+                                       Clearable="true"
+                                       Adornment="Adornment.End"
+                                       AdornmentIcon="@Icons.Material.Filled.DateRange" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6" Style="padding-right:30px">
+                        <MudDatePicker Label="Fecha Hasta"
+                                       @bind-Date="DateTo"
+                                       Dense="true" Margin="Margin.Dense"
+                                       Clearable="true"
+                                       Adornment="Adornment.End"
+                                       AdornmentIcon="@Icons.Material.Filled.DateRange" />
+                    </MudItem>
+
+                    <!-- Botones: no pegados y sin “flotar” -->
+                    <MudItem xs="12" Class="d-flex justify-start gap-3" Style="align-self:flex-end; padding:30px 0 8px 30px;">
+                        <MudButton Variant="Variant.Filled"
+                                   
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Search"
+                                   Disabled="@IsBusy"
+                                   OnClick="() => OnSearchParameters.InvokeAsync((DateFrom, DateTo))">
+                            Buscar
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined"
+                                   Style="padding-left: 8px"
+                                   Color="Color.Default"
+                                   StartIcon="@Icons.Material.Filled.CleaningServices"
+                                   Disabled="@IsBusy"
+                                   OnClick="ClearParameters">
+                            Limpiar
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Right: Búsqueda y filtros -->
+        <MudItem xs="12" md="6" lg="7" Class="p-2 equal-col" Style="padding-left:30px">
+            <MudPaper Class="p-5 equal-card" Elevation="1">
+                <MudText Typo="Typo.subtitle2" Class="paper-title" Color="Color.Primary"><strong>Búsqueda y Filtros</strong></MudText>
+                <MudDivider Dense="true" Class="mb-3" />
+
+                <!-- misma altura entre Select / TextField / iconos -->
+                <MudGrid GutterSize="2" AlignItems="End">
+                    <MudItem xs="12" sm="5" Style="padding-left:30px">
+                        <MudSelect T="string"
+                                   Label="Buscar por"
+                                   @bind-Value="SelectedColumn"
+                                   Dense="true" Margin="Margin.Dense"
+                                   Clearable="true">
+                            @if (FilterColumns is not null)
+                            {
+                                @foreach (var col in FilterColumns)
+                                {
+                                    <MudSelectItem Value="@col">@col</MudSelectItem>
+                                }
+                            }
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="5" Style="padding-right:30px">
+                        <MudTextField Label="Valor a buscar"
+                                      @bind-Value="FilterText"
+                                      Dense="true" Margin="Margin.Dense"
+                                      Clearable="true"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@Icons.Material.Outlined.Search"
+                                      OnKeyDown="OnFilterKeyDown" />
+                    </MudItem>
+
+                    <!-- Íconos alineados al borde inferior del TextField -->
+                    <MudItem xs="12" sm="2"
+                             Class="d-flex justify-end gap-3"
+                             Style="padding-top:32px; padding-right:8px;">
+                        <MudIconButton Icon="@Icons.Material.Filled.Search" Color="Color.Primary" Disabled="@IsBusy" OnClick="TriggerFilter" />
+                        <MudIconButton Icon="@Icons.Material.Filled.CleaningServices" Color="Color.Default" Disabled="@IsBusy" OnClick="ClearFilter" />
+                        <MudIconButton Icon="@Icons.Material.Filled.FilePresent" Color="Color.Success" Disabled="@IsBusy" OnClick="() => OnExport.InvokeAsync(null)" />
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Bottom: DataGrid -->
+        <MudItem xs="12" Class="p-2">
+            <MudPaper Class="p-4" Elevation="1">
+                <MudDataGrid T="TItem" Items="Items" Dense="true" Hover="true">
+                    <Columns>
+                        @if (Columns != null)
+                        {
+                            @Columns
+                        }
+                        else
+                        {
+                            <TemplateColumn Title="Configura tus columnas">
+                                <CellTemplate>
+                                    <MudText Color="Color.Secondary">
+                                        Definí tus columnas con el parámetro <b>Columns</b>.
+                                    </MudText>
+                                </CellTemplate>
+                            </TemplateColumn>
+                        }
+                    </Columns>
+                </MudDataGrid>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</div>
+
+
+@code {
+    [Parameter] public DateTime? DateFrom { get; set; }
+    [Parameter] public DateTime? DateTo { get; set; }
+
+    [Parameter] public IEnumerable<string>? FilterColumns { get; set; }
+    [Parameter] public string? SelectedColumn { get; set; }
+    [Parameter] public string? FilterText { get; set; }
+
+    [Parameter] public IEnumerable<TItem>? Items { get; set; }
+    [Parameter] public RenderFragment? Columns { get; set; }
+
+    [Parameter] public bool IsBusy { get; set; }
+
+    [Parameter] public EventCallback<(DateTime? from, DateTime? to)> OnSearchParameters { get; set; }
+    [Parameter] public EventCallback OnClearParameters { get; set; }
+    [Parameter] public EventCallback<(string? column, string? text)> OnFilter { get; set; }
+    [Parameter] public EventCallback OnClearFilter { get; set; }
+    [Parameter] public EventCallback OnExport { get; set; }
+
+    private Task TriggerFilter() => OnFilter.InvokeAsync((SelectedColumn, FilterText));
+
+    private async Task ClearParameters()
+    {
+        DateFrom = null; DateTo = null;
+        await OnClearParameters.InvokeAsync();
+        StateHasChanged();
+    }
+
+    private async Task ClearFilter()
+    {
+        SelectedColumn = null; FilterText = null;
+        await OnClearFilter.InvokeAsync();
+        StateHasChanged();
+    }
+
+    private async Task OnFilterKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await TriggerFilter();
+    }
+}

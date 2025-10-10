@@ -1,0 +1,256 @@
+﻿@using Entities
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Services
+@using System.Globalization
+@inject IJSRuntime JS
+@inject CajaRegistradoraService CajaService
+
+@inject ISnackbar Snackbar
+
+@inject AuthenticationStateProvider Auth
+
+<MudDialog >
+    <DialogContent >
+        <MudGrid Spacing="2">
+            <!-- Columna Izquierda -->
+            <MudItem xs="12" md="6">
+                <MudPaper Class="p-4" Elevation="0" Style="background:transparent;">
+                    <MudText Typo="Typo.h5" Class="font-bold mb-2">APERTURA DE CAJA</MudText>
+
+                    <MudStack Spacing="2">
+                        <MudForm @ref="_form">
+                        <MudTextField T ="string" Label="Fecha Apertura" @bind-Value="_aperturaFecha" Dense="true"  ReadOnly="true"/>
+
+                        <MudTextField Label="Usuario" Dense="true" @bind-Value="_usuario" />
+
+                        <MudNumericField T="decimal?" 
+                     @bind-Value="_saldoInicial"
+                     Label="Saldo Inicial"
+                     Required="true"
+                     RequiredError="Saldo inicial obligatorio"
+                     Adornment="Adornment.End" 
+                     AdornmentText="$" />
+
+                        <MudNumericField T="decimal?" 
+                     @bind-Value="_saldoInicialMP"
+                     Label="Saldo Inicial MP"
+                     Required="true"
+                     RequiredError="Saldo inicial MP obligatorio"
+                     Adornment="Adornment.End" 
+                     AdornmentText="$" />
+
+                       <MudNumericField T="decimal?" 
+                     @bind-Value="_saldoInicialUsd"
+                     Label="Saldo Inicial USD"
+                     Required="true"
+                     RequiredError="Saldo inicial USD obligatorio"
+                     Adornment="Adornment.End" 
+                     AdornmentText="USD" />
+
+                    <MudNumericField T="decimal?" 
+                     @bind-Value="_saldoInicialGalicia"
+                     Label="Saldo Inicial Galicia"
+                     Required="true"
+                     RequiredError="Saldo inicial Galicia obligatorio"
+                     Adornment="Adornment.End" 
+                     AdornmentText="$" />
+
+                        <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.PointOfSale"
+                                   Class="mt-2" OnClick="OnAbrirCaja">
+                            Abrir Caja
+                        </MudButton>
+                        </MudForm>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Columna Derecha -->
+            <MudItem xs="12" md="6">
+                <MudPaper Class="p-4" Elevation="0" Style="background:transparent;">
+                    <MudText Typo="Typo.h5" Class="font-bold mb-2">DETALLE ULTIMA CAJA CERRADA</MudText>
+
+                    <MudStack Spacing="2">
+                        <MudTextField T="string" Label="Fecha Apertura" Dense="true" @bind-Value="_ultima.FechaApertura" Disabled="true" />
+                        <MudTextField T="string" Label="Fecha Cierre" Dense="true" @bind-Value="_ultima.FechaCierre" Disabled="true" />
+                        <MudTextField T="string" Label="Usuario" Dense="true" @bind-Value="_ultima.UsuarioAperturaCaja" Disabled="true" />
+
+                        <MudNumericField T="decimal" Label="Saldo Efectivo" Dense="true" Value="@_ultima.Saldo" Disabled="true" Culture="@_culture" />
+                        <MudNumericField T="decimal" Label="Saldo Mercado Pago" Dense="true" Value="@_ultima.SaldoMP" Disabled="true" Culture="@_culture" />
+                        <MudNumericField T="decimal" Label="Saldo Dólares" Dense="true" Value="@_ultima.SaldoUSS" Disabled="true" Culture="@_culture" />
+                        <MudNumericField T="decimal" Label="Saldo Galicia" Dense="true" Value="@_ultima.SaldoGalicia" Disabled="true" Culture="@_culture" />
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+
+    <DialogActions >
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="Cancel">Cerrar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+
+
+    // Parámetros opcionales para pre-cargar datos o recibir IDs (ej: idNegocio, idUsuario)
+
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    private readonly CultureInfo _culture = new("es-AR");
+
+    // Apertura
+    private string _aperturaFecha;
+
+    private string _usuario;
+    private bool _saving;
+    private MudForm? _form;
+    private decimal? _saldoInicial, _saldoInicialMP, _saldoInicialUsd, _saldoInicialGalicia;
+    private int SucursalId;
+    // Última caja cerrada (solo lectura). Cargala desde tu servicio en OnInitializedAsync si querés.
+    private CajaRegistradora _ultima = new();
+
+    private void Cancel() => MudDialog.Cancel();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var authState = await Auth.GetAuthenticationStateAsync();
+            var user = authState.User;
+            // 1) Intentar leer cookie, pero sin romper si no existe la función
+            try
+            {
+                var sucursal = await JS.InvokeAsync<string?>("getCookie", "sucursalSeleccionada");
+                if (int.TryParse(sucursal, out var idSucursal))
+                    SucursalId = idSucursal;
+
+                _usuario = user.Identity?.Name;
+
+                _aperturaFecha = DateTime.Now.ToString();
+            }
+            catch // JSException u otras
+            {
+                // fallback: sucursal 0 o la que quieras por defecto
+                SucursalId = 0;
+            }
+
+
+
+
+
+            _ultima = await CajaService.ObtenerUltimaCajaCerradaAsync(SucursalId);
+
+
+            StateHasChanged();
+        }
+    }
+
+    
+
+@code {
+    
+    
+
+    private async Task OnAbrirCaja()
+    {
+        // 1) Validaciones simples
+        if (_form is not null)
+    {
+        await _form.Validate();
+
+        if (!_form.IsValid)
+        {
+            Snackbar.Add("Complete todos los saldos iniciales.", Severity.Warning);
+            return;
+        }
+    }
+
+        // 2) Usuario logueado (Identity)
+        var authState = await Auth.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var usuario = user.Identity?.IsAuthenticated == true ? user.Identity!.Name ?? "usuario" : "usuario";
+
+        try
+        {
+            _saving = true;
+
+            // 3) ¿Existe una caja abierta en la sucursal?
+            // Usa el método que tengas disponible. Ejemplos:
+            // var abierta = await CajaService.GetCajaAbiertaAsync(IdNegocio);
+            var lista = await CajaService.ListarAsync(SucursalId);
+            var abierta = lista.FirstOrDefault(c => c.Estado == true);
+
+            if (abierta != null)
+            {
+                Snackbar.Add("Ya existe una Caja Abierta. Ciérrela e intente nuevamente.", Severity.Warning);
+                return;
+            }
+
+            // 4) Crear objeto y abrir
+            var objCaja = new CajaRegistradora
+            {
+                UsuarioAperturaCaja = _usuario ?? string.Empty,
+                SaldoInicio         = _saldoInicial!.Value,
+                SaldoInicioMP       = _saldoInicialMP!.Value,
+                SaldoInicioUSS      = _saldoInicialUsd!.Value,
+                SaldoInicioGalicia  = _saldoInicialGalicia!.Value,
+                IdNegocio           = SucursalId,
+                FechaApertura       = DateTime.Now.ToString()
+            };
+
+            // Si tu servicio devuelve el ID, podés evaluarlo
+            var (idCajaGenerado, mensaje) = await CajaService.AperturaCajaAsync(objCaja, SucursalId);
+
+            // si en tu caso devuelve bool, ajustá la condición
+            if (idCajaGenerado > 0)
+            {
+                Snackbar.Add("Caja Abierta.", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(objCaja)); // cerramos devolviendo la caja creada
+            }
+            else
+            {
+                Snackbar.Add(mensaje, Severity.Error);
+            }
+        }
+        catch (FormatException ex)
+        {
+            Snackbar.Add($"Error de formato: {ex.Message}", Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Ocurrió un error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
+        }
+    }
+}
+
+
+    public class UltimaCajaVm
+    {
+        public DateTime Apertura { get; set; }
+        public DateTime Cierre { get; set; }
+        public string Usuario { get; set; }
+        public decimal SaldoEfectivo { get; set; }
+        public decimal SaldoMercadoPago { get; set; }
+        public decimal SaldoDolares { get; set; }
+        public decimal SaldoGalicia { get; set; }
+    }
+
+    public class AperturaCajaResult
+    {
+        public DateTime Fecha { get; set; }
+        public string Usuario { get; set; } = "";
+        public decimal SaldoInicial { get; set; }
+        public decimal SaldoInicialMP { get; set; }
+        public decimal SaldoInicialUsd { get; set; }
+        public decimal SaldoInicialGalicia { get; set; }
+        public int IdNegocio { get; set; }
+    }
+}

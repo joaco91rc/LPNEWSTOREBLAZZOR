@@ -1,0 +1,308 @@
+﻿@using Entities
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Services
+@using System.Globalization
+@inject IJSRuntime JS
+@inject ProductoService ProductoService
+
+
+
+
+<MudDialog>
+    <DialogContent>
+
+
+        <!-- Toolbar -->
+        <MudStack Class="p-4" Spacing="2">
+
+            <!-- Toolbar 40% / 10% / 10% / 40% en una sola línea -->
+            <div style="display:flex; align-items:center; flex-wrap:nowrap; width:100%; gap:8px;">
+
+                <div style="flex:0 0 20%;">
+                    <MudSelect T="string" @bind-Value="_columnaFiltro" Dense="true" AdornmentColor=Color.Primary Label="Filtrar Por" FullWidth="true">
+                        <MudSelectItem Value="@nameof(Producto.Codigo)">Codigo</MudSelectItem>
+                        <MudSelectItem Value="@nameof(Producto.Nombre)">Producto</MudSelectItem>
+                        <MudSelectItem Value="@nameof(Producto.OCategoria.Descripcion)">Categoria</MudSelectItem>
+                        <MudSelectItem Value="@nameof(Producto.Stock)">Stock</MudSelectItem>
+                        
+                        <MudSelectItem Value="@nameof(Producto.NombreLocal)">Local</MudSelectItem>
+                        
+                    </MudSelect>
+                </div>
+
+
+                <!-- TextBox 40% -->
+                <div style="flex:0 0 40%;">
+                    <MudTextField @bind-Value="_busqueda"
+                                  Variant="Variant.Outlined"
+                                  Dense="true"
+                                  Placeholder="Buscar..."
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Immediate="true" DebounceInterval="150"
+                                  @onkeydown="OnBusquedaKeyDown"
+                                  FullWidth="true" />
+                </div>
+
+                <!-- Botón Buscar 10% -->
+                <div style="flex:0 0 10%;">
+                    <MudButton Variant="Variant.Filled" Size="Size.Small" Color=Color.Primary OnClick="AplicarFiltro"
+                               Style="width:100%;">Buscar</MudButton>
+                </div>
+
+                <!-- Botón Limpiar 10% -->
+                <div style="flex:0 0 10%;">
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="LimpiarFiltro"
+                               Style="width:100%;">Limpiar</MudButton>
+                </div>
+
+                <!-- CheckBox 40% -->
+                <div style="flex:0 0 40%; display:flex; align-items:center;">
+                    <MudCheckBox T="bool" @bind-Checked="_verTodos" Label="Ver todos los Productos" />
+                </div>
+
+            </div>
+
+
+
+
+
+
+
+            <!-- Tabla -->
+            <MudPaper Elevation="0" Class="mdcli-table">
+                <MudTable T="Producto"
+                          Items="_itemsFiltrados"
+                          Dense="true"
+                          Hover="true"
+                          Bordered="false"
+                          FixedHeader="true"
+                          Height="420px"
+                          RowStyle="cursor:pointer"
+                          OnRowClick="OnRowClick">
+
+                    <HeaderContent>
+                        
+                        <MudTh style="width:160px">Codigo</MudTh>
+                        <MudTh style="width:160px">Producto</MudTh>
+                        <MudTh style="width:160px">Categoria</MudTh>
+                        <MudTh style="width:80px">Stock</MudTh>
+                        
+                        <MudTh style="width:80px">Local</MudTh>
+                        
+
+                    </HeaderContent>
+
+                    <RowTemplate Context="c">
+                       
+                        <MudTd Class="cell-nowrap">@c.Codigo</MudTd>
+                        <MudTd Class="cell-ellipsis">@c.Nombre</MudTd>
+                        <MudTd Class="cell-nowrap">@c.OCategoria.Descripcion</MudTd>
+                        <MudTd Class="cell-nowrap">@c.Stock</MudTd>
+                        
+                        <MudTd Class="cell-ellipsis">@c.NombreLocal</MudTd>
+
+                        
+                    </RowTemplate>
+
+                    <NoRecordsContent>
+                        <MudText Class="p-4">Sin resultados…</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudPaper>
+
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="Cancel">Cerrar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+
+
+
+
+@code {
+    // Si estás en MudBlazor 6/7, cambiar IMudDialogInstance -> MudDialogInstance
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    
+
+    private List<Producto> _items = new();
+    private IEnumerable<Producto> _itemsFiltrados => Filtrar(_items);
+
+    // Por defecto filtramos por nombre
+    private string _columnaFiltro = "Nombre";
+    private string _busqueda = string.Empty;
+    private bool _verTodos;
+    private int SucursalId;
+
+
+    private void OnRowClick(TableRowClickEventArgs<Producto> e)
+       => MudDialog.Close(DialogResult.Ok<Producto>(e.Item)); // devuelve el Producto
+
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // 1) Intentar leer cookie, pero sin romper si no existe la función
+            try
+            {
+                var sucursal = await JS.InvokeAsync<string?>("getCookie", "sucursalSeleccionada");
+                if (int.TryParse(sucursal, out var idSucursal))
+                    SucursalId = idSucursal;
+            }
+            catch // JSException u otras
+            {
+                // fallback: sucursal 0 o la que quieras por defecto
+                SucursalId = 0;
+            }
+
+            
+
+            // 2) Cargar datos sin tirar excepción
+            await CargarDatosAsync();
+
+            StateHasChanged();
+        }
+    }
+
+    private async Task CargarDatosAsync()
+    {
+        try
+        {
+            _items = await ProductoService.ListarSerializablesAsync(SucursalId);
+                
+        }
+        catch
+        {
+            // Si hay error, dejá la lista vacía para que al menos se renderice la UI
+            _items = new List<Producto>();
+            // Podés loguear o setear un flag para mostrar un alert
+            _error = "No se pudieron cargar los Productos.";
+        }
+    }
+
+    private string? _error;
+
+
+
+
+
+
+    private IEnumerable<Producto> Filtrar(IEnumerable<Producto> src)
+    {
+        if (string.IsNullOrWhiteSpace(_busqueda))
+            return src;
+
+        var term = _busqueda.Trim();
+        var termLower = term.ToLowerInvariant();
+
+        bool ContainsStr(string? s)
+            => (s ?? string.Empty).IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0;
+
+        // Coincidencia por igualdad si el usuario ingresa un número exacto,
+        // o por "contiene" sobre la representación en string (inv + current).
+        bool MatchesNumber(decimal value)
+        {
+            // formateos típicos que puede escribir el usuario (coma o punto)
+            if (decimal.TryParse(term, NumberStyles.Any, CultureInfo.CurrentCulture, out var dCur) && dCur == value)
+                return true;
+            if (decimal.TryParse(term, NumberStyles.Any, CultureInfo.InvariantCulture, out var dInv) && dInv == value)
+                return true;
+
+            // fallback: contiene en alguna representación
+            var sInv = value.ToString(CultureInfo.InvariantCulture);
+            var sCur = value.ToString(CultureInfo.CurrentCulture);
+            return sInv.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
+                || sCur.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        bool MatchesInt(int value)
+        {
+            if (int.TryParse(term, NumberStyles.Integer, CultureInfo.CurrentCulture, out var iCur) && iCur == value)
+                return true;
+            if (int.TryParse(term, NumberStyles.Integer, CultureInfo.InvariantCulture, out var iInv) && iInv == value)
+                return true;
+
+            var s = value.ToString(CultureInfo.InvariantCulture);
+            return s.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        bool? ParseBool(string t)
+        {
+            var tl = t.Trim().ToLowerInvariant();
+            if (tl is "true" or "1" or "si" or "sí" or "yes") return true;
+            if (tl is "false" or "0" or "no") return false;
+            return null;
+        }
+
+        return _columnaFiltro switch
+        {
+            var f when f == nameof(Producto.Codigo)
+                => src.Where(c => ContainsStr(c.Codigo)),
+
+            var f when f == nameof(Producto.Nombre)
+                => src.Where(c => ContainsStr(c.Nombre)),
+
+            // OCategoria.Descripcion (anidado, con null-safety)
+            "Categoria"
+                => src.Where(c => ContainsStr(c.OCategoria?.Descripcion)),
+
+            var f when f == nameof(Producto.Stock)
+                => src.Where(c => MatchesInt(c.Stock)),
+
+           
+
+            // "Todos": busca en varias columnas a la vez
+            "Todos"
+                => src.Where(c =>
+                    ContainsStr(c.Codigo) ||
+                    ContainsStr(c.Nombre) ||
+                    ContainsStr(c.OCategoria?.Descripcion) ||
+                    MatchesInt(c.Stock) ||
+                    ContainsStr(c.NombreLocal) 
+                    
+                ),
+
+            // Por defecto, mismo comportamiento que "Todos"
+            _ => src.Where(c =>
+                    ContainsStr(c.Codigo) ||
+                    ContainsStr(c.Nombre) ||
+                    ContainsStr(c.OCategoria?.Descripcion) ||
+                    MatchesInt(c.Stock) ||
+                    ContainsStr(c.NombreLocal) 
+                ),
+        };
+    }
+
+
+
+    private void AplicarFiltro() => StateHasChanged();
+    private void LimpiarFiltro()
+    {
+        _busqueda = string.Empty;
+        _columnaFiltro = "Nombre";
+
+        StateHasChanged();
+    }
+
+    private async Task OnToggleVerTodos(ChangeEventArgs _)
+    {
+        await CargarDatosAsync();
+        StateHasChanged();
+    }
+
+    private void OnBusquedaKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") AplicarFiltro();
+    }
+
+    private void Pick(Producto c) => MudDialog.Close(DialogResult.Ok(c));
+    private void Cancel() => MudDialog.Cancel();
+}

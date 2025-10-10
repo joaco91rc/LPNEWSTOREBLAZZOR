@@ -1,0 +1,262 @@
+﻿@page "/categoria"
+@using LPNEWSTORE.Utils
+@using MudBlazor
+@using Microsoft.AspNetCore.Identity
+@using Services
+@using Entities
+@using System.Security.Claims
+@using System.ComponentModel.DataAnnotations
+
+
+
+@inject CategoriaService CategoriaService
+@inject RolService rolService
+
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SesionNegocioService SesionNegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+<AbmLayout TEntity="Categoria"
+           FormContent="@FormCategoria"
+           GridContent="@GridCategoria" />
+
+@code {
+    List<Categoria> listaCategorias = new();
+    Categoria CategoriaActual = new();
+    private List<Rol> listaRoles = new();
+    private int idRolSeleccionado = 0;
+    private string claseThead = "mi-th";
+    private MudForm? formCategoria;
+    private bool esEdicion = false;
+    private string rolUsuarioActual = string.Empty;
+    private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+    private DateTime fecha = DateTime.Now;
+
+
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+
+            if (int.TryParse(sucursal, out int idSucursal))
+            {
+                listaCategorias = await CategoriaService.ListarCategorias();
+            }
+
+            StateHasChanged();
+        }
+
+
+
+    }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+        }
+
+        listaRoles = await rolService.Listar();
+        CategoriaActual.Estado = true;
+
+
+
+    }
+
+    private void Editar(Categoria c)
+    {
+        CategoriaActual = new Categoria
+        {
+            IdCategoria = c.IdCategoria,
+            Descripcion = c.Descripcion,
+            Estado = c.Estado,
+
+
+
+        };
+
+
+        esEdicion = true;
+    }
+
+    private async Task Registrar()
+    {
+        if (formCategoria is null)
+            return;
+
+        await formCategoria.Validate();
+
+        if (!formCategoria.IsValid)
+        {
+            Snackbar.Add("Por favor completá todos los campos requeridos.", Severity.Error);
+            return;
+        }
+
+        string mensaje = string.Empty;
+        bool resultado = false;
+
+        if (esEdicion)
+        {
+            var (exito, msg) = await CategoriaService.EditarCategoria(CategoriaActual);
+            resultado = exito;
+            mensaje = msg;
+        }
+        else
+        {
+            var (idGenerado, msg) = await CategoriaService.RegistrarCategoria(CategoriaActual);
+            resultado = idGenerado > 0;
+
+            mensaje = msg;
+        }
+
+        if (resultado)
+        {
+            Snackbar.Add(mensaje, Severity.Success);
+            CategoriaActual = new Categoria();
+            CategoriaActual.Estado = true;
+            esEdicion = false;
+            listaCategorias = await CategoriaService.ListarCategorias();
+            await formCategoria.ResetAsync(); // resetea el form
+
+        }
+        else
+        {
+
+            Snackbar.Add(mensaje, Severity.Error);
+        }
+    }
+
+
+    private async Task Eliminar(Categoria c)
+    {
+        bool? confirmado = await DialogService.ShowMessageBox(
+            title: "Eliminar Categoria",
+            markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar la categoria {c.Descripcion}?</b>",
+            yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
+        );
+
+        if (confirmado == true)
+        {
+            var (exito, mensaje) = await CategoriaService.EliminarCategoria(c);
+
+            if (exito)
+            {
+                Snackbar.Add(mensaje, Severity.Success);
+                listaCategorias = await CategoriaService.ListarCategorias();
+            }
+            else
+            {
+                Snackbar.Add(mensaje, Severity.Error);
+            }
+        }
+    }
+
+
+
+
+    private void CancelarEdicion()
+    {
+        CategoriaActual = new Categoria();
+        CategoriaActual.Estado = true;
+
+        esEdicion = false;
+    }
+
+    RenderFragment FormCategoria => @<div style="padding: 16px;  padding-top : 16px">
+    <MudForm @ref="formCategoria" OnValidSubmit="Registrar">
+        <MudStack Spacing="2">
+
+
+            <MudTextField Label="Descripción" @bind-Value="CategoriaActual.Descripcion" Required="true" />
+
+            <MudSelect T="bool" Label="Estado" @bind-Value="CategoriaActual.Estado" Required="true">
+                <MudSelectItem Value="true">Activo</MudSelectItem>
+                <MudSelectItem Value="false">No Activo</MudSelectItem>
+            </MudSelect>
+
+
+
+            <MudStack Direction="Row" Spacing="2">
+                <MudButton OnClick="Registrar" Variant="Variant.Filled" Color="Color.Primary">
+                    @(esEdicion ? "Actualizar" : "Guardar")
+                </MudButton>
+                @if (esEdicion)
+                                {
+
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CancelarEdicion">
+                    Cancelar
+                </MudButton>
+                                }
+            </MudStack>
+        </MudStack>
+    </MudForm>
+</div>;
+
+
+RenderFragment GridCategoria => @<div style="padding: 16px;  padding-top : 16px">
+    <MudTable Items="listaCategorias"
+              Dense="true"
+              Hover="true"
+              Bordered="true"
+              Striped="true"
+              Sortable="true"
+              Breakpoint="Breakpoint.Sm"
+              RowsPerPageOptions="new int[]{ 5, 10, 20,30,40,50 }"
+              PagerAlwaysVisible="true"
+              Elevation="1"
+              Class="mt-2">
+        <HeaderContent>
+            <MudTh>
+                <MudTableSortLabel T="Categoria" SortBy="@(c => c.Descripcion)">Descripción</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Categoria" SortBy="@(c => c.Estado)">Tipo</MudTableSortLabel>
+            </MudTh>
+           
+
+
+            <MudTh>Acciones</MudTh>
+
+
+
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Descripción">@context.Descripcion</MudTd>
+            <MudTd DataLabel="Tipo">@context.Estado</MudTd>
+            
+
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Success" Size="Size.Small" OnClick="() => Editar(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => Eliminar(context)" Class="ms-2" />
+
+            </MudTd>
+        </RowTemplate>
+
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
+                           RowsPerPageString="Registros por página">
+            </MudTablePager>
+        </PagerContent>
+    </MudTable>
+
+</div>;
+
+}
+
+

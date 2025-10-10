@@ -1,0 +1,17 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>@ViewData["Title"] - LPNEWSTORE</title>
+    <link href="css/site.css" rel="stylesheet" />
+    @RenderSection("Styles", required: false)
+</head>
+<body>
+    <main role="main" class="pb-3">
+        @RenderBody()
+    </main>
+
+    @RenderSection("Scripts", required: false)  <!-- Esto permite que si la página define Scripts se rendericen -->
+    
+</body>
+</html>

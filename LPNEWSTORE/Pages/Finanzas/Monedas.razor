@@ -1,0 +1,250 @@
+﻿@page "/monedas"
+@using MudBlazor
+@using Microsoft.AspNetCore.Identity
+@using Services
+@using Entities
+@using System.Security.Claims
+
+
+@inject MonedaService MonedaService
+@inject RolService rolService
+
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SesionNegocioService SesionNegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+<AbmLayout TEntity="Moneda"
+           FormContent="@FormMoneda"
+           GridContent="@GridMonedas" />
+
+@code {
+    List<Moneda> listaMonedas = new();
+    Moneda MonedaActual = new();
+    private List<Rol> listaRoles = new();
+    private int idRolSeleccionado = 0;
+    
+    private MudForm? formMoneda;
+    private bool esEdicion = false;
+    private string rolUsuarioActual = string.Empty;
+    private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+    private DateTime fecha = DateTime.Now;
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+
+            if (int.TryParse(sucursal, out int idSucursal))
+            {
+                listaMonedas = await MonedaService.ListarMonedas();
+            }
+
+            StateHasChanged();
+        }
+
+
+
+    }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+        }
+
+        listaRoles = await rolService.Listar();
+        
+
+
+    }
+
+    private void Editar(Moneda c)
+    {
+        MonedaActual = new Moneda
+        {
+            IdMoneda = c.IdMoneda,
+            Simbolo = c.Simbolo,
+            Nombre = c.Nombre
+            
+
+
+        };
+
+
+        esEdicion = true;
+    }
+
+    private async Task Registrar()
+    {
+        if (formMoneda is null)
+            return;
+
+        await formMoneda.Validate();
+
+        if (!formMoneda.IsValid)
+        {
+            Snackbar.Add("Por favor completá todos los campos requeridos.", Severity.Error);
+            return;
+        }
+        // Validar longitud del símbolo
+        if (!string.IsNullOrWhiteSpace(MonedaActual.Simbolo) && MonedaActual.Simbolo.Length > 3)
+        {
+            Snackbar.Add("El símbolo debe tener como máximo 3 caracteres.", Severity.Warning);
+            MonedaActual.Simbolo = MonedaActual.Simbolo.Substring(0, 3);
+            return;
+        }
+        
+        // Convertir a mayúsculas el símbolo antes de guardar
+        MonedaActual.Simbolo = MonedaActual.Simbolo?.ToUpperInvariant();
+        MonedaActual.Nombre = MonedaActual.Nombre?.ToUpperInvariant(); // opcional, si querés también en mayúsculas
+
+
+        string mensaje = string.Empty;
+        bool resultado = false;
+
+        if (esEdicion)
+        {
+            var (exito, msg) = await MonedaService.EditarMoneda(MonedaActual);
+            resultado = exito;
+            mensaje = msg;
+        }
+        else
+        {
+            var (idGenerado, msg) = await MonedaService.RegistrarMoneda(MonedaActual);
+            resultado = idGenerado > 0;
+
+            mensaje = msg;
+        }
+
+        if (resultado)
+        {
+            Snackbar.Add(mensaje, Severity.Success);
+            MonedaActual = new Moneda();
+            esEdicion = false;
+            listaMonedas = await MonedaService.ListarMonedas();
+            await formMoneda.ResetAsync(); // resetea el form
+            
+        }
+        else
+        {
+
+            Snackbar.Add(mensaje, Severity.Error);
+        }
+    }
+
+
+
+    private void ValidarSimbolo(ChangeEventArgs e)
+    {
+        var valor = e.Value?.ToString()?.ToUpper() ?? "";
+
+        if (valor.Length > 3)
+        {
+            Snackbar.Add("El símbolo no puede tener más de 3 caracteres.", Severity.Warning);
+            MonedaActual.Simbolo = valor.Substring(0, 3); // trunca a 3
+        }
+        else
+        {
+            MonedaActual.Simbolo = valor;
+        }
+    }
+
+
+
+    private void CancelarEdicion()
+    {
+        MonedaActual = new Moneda();
+       
+
+        esEdicion = false;
+    }
+
+    RenderFragment FormMoneda => @<div style="padding: 16px;  padding-top : 16px">
+    <MudForm @ref="formMoneda" OnValidSubmit="Registrar">
+        <MudStack Spacing="2">
+            
+            <MudTextField Label="Nombre Moneda" @bind-Value="MonedaActual.Nombre" Required="true" Style="text-transform: uppercase;" />
+            <MudTextField Label="Símbolo" @bind-Value="MonedaActual.Simbolo" Required="true" Style="text-transform: uppercase;" />
+            
+
+
+
+            <MudStack Direction="Row" Spacing="2">
+                <MudButton OnClick="Registrar" Variant="Variant.Filled" Color="Color.Primary">
+                    @(esEdicion ? "Actualizar" : "Guardar")
+                </MudButton>
+                @if (esEdicion)
+                {
+
+                    <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CancelarEdicion">
+                        Cancelar
+                    </MudButton>
+                }
+            </MudStack>
+        </MudStack>
+    </MudForm>
+</div>;
+
+
+RenderFragment GridMonedas => @<div style="padding: 16px;  padding-top : 16px">
+    <MudTable Items="listaMonedas"
+              Dense="true"
+              Hover="true"
+              Bordered="true"
+              Striped="true"
+              Sortable="true"
+              Breakpoint="Breakpoint.Sm"
+              RowsPerPageOptions="new int[]{ 5, 10, 20,30,40,50 }"
+              PagerAlwaysVisible="true"
+              Elevation="1"
+              Class="mt-2">
+        <HeaderContent>
+            <MudTh>
+                <MudTableSortLabel T="Moneda" SortBy="@(c => c.Nombre)">Nombre</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Moneda" SortBy="@(c => c.Simbolo)">Simbolo</MudTableSortLabel>
+            </MudTh>
+            
+            <MudTh>Acciones</MudTh>
+
+
+
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Fecha">@context.Nombre</MudTd>
+            <MudTd DataLabel="Simbolo">@context.Simbolo</MudTd>
+
+
+            
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Success" Size="Size.Small" OnClick="() => Editar(context)" />
+
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
+                           RowsPerPageString="Registros por página">
+            </MudTablePager>
+        </PagerContent>
+    </MudTable>
+
+</div>;
+
+}
+

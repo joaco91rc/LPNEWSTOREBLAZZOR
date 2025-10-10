@@ -1,0 +1,395 @@
+﻿@using Entities
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Services
+@using System.Globalization
+@inject IJSRuntime JS
+@inject PagoParcialService PagoParcialService
+
+
+
+
+<MudDialog>
+    <DialogContent>
+
+
+        <!-- Toolbar -->
+        <MudStack Class="p-4" Spacing="2">
+
+            <!-- Toolbar 40% / 10% / 10% / 40% en una sola línea -->
+            <div style="display:flex; align-items:center; flex-wrap:nowrap; width:100%; gap:8px;">
+
+                <div style="flex:0 0 20%;">
+                    <MudSelect T="string" @bind-Value="_columnaFiltro" Dense="true" AdornmentColor=Color.Primary Label="Filtrar Por" FullWidth="true">
+                        <MudSelectItem Value="@nameof(PagoParcial.FechaRegistro)">Fecha</MudSelectItem>
+                        <MudSelectItem Value="@nameof(PagoParcial.ProductoReservado)">Producto Reservado</MudSelectItem>
+                        <MudSelectItem Value="@nameof(PagoParcial.Monto)">Monto</MudSelectItem>
+                        <MudSelectItem Value="@nameof(PagoParcial.Moneda)">Moneda</MudSelectItem>
+                        <MudSelectItem Value="@nameof(PagoParcial.IdCliente)">Id Cliente</MudSelectItem>
+                        <MudSelectItem Value="@nameof(PagoParcial.NombreCliente)">Cliente</MudSelectItem>
+                        <MudSelectItem Value="@nameof(PagoParcial.FormaPago)">Forma Pago</MudSelectItem>
+                        
+                    </MudSelect>
+                </div>
+
+
+                <!-- TextBox 40% -->
+                <div style="flex:0 0 40%;">
+                    <MudTextField @bind-Value="_busqueda"
+                                  Variant="Variant.Outlined"
+                                  Dense="true"
+                                  Placeholder="Buscar..."
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Immediate="true" DebounceInterval="150"
+                                  @onkeydown="OnBusquedaKeyDown"
+                                  FullWidth="true" />
+                </div>
+
+                <!-- Botón Buscar 10% -->
+                <div style="flex:0 0 10%;">
+                    <MudButton Variant="Variant.Filled" Size="Size.Small" Color=Color.Primary OnClick="AplicarFiltro"
+                               Style="width:100%;">Buscar</MudButton>
+                </div>
+
+                <!-- Botón Limpiar 10% -->
+                <div style="flex:0 0 10%;">
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="LimpiarFiltro"
+                               Style="width:100%;">Limpiar</MudButton>
+                </div>
+
+                <!-- CheckBox 40% -->
+                <div style="flex:0 0 40%; display:flex; align-items:center;">
+                    <MudCheckBox T="bool" @bind-Checked="_verTodos" Label="Ver todos los PagoParciales" />
+                </div>
+
+            </div>
+
+
+
+
+
+
+
+            <!-- Tabla -->
+            <MudPaper Elevation="0" Class="mdcli-table">
+                <MudTable T="PagoParcial"
+                          Items="_itemsFiltrados"
+                          Dense="true"
+                          Hover="true"
+                          Bordered="false"
+                          FixedHeader="true"
+                          Height="420px"
+                          RowStyle="cursor:pointer"
+                          OnRowClick="OnRowClick">
+
+                    <HeaderContent>
+                        @* <MudTh class="hidden-col" style="width:90px">Id</MudTh> *@
+                        <MudTh style="width:160px">Fecha</MudTh>
+                        <MudTh style="width:160px">Producto Reservado</MudTh>
+                        <MudTh style="width:160px">Monto</MudTh>
+                        <MudTh style="width:80px">Moneda</MudTh>
+                        <MudTh style="width:80px">Id Cliente</MudTh>
+                        <MudTh style="width:80px">Cliente</MudTh>
+                        <MudTh style="width:80px">Forma de Pago</MudTh>
+                        
+
+                    </HeaderContent>
+
+                    <RowTemplate Context="c">
+                        @* <MudTd class="hidden-col">@c.IdPagoParcial</MudTd> *@
+                        <MudTd Class="cell-nowrap">@c.FechaRegistro</MudTd>
+                        <MudTd Class="cell-ellipsis">@c.ProductoReservado</MudTd>
+                        <MudTd Class="cell-nowrap">@c.Monto</MudTd>
+                        <MudTd Class="cell-nowrap">@c.Moneda</MudTd>
+                        <MudTd Class="cell-nowrap">@c.IdCliente</MudTd>
+                        <MudTd Class="cell-nowrap">@c.NombreCliente</MudTd>
+                        <MudTd Class="cell-nowrap">@c.FormaPago</MudTd>
+                        
+                    </RowTemplate>
+
+                    <NoRecordsContent>
+                        <MudText Class="p-4">Sin resultados…</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudPaper>
+
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="Cancel">Cerrar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+
+
+
+
+@code {
+        // Si estás en MudBlazor 6/7, cambiar IMudDialogInstance -> MudDialogInstance
+        [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+        [Parameter] public bool VerTodosPorDefecto { get; set; }   // opcional: parámetro para abrir ya en "ver todos"
+        [Parameter] public int IdCliente { get; set; }
+
+        private List<PagoParcial> _items = new();
+        private IEnumerable<PagoParcial> _itemsFiltrados => Filtrar(_items);
+
+        // Por defecto filtramos por nombre
+        private string _columnaFiltro = "ProductoReservado";
+        private string _busqueda = string.Empty;
+        private bool _verTodos;
+        private int SucursalId;
+
+
+
+    private void OnRowClick(TableRowClickEventArgs<PagoParcial> e)
+       => MudDialog.Close(DialogResult.Ok<PagoParcial>(e.Item)); // devuelve el PagoParcial
+
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // 1) Intentar leer cookie, pero sin romper si no existe la función
+            try
+            {
+                var sucursal = await JS.InvokeAsync<string?>("getCookie", "sucursalSeleccionada");
+                if (int.TryParse(sucursal, out var idSucursal))
+                    SucursalId = idSucursal;
+                    
+            }
+            catch // JSException u otras
+            {
+                // fallback: sucursal 0 o la que quieras por defecto
+                SucursalId = 0;
+            }
+
+            _verTodos = VerTodosPorDefecto;
+
+            // 2) Cargar datos sin tirar excepción
+            await CargarDatosAsync();
+
+            StateHasChanged();
+        }
+    }
+
+    private async Task CargarDatosAsync()
+    {
+        try
+        {
+            _items = await PagoParcialService.ConsultarPorCliente(IdCliente);
+        }
+        catch
+        {
+            // Si hay error, dejá la lista vacía para que al menos se renderice la UI
+            _items = new List<PagoParcial>();
+            // Podés loguear o setear un flag para mostrar un alert
+            _error = "No se pudieron cargar los PagoParcials.";
+        }
+    }
+
+    private string? _error;
+
+
+
+
+
+
+    private IEnumerable<PagoParcial> Filtrar(IEnumerable<PagoParcial> src)
+    {
+        if (string.IsNullOrWhiteSpace(_busqueda))
+            return src;
+
+        var term = _busqueda.Trim();
+        var termLower = term.ToLowerInvariant();
+
+        bool ContainsStr(string? s)
+            => (s ?? string.Empty).IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0;
+
+        bool MatchesDate(DateTime fecha)
+        {
+            if (string.IsNullOrWhiteSpace(term))
+                return false;
+
+            // intento parsear el término a fecha
+            if (DateTime.TryParse(term, out var fechaBuscada))
+            {
+                // Comparo solo por día, mes y año (ignoro horas/minutos)
+                if (fecha.Date == fechaBuscada.Date)
+                    return true;
+            }
+
+            // Fallback: buscar si el término aparece en distintos formatos de la fecha
+            var fechaStr1 = fecha.ToString("dd/MM/yyyy");   // ej: 26/09/2025
+            var fechaStr2 = fecha.ToString("d MMM yyyy");   // ej: 26 sep 2025
+            var fechaStr3 = fecha.ToString("yyyy-MM-dd");   // ej: 2025-09-26
+
+            return fechaStr1.Contains(term, StringComparison.OrdinalIgnoreCase)
+                || fechaStr2.Contains(term, StringComparison.OrdinalIgnoreCase)
+                || fechaStr3.Contains(term, StringComparison.OrdinalIgnoreCase);
+        }
+
+
+
+        // Coincidencia por igualdad si el usuario ingresa un número exacto,
+        // o por "contiene" sobre la representación en string (inv + current).
+        bool MatchesNumber(decimal value)
+        {
+            // formateos típicos que puede escribir el usuario (coma o punto)
+            if (decimal.TryParse(term, NumberStyles.Any, CultureInfo.CurrentCulture, out var dCur) && dCur == value)
+                return true;
+            if (decimal.TryParse(term, NumberStyles.Any, CultureInfo.InvariantCulture, out var dInv) && dInv == value)
+                return true;
+
+            // fallback: contiene en alguna representación
+            var sInv = value.ToString(CultureInfo.InvariantCulture);
+            var sCur = value.ToString(CultureInfo.CurrentCulture);
+            return sInv.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
+                || sCur.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        bool MatchesInt(int value)
+        {
+            if (int.TryParse(term, NumberStyles.Integer, CultureInfo.CurrentCulture, out var iCur) && iCur == value)
+                return true;
+            if (int.TryParse(term, NumberStyles.Integer, CultureInfo.InvariantCulture, out var iInv) && iInv == value)
+                return true;
+
+            var s = value.ToString(CultureInfo.InvariantCulture);
+            return s.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        bool? ParseBool(string t)
+        {
+            var tl = t.Trim().ToLowerInvariant();
+            if (tl is "true" or "1" or "si" or "sí" or "yes") return true;
+            if (tl is "false" or "0" or "no") return false;
+            return null;
+        }
+
+        return _columnaFiltro switch
+        {
+            // Campos de texto
+            var f when f == nameof(PagoParcial.NombreCliente)
+                => src.Where(c => ContainsStr(c.NombreCliente)),
+
+            var f when f == nameof(PagoParcial.NumeroVenta)
+                => src.Where(c => ContainsStr(c.NumeroVenta)),
+
+            var f when f == nameof(PagoParcial.ProductoReservado)
+                => src.Where(c => ContainsStr(c.ProductoReservado)),
+
+            var f when f == nameof(PagoParcial.Vendedor)
+                => src.Where(c => ContainsStr(c.Vendedor)),
+
+            var f when f == nameof(PagoParcial.Moneda)
+                => src.Where(c => ContainsStr(c.Moneda)),
+
+            var f when f == nameof(PagoParcial.FormaPago)
+                => src.Where(c => ContainsStr(c.FormaPago)),
+
+            var f when f == nameof(PagoParcial.NombreLocal)
+                => src.Where(c => ContainsStr(c.NombreLocal)),
+
+            // Fecha
+            var f when f == nameof(PagoParcial.FechaRegistro)
+                => src.Where(c => MatchesDate(c.FechaRegistro)),
+
+            // Numéricos
+            var f when f == nameof(PagoParcial.Monto)
+                => src.Where(c => MatchesNumber(c.Monto)),
+
+            var f when f == nameof(PagoParcial.IdPagoParcial)
+                => src.Where(c => MatchesInt(c.IdPagoParcial)),
+
+            var f when f == nameof(PagoParcial.IdCliente)
+                => src.Where(c => MatchesInt(c.IdCliente)),
+
+            var f when f == nameof(PagoParcial.IdVenta)
+                => src.Where(c => c.IdVenta.HasValue && MatchesInt(c.IdVenta.Value)),
+
+            var f when f == nameof(PagoParcial.IdNegocio)
+                => src.Where(c => MatchesInt(c.IdNegocio)),
+
+            // Booleano
+            var f when f == nameof(PagoParcial.Estado)
+                => src.Where(c =>
+                {
+                    var pb = ParseBool(term);
+                    return pb is bool b
+                        ? c.Estado == b
+                        : c.Estado.ToString().IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0;
+                }),
+
+            // "Todos": busca en varias columnas a la vez (texto + fecha + numéricos + bool)
+            "Todos"
+                => src.Where(c =>
+                    ContainsStr(c.NombreCliente) ||
+                    ContainsStr(c.NumeroVenta) ||
+                    ContainsStr(c.ProductoReservado) ||
+                    ContainsStr(c.Vendedor) ||
+                    ContainsStr(c.Moneda) ||
+                    ContainsStr(c.FormaPago) ||
+                    ContainsStr(c.NombreLocal) ||
+                    MatchesDate(c.FechaRegistro) ||
+                    MatchesNumber(c.Monto) ||
+                    MatchesInt(c.IdPagoParcial) ||
+                    MatchesInt(c.IdCliente) ||
+                    (c.IdVenta.HasValue && MatchesInt(c.IdVenta.Value)) ||
+                    MatchesInt(c.IdNegocio) ||
+                    (ParseBool(term) is bool b ? c.Estado == b
+                                               : c.Estado.ToString().IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+                ),
+
+            // Por defecto: igual que "Todos"
+            _
+                => src.Where(c =>
+                    ContainsStr(c.NombreCliente) ||
+                    ContainsStr(c.NumeroVenta) ||
+                    ContainsStr(c.ProductoReservado) ||
+                    ContainsStr(c.Vendedor) ||
+                    ContainsStr(c.Moneda) ||
+                    ContainsStr(c.FormaPago) ||
+                    ContainsStr(c.NombreLocal) ||
+                    MatchesDate(c.FechaRegistro) ||
+                    MatchesNumber(c.Monto) ||
+                    MatchesInt(c.IdPagoParcial) ||
+                    MatchesInt(c.IdCliente) ||
+                    (c.IdVenta.HasValue && MatchesInt(c.IdVenta.Value)) ||
+                    MatchesInt(c.IdNegocio) ||
+                    (ParseBool(term) is bool b ? c.Estado == b
+                                               : c.Estado.ToString().IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+                ),
+        };
+
+    }
+
+
+
+    private void AplicarFiltro() => StateHasChanged();
+    private void LimpiarFiltro()
+    {
+        _busqueda = string.Empty;
+        _columnaFiltro = "Nombre";
+
+        StateHasChanged();
+    }
+
+    private async Task OnToggleVerTodos(ChangeEventArgs _)
+    {
+        await CargarDatosAsync();
+        StateHasChanged();
+    }
+
+    private void OnBusquedaKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") AplicarFiltro();
+    }
+
+    private void Pick(PagoParcial c) => MudDialog.Close(DialogResult.Ok(c));
+    private void Cancel() => MudDialog.Cancel();
+}

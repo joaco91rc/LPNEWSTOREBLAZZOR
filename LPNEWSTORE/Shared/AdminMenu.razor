@@ -1,0 +1,44 @@
+﻿
+
+
+@using MudBlazor
+
+<MudNavLink Href="/usuarios" Icon="@Icons.Material.Filled.Person" @onclick="@(() => OnNavigationItemClicked.InvokeAsync())">Usuarios</MudNavLink>
+
+<MudNavGroup Title="Productos" Icon="@Icons.Material.Filled.Inventory" >
+    <MudNavLink Href="/producto" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Producto</MudNavLink>
+    <MudNavLink Href="/categoria" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Categorías</MudNavLink>
+    <MudNavLink Href="/serializarproducto" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Serializar Producto</MudNavLink>
+    <MudNavLink Href="/productossrl" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Productos Serializados</MudNavLink>
+    <MudNavLink Href="/snvendidos" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">S/N Vendidos</MudNavLink>
+</MudNavGroup>
+
+<MudNavGroup Title="Configuraciones" Icon="@Icons.Material.Filled.Settings">
+    <MudNavLink Href="/negocio" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Negocio</MudNavLink>
+    <MudNavLink Href="/vendedores" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Vendedores</MudNavLink>
+</MudNavGroup>
+
+<MudNavGroup Title="Finanzas" Icon="@Icons.Material.Filled.AttachMoney">
+    <MudNavLink Href="/formaspago" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Formas de Pago</MudNavLink>
+    <MudNavLink Href="/cotizaciondolar" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Cotización Dólar</MudNavLink>
+    <MudNavLink Href="/monedas" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Monedas</MudNavLink>
+</MudNavGroup>
+
+<MudNavLink Href="/proveedores" Icon="@Icons.Material.Filled.LocalShipping" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Proveedores</MudNavLink>
+
+<MudNavGroup Title="Reportes" Icon="@Icons.Material.Filled.BarChart" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">
+    <MudNavLink Href="/rcompras" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Reporte Compras</MudNavLink>
+    <MudNavLink Href="/rventasmargenes" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Ventas - Márgenes</MudNavLink>
+    <MudNavLink Href="/rfacturacionproducto" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Facturación por Producto</MudNavLink>
+    <MudNavLink Href="/rventasvendedor" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Ventas por Vendedor</MudNavLink>
+</MudNavGroup>
+
+<VendedorMenu OnNavigationItemClicked="@OnNavigationItemClicked" />
+
+
+@code {
+    [Parameter]
+    public EventCallback OnNavigationItemClicked { get; set; }
+
+}
+

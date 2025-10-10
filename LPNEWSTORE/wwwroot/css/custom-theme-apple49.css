@@ -1,0 +1,172 @@
+﻿Paleta de colores
+:root {
+    --apple49-black: #1D1D1F;
+    --apple49-white: #FFFFFF;
+    --apple49-silver: #C0C0C0;
+    --apple49-space-gray: #86868B;
+    --apple49--metal: #D6D6D6;
+    --apple49--blue: #007AFF;
+    --drawer-bg-color: var(--apple49-black);
+    --drawer-text-color: var(--apple49-white);
+    --drawer-hover-bg: var(--apple49--blue);
+}
+
+ Logo
+.logo {
+    width: 150px;
+    height: 140px;
+    background-image: url('/images/applestore49-logo.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+ Fondo del panel superior y navbar 
+.bg-panel {
+    background-color: var(--apple49-silver);
+}
+
+ Fondo del header (logo + título) 
+.bg-header {
+    background-color: var(--apple49-black);
+}
+
+ Color de texto general 
+.text-primary-custom {
+    color: var(--apple49-white) !important;
+}
+
+.btn-cerrar-sesion {
+    background-color: var(--apple49-space-gray);  Pantone Black C 
+    color: var(--apple49-white);  Pantone 2151C 
+    border: none;
+    transition: color 0.3s ease, background-color 0.3s ease;
+}
+
+    .btn-cerrar-sesion:hover {
+        color: var(--apple49-black);  Pantone 2421C 
+        background-color: var(--apple49--blue);  Mantiene el fondo negro 
+    }
+
+ Tamaños responsivos 
+.header-info {
+    font-size: 0.9rem;
+}
+
+.select-sucursal {
+    width: auto;
+    font-size: 0.9rem;
+}
+
+ Navbar principal 
+.navbar-custom {
+    background-color: var(--apple49-space-gray) !important;  Pantone 2421C 
+    font-size: 0.9rem;
+}
+
+     Marca 
+    .navbar-custom .navbar-brand {
+        color: var(--apple49-white) !important;
+        font-weight: bold;
+    }
+
+     Ítems de navegación 
+    .navbar-custom .nav-link {
+        color: #ffffff !important;
+        transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+         Hover en nav-link 
+        .navbar-custom .nav-link:hover,
+        .navbar-custom .nav-link:focus {
+            background-color: var(--apple49-silver);  Pantone Black C 
+            color: var(--apple49--blue) !important;
+        }
+
+     Dropdown sin flecha 
+    .navbar-custom .dropdown-toggle::after {
+        display: none;
+    }
+
+     Dropdown menú 
+    .navbar-custom .dropdown-menu {
+        background-color: var(--apple49-black);  Pantone Black C 
+        font-size: 0.85rem;
+        border: none;
+    }
+
+     Ítems de dropdown 
+    .navbar-custom .dropdown-item {
+        color: var(--apple49-silver);  Pantone 2421C 
+        transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+         Hover en dropdown-item 
+        .navbar-custom .dropdown-item:hover {
+            background-color: var(--apple49-space-gray);
+            color: var(--apple49--blue) !important;  Pantone 2151C 
+        }
+
+
+.abm-container {
+    width: 100vw;  ancho total ventana 
+    height: 100vh;  si querés también altura completa 
+    padding: 0;
+    margin: 0;
+    font-size: 10px !important;
+}
+
+.abm-form {
+    background-color: var(--apple49-space-gray);
+    font-size: 10px !important;
+}
+
+.abm-grid {
+    background-color: #FFFFFF !important;
+    overflow-y: auto;
+    font-size: 10px !important;
+}
+
+.abm-form, .abm-grid {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: start;
+}
+
+    .abm-grid thead {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+
+.table thead.mi-th th {
+    background-color: var(--apple-cafe-beige) !important;
+    color: white !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+    text-align: center !important;
+}
+
+thead.mi-th-apple49 th {
+    background-color: var(--apple49-space-gray) !important;
+    color: white !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+    text-align: center !important;
+}
+ Asegurarte que el cuerpo siga blanco 
+.table tbody td {
+    background-color: white;
+}
+
+
+ Responsive spacing 
+@media (max-width: 768px) {
+    .navbar-custom {
+        font-size: 0.85rem;
+    }
+
+        .navbar-custom .nav-link {
+            padding: 0.5rem 1rem;
+        }
+}

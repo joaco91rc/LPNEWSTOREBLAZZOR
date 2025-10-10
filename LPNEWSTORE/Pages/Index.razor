@@ -1,0 +1,37 @@
+﻿@page "/"
+@inject NavigationManager Navigation
+@attribute [Authorize]
+
+@code {
+    private bool mostrarContenido = false;
+    private bool redireccionado = false;
+
+    [Inject] AuthenticationStateProvider AuthenticationStateProvider { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !redireccionado)
+        {
+            var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+            bool estaLogueado = user.Identity?.IsAuthenticated ?? false;
+
+            if (!estaLogueado)
+            {
+                redireccionado = true;
+                Navigation.NavigateTo("/login", forceLoad: true);
+            }
+            else
+            {
+                mostrarContenido = true;
+                StateHasChanged(); // Fuerza render
+            }
+        }
+    }
+}
+
+@if (mostrarContenido)
+{
+    <PageTitle>Inicio</PageTitle>
+    <h1>Bienvenido al Sistema</h1>
+}
+

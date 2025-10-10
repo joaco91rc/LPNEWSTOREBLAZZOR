@@ -1,0 +1,237 @@
+﻿@page "/cotizaciondolar"
+@using MudBlazor
+@using Microsoft.AspNetCore.Identity
+@using Services
+@using Entities
+@using System.Security.Claims
+
+
+@inject CotizacionService CotizacionService
+@inject RolService rolService
+
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SesionNegocioService SesionNegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+<AbmLayout TEntity="Cotizacion"
+           FormContent="@FormCotizacion"
+           GridContent="@GridCotizaciones" />
+
+@code {
+    List<Cotizacion> listaCotizaciones = new();
+    Cotizacion CotizacionActual = new();
+    private List<Rol> listaRoles = new();
+    private int idRolSeleccionado = 0;
+    private string claseThead = "mi-th";
+    private MudForm? formCotizacion;
+    private bool esEdicion = false;
+    private string rolUsuarioActual = string.Empty;
+    private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+    private DateTime fecha = DateTime.Now;
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+
+            if (int.TryParse(sucursal, out int idSucursal))
+            {
+                listaCotizaciones = await CotizacionService.HistoricoCotizaciones();
+            }
+
+            StateHasChanged();
+        }
+
+
+
+    }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+        }
+
+        listaRoles = await rolService.Listar();
+        CotizacionActual.Estado = true;
+
+
+    }
+
+    private void Editar(Cotizacion c)
+    {
+        CotizacionActual = new Cotizacion
+        {
+            IdCotizacion = c.IdCotizacion,
+            Importe = c.Importe,
+            Fecha = c.Fecha,
+            Estado = c.Estado
+
+            
+        };
+
+
+        esEdicion = true;
+    }
+
+    private async Task Registrar()
+    {
+        if (formCotizacion is null)
+            return;
+
+        await formCotizacion.Validate();
+
+        if (!formCotizacion.IsValid)
+        {
+            Snackbar.Add("Por favor completá todos los campos requeridos.", Severity.Error);
+            return;
+        }
+
+        string mensaje = string.Empty;
+        bool resultado = false;
+
+        if (esEdicion)
+        {
+            var (exito, msg) = await CotizacionService.Editar(CotizacionActual);
+            resultado = exito;
+            mensaje = msg;
+        }
+        else
+        {
+            var (idGenerado, msg) = await CotizacionService.Registrar(CotizacionActual);
+            resultado = idGenerado > 0;
+
+            mensaje = msg;
+        }
+
+        if (resultado)
+        {
+            Snackbar.Add(mensaje, Severity.Success);
+            CotizacionActual = new Cotizacion();
+            esEdicion = false;
+            listaCotizaciones = await CotizacionService.HistoricoCotizaciones();
+            await formCotizacion.ResetAsync(); // resetea el form
+            CotizacionActual.Estado = true;
+        }
+        else
+        {
+
+            Snackbar.Add(mensaje, Severity.Error);
+        }
+    }
+
+
+
+
+    
+
+
+    private void CancelarEdicion()
+    {
+        CotizacionActual = new Cotizacion();
+        CotizacionActual.Estado = true;
+
+        esEdicion = false;
+    }
+
+    RenderFragment FormCotizacion => @<div style="padding: 16px;  padding-top : 16px">
+    <MudForm @ref="formCotizacion" OnValidSubmit="Registrar">
+        <MudStack Spacing="2">
+            <MudDatePicker Label="Fecha"
+                           @bind-Date="CotizacionActual.Fecha"
+                           Required="true"
+                           DateFormat="dd/MM/yyyy" />
+            <MudTextField Label="Importe" @bind-Value="CotizacionActual.Importe" Required="true" />
+            
+            @if(esEdicion){
+
+            <MudSelect T="bool" Label="Estado" @bind-Value="CotizacionActual.Estado" Required="true">
+                <MudSelectItem Value="true">Activo</MudSelectItem>
+                <MudSelectItem Value="false">No Activo</MudSelectItem>
+            </MudSelect>
+            
+            }
+            
+            
+
+            <MudStack Direction="Row" Spacing="2">
+                <MudButton OnClick="Registrar" Variant="Variant.Filled" Color="Color.Primary">
+                    @(esEdicion ? "Actualizar" : "Guardar")
+                </MudButton>
+                @if (esEdicion)
+                                {
+
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CancelarEdicion">
+                    Cancelar
+                </MudButton>
+                                }
+            </MudStack>
+        </MudStack>
+    </MudForm>
+</div>;
+
+
+RenderFragment GridCotizaciones => @<div style="padding: 16px;  padding-top : 16px">
+    <MudTable Items="listaCotizaciones"
+              Dense="true"
+              Hover="true"
+              Bordered="true"
+              Striped="true"
+              Sortable="true"
+              Breakpoint="Breakpoint.Sm"
+              RowsPerPageOptions="new int[]{ 5, 10, 20,30,40,50 }"
+              PagerAlwaysVisible="true"
+              Elevation="1"
+              Class="mt-2">
+        <HeaderContent>
+            <MudTh>
+                <MudTableSortLabel T="Cotizacion" SortBy="@(c => c.Fecha)">Fecha</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Cotizacion" SortBy="@(c => c.Importe)">Importe</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Cotizacion" SortBy="@(c => c.Estado)">Estado</MudTableSortLabel>
+            </MudTh>
+            <MudTh>Acciones</MudTh> 
+
+            
+            
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Fecha">@context.Fecha</MudTd>
+            <MudTd DataLabel="Importe">@context.Importe</MudTd>
+            
+
+            <MudTd DataLabel="Estado">@((context.Estado) ? "Activo" : "No Activo")</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Success" Size="Size.Small" OnClick="() => Editar(context)" />
+                
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
+                           RowsPerPageString="Registros por página">
+            </MudTablePager>
+        </PagerContent>
+    </MudTable>
+
+</div>;
+
+}
+

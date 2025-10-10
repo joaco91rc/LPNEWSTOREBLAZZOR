@@ -1,0 +1,99 @@
+﻿@typeparam TEntity
+@using MudBlazor
+
+<!-- Contenedor con padding y margen -->
+<div class="p-4 m-4">
+    <MudGrid GutterSize="3" AlignItems="Start" Class="layout-prod">
+        <MudItem Class="sidebar p-2">
+            <MudPaper Class="p-3" Elevation="1" Style="width:100%;">@FormContent</MudPaper>
+        </MudItem>
+
+        <MudItem Class="main p-2">
+            <MudPaper Class="p-3" Elevation="1" Style="width:100%;">
+
+                <!-- Toolbar -->
+                <MudPaper Class="pa-3 mb-3" Outlined="true">
+                    <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="2">
+                        <!-- OJO: Value/ValueChanged con string -->
+                        <MudTextField T="string"
+                                      Value="@SearchText"
+                                      ValueChanged="OnSearchInput"
+                                      Placeholder="@SearchPlaceholder"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Search"
+                                      Immediate="true"
+                                      DebounceInterval="250"
+                                      FullWidth="true" />
+
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Download"
+                                   OnClick="@(async _ => await TriggerExport())">
+                            @ExportButtonText
+                        </MudButton>
+                    </MudStack>
+                </MudPaper>
+
+                <CascadingValue Value="SearchText" Name="GridSearch">
+                    @GridContent
+                </CascadingValue>
+
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</div>
+<style>
+    /* fija sidebar en 250px en pantallas medianas+ */
+    .layout-prod .sidebar {
+        flex: 0 0 280px; /* basis 250 */
+        max-width: 280px; /* no crece más */
+    }
+
+    .layout-prod .main {
+        flex: 1 1 auto; /* ocupa el resto */
+        min-width: 0; /* evita overflow de la tabla */
+        max-width: calc(100% - 280px);
+    }
+
+    /* En móviles, que se apilen al 100% */
+    @@media (max-width: 960px) {
+        .layout-prod .sidebar, .layout-prod .main
+
+    {
+        flex: 1 1 100%;
+        max-width: 100%;
+    }
+
+    }
+
+</style>
+
+
+
+@code {
+    [Parameter] public RenderFragment? FormContent { get; set; }
+    [Parameter] public RenderFragment? GridContent { get; set; }
+
+    // ✔ Firmas correctas
+    [Parameter] public EventCallback<string> OnSearchChanged { get; set; }
+    [Parameter] public EventCallback OnExport { get; set; }
+
+    [Parameter] public string SearchPlaceholder { get; set; } = "Buscar…";
+    [Parameter] public string ExportButtonText { get; set; } = "Exportar";
+
+    private string SearchText { get; set; } = string.Empty;
+
+    private async Task OnSearchInput(string value)
+    {
+        SearchText = value;
+        if (OnSearchChanged.HasDelegate)
+            await OnSearchChanged.InvokeAsync(value);
+    }
+
+    private Task TriggerExport() =>
+      OnExport.HasDelegate ? OnExport.InvokeAsync() : Task.CompletedTask;
+
+}
+
+
+

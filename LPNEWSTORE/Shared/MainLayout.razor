@@ -1,0 +1,330 @@
+﻿@using LPNEWSTORE.Shared.Modals
+@using LPNEWSTORE.Shared.Themes
+@using MudBlazor
+@using LPNEWSTORE.Shared
+@using Services
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IHttpContextAccessor HttpContextAccessor
+@inject IJSRuntime JS
+@implements IDisposable
+@inject NavigationManager NavManager
+@inject IModalLauncher Modal
+@inject IDialogService Dialogs
+ 
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudThemeProvider Theme="@baseTheme" IsDarkMode="@darkMode" />
+    
+<MudLayout Class="mud-layout-root" Style="min-height: 100vh;">
+    <MudAppBar Elevation="1" Dense="true"  DarkModeChanged="OnDarkModeChanged">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" />
+
+        <MudText Typo="Typo.h6" Class="ml-2" Style="flex-grow:1;">
+            Bienvenido, @usuarioNombre | Rol: @rolUsuario
+        </MudText>
+
+        @if (esAdmin)
+        {    
+            <MudText Typo="Typo.h6" Class="ml-2">
+                Sucursal: 
+            </MudText>
+            <MudSelect T="int" Value="@idSucursal" ValueChanged="CambiarSucursal" Dense="true" Style="min-width: 150px; margin-left: 12px;">
+                <MudSelectItem Value="1">Hitech 1</MudSelectItem>
+                <MudSelectItem Value="2">Hitech 2</MudSelectItem>
+                <MudSelectItem Value="3">Apple Store 49</MudSelectItem>
+                <MudSelectItem Value="4">Apple Cafe</MudSelectItem>
+            </MudSelect>
+
+        } else
+        {
+            <MudText Typo="Typo.h6" Class="ml-2">
+                Sucursal: @sucursalActual
+            </MudText> 
+
+        }
+        <MudButton OnClick="ToggleDarkMode"  Color="Color.Secondary" StartIcon="@GetThemeIcon()">
+            @GetThemeText()
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.Logout" OnClick="CerrarSesion"></MudButton>
+    </MudAppBar>
+
+    <MudDrawer Variant="DrawerVariant.Responsive" Open="@drawerOpen" MiniVariant="@miniDrawer" Anchor="Anchor.Start" Elevation="1">
+
+        <MudDrawerHeader>
+            <img src="@logoUrl" alt="Logo" style="height: 150px;" />
+        </MudDrawerHeader>
+
+        <MudNavMenu Dense="true">
+            @if (esAdmin)
+            {
+                <AdminMenu OnNavigationItemClicked="CerrarDrawer" />
+            }
+            else if (esVendedor)
+            {
+                <VendedorMenu OnNavigationItemClicked="CerrarDrawer" />
+            }
+        </MudNavMenu>
+    </MudDrawer>
+
+    <MudMainContent Style="overflow-y:auto;">
+        @Body
+    </MudMainContent>
+
+    <MudPopoverProvider />
+</MudLayout>
+
+
+
+
+
+
+
+
+@code {
+
+
+
+    private bool darkMode;
+    private string GetThemeIcon() => darkMode ? Icons.Material.Filled.DarkMode : Icons.Material.Filled.LightMode;
+    private string logoUrl = "/images/LOGO_LOGIN.png";
+    private string GetThemeText() => darkMode ? "Modo Oscuro" : "Modo Claro";
+    private HitechTheme theme = new HitechTheme();
+    private MudTheme baseTheme = new MudTheme();
+    private MudTheme currentTheme = new MudTheme();
+    private string TituloPagina = "Inicio";
+    private string sucursalActual = "";
+    private int idSucursal = 1;
+    private string usuarioNombre = "";
+    private string usuarioDNI = "";
+    private string rolUsuario = "";
+    private bool esAdmin = false;
+    private bool esVendedor = false;
+    private bool modoOscuro = false;
+
+
+
+    private bool drawerOpen = true;
+    private bool miniDrawer = false;
+
+
+
+    private async Task ToggleDarkMode()
+    {
+        darkMode = !darkMode;
+        SetTheme(darkMode, baseTheme);
+        await JS.InvokeVoidAsync("tema.guardarModoOscuro", darkMode.ToString());
+        StateHasChanged();
+    }
+
+    private void ToggleDrawer()
+    {
+
+        drawerOpen = !drawerOpen;
+
+        StateHasChanged();
+    }
+
+    private void CerrarDrawer()
+    {
+        Console.WriteLine("CerrarDrawer llamado");
+        drawerOpen = false;
+        miniDrawer = true;
+        StateHasChanged();
+    }
+
+    protected override void OnInitialized()
+    {
+        NavManager.LocationChanged += OnLocationChanged;
+        Modal.OnOpenAperturaCaja += ShowAperturaCajaAsync;
+
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        CerrarDrawer();
+    }
+
+    public void Dispose()
+    {
+        NavManager.LocationChanged -= OnLocationChanged;
+        Modal.OnOpenAperturaCaja -= ShowAperturaCajaAsync;
+    }
+    
+    private async Task ShowAperturaCajaAsync()
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
+
+
+        // Tu componente de diálogo, ejemplo: mdCliente.razor
+        var dlg = Dialogs.Show<MDAperturaCaja>("Apertura Caja", options);
+        var result = await dlg.Result;
+
+       
+
+        if (!result.Canceled)
+        {
+            
+
+            StateHasChanged();
+        }
+    }
+
+    private async Task CambiarSucursal(int nuevaSucursal)
+    {
+        idSucursal = nuevaSucursal;
+
+        sucursalActual = idSucursal switch
+        {
+            1 => "Hitech 1",
+            2 => "Hitech 2",
+            3 => "Apple Store 49",
+            4 => "Apple Cafe",
+            _ => sucursalActual
+        };
+
+        
+        // Setear el tema
+        (baseTheme, logoUrl) = idSucursal switch
+        {
+            1 or 2 => (new HitechTheme(), "/images/logo-hitech-blanco.png"),
+            3 => (new Apple49Theme(), "/images/applestore49-logo.png"),
+            4 => (new AppleCafeTheme(), "/images/logo-apple-cafe.jpeg"),
+            _ => (new MudTheme(), "/images/LOGO_LOGIN.png")
+        };
+
+        SetTheme(darkMode, baseTheme);
+
+        
+        // // Setear la cookie (por ejemplo, que expire en 7 días)
+        await JS.InvokeVoidAsync("setCookie", "sucursalSeleccionada", idSucursal.ToString(), 7);
+        
+        StateHasChanged();
+        
+        Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
+
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var sucursal = await JS.InvokeAsync<string>(
+                    "eval",
+                    "document.cookie.match(/(?:^|; )sucursalSeleccionada=([^;]*)/)?.[1]"
+                );
+
+                if (!string.IsNullOrEmpty(sucursal) && int.TryParse(sucursal, out var id))
+                {
+                    idSucursal = id;
+                }
+                (baseTheme, logoUrl) = sucursal switch
+                {
+                    "1" or "2" => (new HitechTheme(), "/images/logo-hitech-blanco.png"),
+                    "3" => (new Apple49Theme(), "/images/applestore49-logo.png"),
+                    "4" => (new AppleCafeTheme(), "/images/logo-apple-cafe.jpeg"),
+                    _ => (new MudTheme(), "/images/LOGO_LOGIN.png")
+                };
+
+                var savedDarkMode = await JS.InvokeAsync<string>("tema.obtenerModoOscuro");
+
+                if (!string.IsNullOrEmpty(savedDarkMode) && bool.TryParse(savedDarkMode, out var parsed))
+                    darkMode = parsed;
+                else
+                    darkMode = false;
+
+                SetTheme(darkMode, baseTheme);
+                StateHasChanged();
+            }
+            catch (JSException jsEx)
+            {
+                Console.WriteLine($"JSInterop error: {jsEx.Message}");
+                darkMode = false;
+                baseTheme = new MudTheme();
+                SetTheme(darkMode, baseTheme);
+                StateHasChanged();
+            }
+        }
+    }
+    private void SetTheme(bool darkMode, MudTheme baseTheme)
+    {
+        if (darkMode)
+        {
+            baseTheme.PaletteDark = baseTheme.PaletteDark;
+        }
+        else
+        {
+            baseTheme.PaletteLight = baseTheme.PaletteLight;
+        }
+
+        
+    }
+
+    private async Task CerrarSesion()
+    {  
+        // Redirige directamente al Logout Razor Page
+        Navigation.NavigateTo("/Logout", forceLoad: true);
+    }
+
+
+   
+
+    private async Task OnDarkModeChanged(bool value)
+    {
+        Console.WriteLine($"Nuevo modo oscuro: {value}");
+        darkMode = value;
+        SetTheme(darkMode, baseTheme);
+        await JS.InvokeVoidAsync("tema.guardarModoOscuro", darkMode.ToString());
+        StateHasChanged();
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        if (user.Identity.IsAuthenticated)
+        {
+
+            esAdmin = user.IsInRole("ADMIN"); // o el nombre exacto del rol que uses
+            esVendedor = user.IsInRole("VENDEDOR");                                  // Obtener nombre
+            usuarioNombre = user.Identity.Name ?? "Invitado";
+
+
+
+            // Obtener rol (asumiendo que hay uno)
+            var roles = user.FindAll(System.Security.Claims.ClaimTypes.Role).Select(r => r.Value);
+            rolUsuario = roles.Any() ? string.Join(", ", roles) : "Sin rol";
+        
+            // ✅ ACCESO CORRECTO
+            var httpContext = HttpContextAccessor?.HttpContext;
+            if (httpContext != null && httpContext.Request.Cookies.TryGetValue("sucursalSeleccionada", out var sucursal))
+            {
+                sucursalActual = ObtenerNombreSucursal(sucursal);
+            }
+
+           
+        }
+    }
+
+    private string ObtenerNombreSucursal(string id)
+    { 
+        return id switch
+        {
+            "1" => "Hitech 1",
+            "2" => "Hitech 2",
+            "3" => "Apple Store 49",
+            "4" => "Apple Cafe",
+            _ => "Desconocida"
+        };
+    }
+}
+
+
+}

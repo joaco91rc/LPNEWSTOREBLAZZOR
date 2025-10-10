@@ -1,0 +1,718 @@
+﻿@page "/producto"
+@using LPNEWSTORE.Utils
+@using MudBlazor
+@using Microsoft.AspNetCore.Identity
+@using Services
+@using Entities
+@using System.Security.Claims
+@using System.ComponentModel.DataAnnotations
+@using System.Globalization
+@using System.Text
+
+
+@inject CotizacionService CotizacionService
+@inject ProductoService ProductoService
+@inject MonedaService MonedaService
+@inject CategoriaService CategoriaService
+@inject PrecioProductoService PrecioProductoService
+@inject RolService rolService
+
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SesionNegocioService SesionNegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+<AbmLayout TEntity="Producto"
+           FormContent="@FormProducto"
+           GridContent="@GridProducto" 
+           OnSearchChanged="HandleSearch"
+           OnExport="ExportarCsv"
+           SearchPlaceholder="Buscar producto, código o categoría…"/>
+
+@code {
+    List<Producto> listaProductos = new();
+    Producto ProductoActual = new();
+    private int IdGenerado;
+    private List<Rol> listaRoles = new();
+    private int idRolSeleccionado = 0;
+    private string claseThead = "mi-th";
+    private MudForm? formProducto;
+    private bool esEdicion = false;
+    private string rolUsuarioActual = string.Empty;
+    private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+    private DateTime fecha = DateTime.Now;
+    private int IdSucursal;
+    private List<Moneda> ListaMonedas { get; set; } = new();
+    private List<Categoria> ListaCategorias { get; set; } = new();
+    private Moneda? MonedaSeleccionada;
+    private Categoria? CategoriaSeleccionada;
+    private Cotizacion CotizacionActiva;
+    private string FormatArs(decimal v) => $"$ {v.ToString("N2", _culture)}";   // o "ARS " si preferís
+    private string FormatUsd(decimal v) => $"US$ {v.ToString("N2", _culture)}"; // o "USD "
+    private string FormatMoneyByFlag(decimal valor, bool dolarizado)
+        => dolarizado ? $"US$ {valor.ToString("N2", _culture)}"
+                      : $"$ {valor.ToString("N2", _culture)}";
+
+
+    private bool EsUSD =>
+        string.Equals(MonedaSeleccionada?.Nombre, "DOLAR", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(MonedaSeleccionada?.Simbolo, "USD", StringComparison.OrdinalIgnoreCase);
+    private static string SiNo(bool v) => v ? "Sí" : "No";
+
+    private string SimboloActual =>
+    (MonedaSeleccionada is not null
+        ? ListaMonedas?.FirstOrDefault(x => x.IdMoneda == MonedaSeleccionada.IdMoneda)?.Simbolo
+        : ListaMonedas?.FirstOrDefault()?.Simbolo)
+    ?? "$";
+    private readonly CultureInfo _culture = new("es-AR");
+    private bool CostoVentaEnDolares { get; set; }
+
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+
+            if (int.TryParse(sucursal, out int idSucursal))
+            {
+                IdSucursal = idSucursal;
+                listaProductos = await ProductoService.ListarPorNegocioAsync(IdSucursal);
+
+            }
+
+            StateHasChanged();
+        }
+
+
+
+    }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        ListaMonedas = await MonedaService.ListarMonedas();
+        MonedaSeleccionada = ListaMonedas.FirstOrDefault();
+
+        ListaCategorias = await CategoriaService.ListarCategorias();
+        CategoriaSeleccionada = ListaCategorias.FirstOrDefault();
+
+        CotizacionActiva = await CotizacionService.CotizacionActiva();
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+        }
+
+        listaRoles = await rolService.Listar();
+        ProductoActual.Estado = true;
+
+
+
+    }
+
+    private IEnumerable<Producto> ProductosFiltrados =>
+        string.IsNullOrWhiteSpace(GridSearch)
+            ? listaProductos
+            : listaProductos.Where(p =>
+                   (p.Codigo?.Contains(GridSearch, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                   (p.Nombre?.Contains(GridSearch, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                   (p.OCategoria?.Descripcion?.Contains(GridSearch, StringComparison.OrdinalIgnoreCase) ?? false));
+
+
+    private Task HandleSearch(string value)
+    {
+        GridSearch = value;
+        // StateHasChanged(); // opcional, normalmente no hace falta
+        return Task.CompletedTask;
+    }
+
+    private async Task ExportarCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Codigo;Producto;Categoria;Stock;PrecioLista;EfectivoARS;VentaUSD;CostoARS;CostoUSD;Serializable;Dolarizado");
+        foreach (var p in ProductosFiltrados)
+        {
+            string[] cols = {
+                p.Codigo,
+                p.Nombre,
+                p.OCategoria?.Descripcion ?? "",
+                p.Stock.ToString(),
+                p.PrecioLista.ToString("N2"),
+                p.VentaPesos.ToString("N2"),
+                p.PrecioVenta.ToString("N2"),
+                p.CostoPesos.ToString("N2"),
+                p.PrecioCompra.ToString("N2"),
+                p.ProdSerializable ? "Sí" : "No",
+                p.ProductoDolar ? "Sí" : "No"
+    };
+            sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
+        }
+        await JS.InvokeVoidAsync("downloadFileFromText", "productos.csv", sb.ToString(), "text/csv;charset=utf-8;");
+    }
+
+    private void Editar(Producto c)
+    {
+        ProductoActual = new Producto
+        {
+            IdProducto = c.IdProducto,
+            Descripcion = c.Descripcion,
+            Codigo = c.Codigo,
+            Nombre = c.Nombre,
+            OCategoria = c.OCategoria ?? new Categoria(),
+            Estado = c.Estado,
+
+
+            ProdSerializable = c.ProdSerializable,
+            ProductoDolar = c.ProductoDolar,
+            PrecioLista = c.PrecioLista,
+            PrecioVenta = c.PrecioVenta,
+            PrecioCompra = c.PrecioCompra,
+            VentaPesos = c.VentaPesos,
+            CostoPesos = c.CostoPesos
+
+
+
+
+        };
+
+
+        esEdicion = true;
+    }
+
+    private async Task RegistrarPrecioProducto(Producto ProductoActual, int idGenerado)
+
+    {
+        ProductoActual.IdProducto = idGenerado;
+        if (MonedaSeleccionada?.Simbolo == "ARS")
+        {
+            PrecioProducto objPrecioProductoPesos = new PrecioProducto()
+            {
+                IdProducto = ProductoActual.IdProducto,
+                IdMoneda = 1,
+                PrecioCompra = Math.Round(ProductoActual.CostoPesos, 2),
+                PrecioVenta = Math.Round(ProductoActual.PrecioLista, 2),
+                PrecioLista = Math.Round(ProductoActual.PrecioLista, 2),
+                PrecioEfectivo = Math.Round(ProductoActual.PrecioLista * 0.85m, 2),
+                FechaRegistro = DateTime.Now
+            };
+            var (idPrecioPesos, msgPesos) = await PrecioProductoService.RegistrarPrecioProductoAsync(objPrecioProductoPesos);
+            PrecioProducto objPrecioProductoDolar = new PrecioProducto()
+            {
+                IdProducto = ProductoActual.IdProducto,
+                IdMoneda = 2,
+                PrecioCompra = Math.Round((ProductoActual.CostoPesos / CotizacionActiva.Importe), 2),
+                PrecioVenta = Math.Round((ProductoActual.PrecioLista / CotizacionActiva.Importe), 2),
+                FechaRegistro = DateTime.Now,
+                PrecioEfectivo = Math.Round((ProductoActual.PrecioLista / CotizacionActiva.Importe) * 0.85m, 2),
+                PrecioLista = Math.Round((ProductoActual.PrecioLista / CotizacionActiva.Importe) * 1.40m, 2)
+            };
+            var (idPrecioDolar, msgDolar) = await PrecioProductoService.RegistrarPrecioProductoAsync(objPrecioProductoDolar);
+        }
+        else if (MonedaSeleccionada?.Simbolo == "USD")
+        {
+
+            PrecioProducto objPrecioProductoPesos = new PrecioProducto()
+            {
+                IdProducto = ProductoActual.IdProducto,
+                IdMoneda = 1,
+                PrecioCompra = Math.Round((ProductoActual.CostoPesos * CotizacionActiva.Importe), 2),
+                PrecioVenta = Math.Round((ProductoActual.PrecioVenta * CotizacionActiva.Importe), 2),
+                PrecioLista = Math.Round(ProductoActual.PrecioVenta * CotizacionActiva.Importe * 1.40m, 2),
+                PrecioEfectivo = Math.Round((ProductoActual.PrecioVenta * CotizacionActiva.Importe * 1.40m) * 0.85m, 2),
+                FechaRegistro = DateTime.Now
+            };
+            var (idPrecioPesos, msgPesos) = await PrecioProductoService.RegistrarPrecioProductoAsync(objPrecioProductoPesos);
+            PrecioProducto objPrecioProductoDolar = new PrecioProducto()
+            {
+                IdProducto = ProductoActual.IdProducto,
+                IdMoneda = 2,
+                PrecioCompra = Math.Round(ProductoActual.CostoPesos, 2),
+                PrecioVenta = Math.Round(ProductoActual.PrecioVenta, 2),
+                FechaRegistro = DateTime.Now,
+                PrecioEfectivo = Math.Round(ProductoActual.PrecioVenta, 2),
+                PrecioLista = Math.Round(ProductoActual.PrecioVenta * 1.40m, 2)
+            };
+            var (idPrecioDolar, msgDolar) = await PrecioProductoService.RegistrarPrecioProductoAsync(objPrecioProductoDolar);
+
+        }
+
+    }
+
+    private async Task ModificarPrecioProducto(Producto ProductoActual)
+    {
+        PrecioProducto? precioPesos = await PrecioProductoService.ObtenerPreciosPorProductoYMonedaAsync(ProductoActual.IdProducto, 1);
+        PrecioProducto? precioDolar = await PrecioProductoService.ObtenerPreciosPorProductoYMonedaAsync(ProductoActual.IdProducto, 2);
+        if (precioPesos is null || precioDolar is null)
+        {
+            Snackbar.Add("Faltan precios configurados (ARS y/o USD).", Severity.Warning);
+            return; // o manejá el caso
+        }
+        if (MonedaSeleccionada?.Simbolo == "ARS")
+        {
+            PrecioProducto objPrecioProductoPesos = new PrecioProducto()
+            {
+                IdProducto = ProductoActual.IdProducto,
+                IdPrecioProducto = precioPesos.IdPrecioProducto,
+                IdMoneda = 1,
+                PrecioCompra = Math.Round(ProductoActual.CostoPesos, 2),
+                PrecioVenta = Math.Round(ProductoActual.PrecioLista, 2),
+                PrecioLista = Math.Round(ProductoActual.PrecioLista, 2),
+                PrecioEfectivo = Math.Round(ProductoActual.PrecioLista * 0.85m, 2),
+                FechaRegistro = DateTime.Now
+            };
+            var (editarPrecioPesos , msgEdicionPesos) = await PrecioProductoService.EditarPrecioProductoAsync(objPrecioProductoPesos);
+
+            PrecioProducto objPrecioProductoDolar = new PrecioProducto()
+            {
+                IdProducto = ProductoActual.IdProducto,
+                IdPrecioProducto = precioDolar.IdPrecioProducto,
+                IdMoneda = 2,
+                PrecioCompra = Math.Round((ProductoActual.CostoPesos / CotizacionActiva.Importe), 2),
+                PrecioVenta = Math.Round((ProductoActual.PrecioLista / CotizacionActiva.Importe), 2),
+                FechaRegistro = DateTime.Now,
+                PrecioEfectivo = Math.Round((ProductoActual.PrecioLista / CotizacionActiva.Importe) * 0.85m, 2),
+                PrecioLista = Math.Round(ProductoActual.PrecioLista / CotizacionActiva.Importe *1.40m, 2)
+            };
+            var (editarPrecioDolares, msgEdicionDolares) = await PrecioProductoService.EditarPrecioProductoAsync(objPrecioProductoDolar);
+
+
+        }
+        else if (MonedaSeleccionada?.Simbolo == "USD")
+        {
+
+            PrecioProducto objPrecioProductoPesos = new PrecioProducto()
+            {
+                IdProducto = ProductoActual.IdProducto,
+                IdPrecioProducto = precioPesos.IdPrecioProducto,
+                IdMoneda = 1,
+                PrecioCompra = Math.Round((ProductoActual.CostoPesos * CotizacionActiva.Importe), 2),
+                PrecioVenta = Math.Round((ProductoActual.PrecioVenta * CotizacionActiva.Importe), 2),
+                PrecioLista = Math.Round(ProductoActual.PrecioVenta * CotizacionActiva.Importe * 1.40m, 2),
+                PrecioEfectivo = Math.Round((ProductoActual.PrecioVenta * CotizacionActiva.Importe * 1.40m) * 0.85m, 2),
+                FechaRegistro = DateTime.Now
+            };
+            var( editarPrecioPesos, msgEdicionPesos) = await PrecioProductoService.EditarPrecioProductoAsync(objPrecioProductoPesos);
+
+            PrecioProducto objPrecioProductoDolar = new PrecioProducto()
+            {
+                IdProducto = ProductoActual.IdProducto,
+                IdPrecioProducto = precioDolar.IdPrecioProducto,
+                IdMoneda = 2,
+                PrecioCompra = Math.Round(ProductoActual.CostoPesos, 2),
+                PrecioVenta = Math.Round(ProductoActual.PrecioVenta, 2),
+                FechaRegistro = DateTime.Now,
+                PrecioEfectivo = Math.Round(ProductoActual.PrecioVenta, 2),
+                PrecioLista = Math.Round(ProductoActual.PrecioVenta  * 1.40m, 2)
+            };
+            var( editarPrecioDolar,msgEdicionDolar) = await PrecioProductoService.EditarPrecioProductoAsync(objPrecioProductoDolar);
+
+
+        }
+
+    }
+
+    private async Task Registrar()
+    {
+        if (formProducto is null)
+            return;
+
+        await formProducto.Validate();
+
+        if (!formProducto.IsValid)
+        {
+            Snackbar.Add("Por favor completá todos los campos requeridos.", Severity.Error);
+            return;
+        }
+
+        string mensaje = string.Empty;
+        bool resultado = false;
+
+        if (esEdicion)
+        {
+            var (exito, msg) = await ProductoService.Editar(ProductoActual);
+            resultado = exito;
+            mensaje = msg;
+        }
+        else
+        {
+            if(CategoriaSeleccionada != null)
+            {
+                ProductoActual.OCategoria = CategoriaSeleccionada;
+            }
+            ProductoActual.Descripcion = ProductoActual.Nombre;
+
+
+
+
+            var (idGenerado, msg) = await ProductoService.Registrar(ProductoActual);
+            resultado = idGenerado > 0;
+
+            mensaje = msg;
+            IdGenerado = idGenerado;
+        }
+
+        if (resultado)
+        {
+            if (esEdicion)
+            {
+                await ModificarPrecioProducto(ProductoActual);
+            } else
+            {
+                await RegistrarPrecioProducto(ProductoActual, IdGenerado);
+            }
+            
+            
+            Snackbar.Add(mensaje, Severity.Success);
+            ProductoActual = new Producto();
+            ProductoActual.Estado = true;
+
+            esEdicion = false;
+            listaProductos = await ProductoService.ListarPorNegocioAsync(IdSucursal);
+            await formProducto.ResetAsync(); // resetea el form
+            MonedaSeleccionada = ListaMonedas.FirstOrDefault();
+            CategoriaSeleccionada = ListaCategorias.FirstOrDefault();
+            ProductoActual.Estado = true;
+        }
+        else
+        {
+
+            Snackbar.Add(mensaje, Severity.Error);
+        }
+    }
+
+
+    private async Task Eliminar(Producto c)
+    {
+        bool? confirmado = await DialogService.ShowMessageBox(
+            title: "Eliminar Producto",
+            markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar la Producto {c.Descripcion}?</b>",
+            yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
+        );
+
+        if (confirmado == true)
+        {
+            var (exito, mensaje) = await ProductoService.Eliminar(c);
+
+            if (exito)
+            {
+                Snackbar.Add(mensaje, Severity.Success);
+                listaProductos = await ProductoService.ListarPorNegocioAsync(IdSucursal);
+            }
+            else
+            {
+                Snackbar.Add(mensaje, Severity.Error);
+            }
+        }
+    }
+
+
+
+
+    private void CancelarEdicion()
+    {
+        ProductoActual = new Producto();
+        ProductoActual.Estado = true;
+
+        esEdicion = false;
+    }
+
+    RenderFragment FormProducto => @<div style="padding:16px; padding-top:16px; width:250px; max-width:250px; box-sizing:border-box;">
+    <MudForm @ref="formProducto" OnValidSubmit="Registrar" Style="width:100%; max-width:250px;">
+        <MudStack Spacing="2" Style="width:100%; min-width:0;">
+
+            <MudTextField Label="Código" @bind-Value="ProductoActual.Codigo" Required="true" FullWidth="true" />
+            <MudTextField Label="Nombre" @bind-Value="ProductoActual.Nombre" Required="true" FullWidth="true" />
+
+            <MudSelect T="Categoria"
+                       Label="Categoría"
+                       @bind-Value="CategoriaSeleccionada"
+                       ToStringFunc="(Categoria? c) => c?.Descripcion ?? string.Empty"
+                       Dense="true"
+                       FullWidth="true">
+                @if (ListaCategorias is { Count: > 0 })
+                                {
+                    @foreach (var c in ListaCategorias)
+                    {
+                        <MudSelectItem Value="@c" @key="c.IdCategoria">@c.Descripcion</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+
+            <MudSelect T="bool" Label="Estado" @bind-Value="ProductoActual.Estado" Required="true" FullWidth="true">
+                <MudSelectItem Value="@true">Activo</MudSelectItem>
+                <MudSelectItem Value="@false">No Activo</MudSelectItem>
+            </MudSelect>
+
+            <MudStack Direction="Row" AlignItems="AlignItems.Start" Style="flex-wrap:nowrap; column-gap:6px; width:100%;">
+                <MudCheckBox T="bool" @bind-Value="ProductoActual.ProductoDolar" Label="Dolarizado" Immediate="true" />
+                <MudCheckBox T="bool" @bind-Value="ProductoActual.ProdSerializable" Label="Serializable" Immediate="true" />
+            </MudStack>
+
+            <!-- Recuadro -->
+            <MudPaper Class="pa-4" Outlined="true"
+                      Style="border-radius:12px; width:100%; box-sizing:border-box;">
+                <MudStack Spacing="3" Style="width:100%; min-width:0;">
+
+                    <MudSelect T="Moneda"
+                               Label="Moneda"
+                               @bind-Value="MonedaSeleccionada"
+                               ToStringFunc="(Moneda? m) => m?.Nombre ?? string.Empty"
+                               Dense="true"
+                               FullWidth="true">
+                        @if (ListaMonedas is { Count: > 0 })
+                        {
+                            @foreach (var m in ListaMonedas)
+                            {
+                                <MudSelectItem Value="@m" @key="m.IdMoneda">@m.Nombre</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+
+                    
+
+                    <MudGrid GutterSize="2" Class="w-100">
+
+                        @* Costo SIEMPRE visible *@
+                        <MudItem xs="12">
+                            <MudTextField T="decimal" Label="Costo"
+                                          @bind-Value="ProductoActual.CostoPesos"
+                                          Adornment="Adornment.Start"
+                                          AdornmentText="@(CostoVentaEnDolares ? "$" : SimboloActual)"
+                                          InputType="InputType.Number"
+                                          Culture="@_culture"
+                                          FullWidth="true" />
+                        </MudItem>
+
+                        @* Mostrar Precio Lista cuando NO es USD *@
+                        @if (!EsUSD)
+                        {
+                            <MudItem xs="12">
+                                <MudTextField T="decimal" Label="Precio Lista"
+                                              @bind-Value="ProductoActual.PrecioLista"
+                                              Adornment="Adornment.Start"
+                                              AdornmentText="@SimboloActual"
+                                              InputType="InputType.Number"
+                                              Culture="@_culture"
+                                              FullWidth="true" />
+                            </MudItem>
+                        }
+
+                       
+
+                        @* Mostrar Precio Venta solo cuando es USD *@
+                        @if (EsUSD)
+                        {
+                            <MudItem xs="12">
+                                <MudTextField T="decimal" Label="Precio Venta"
+                                              @bind-Value="ProductoActual.PrecioVenta"
+                                              Adornment="Adornment.Start"
+                                              AdornmentText="@(CostoVentaEnDolares ? "$" : SimboloActual)"
+                                              InputType="InputType.Number"
+                                              Culture="@_culture"
+                                              FullWidth="true" />
+                            </MudItem>
+                        }
+                    </MudGrid>
+
+
+                    @*<MudCheckBox T="bool" @bind-Checked="CostoVentaEnDolares" Label="Costo / Venta en Dólares" />*@
+                </MudStack>
+            </MudPaper>
+
+            <MudStack Direction="Row" Spacing="2">
+                <MudButton OnClick="Registrar" Variant="Variant.Filled" Color="Color.Primary">
+                    @(esEdicion ? "Actualizar" : "Guardar")
+                </MudButton>
+                @if (esEdicion)
+                {
+                    <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CancelarEdicion">
+                        Cancelar
+                    </MudButton>
+                }
+            </MudStack>
+
+        </MudStack>
+    </MudForm>
+</div>;
+
+
+
+RenderFragment GridProducto => @<div style="padding: 16px;  padding-top : 16px">
+    <MudTable Items="ProductosFiltrados"
+              Dense="true"
+              Hover="true"
+              Bordered="true"
+              Striped="true"
+              Sortable="true"
+              Breakpoint="Breakpoint.Sm"
+              RowsPerPageOptions="new int[]{ 5, 10, 20,30,40,50 }"
+              PagerAlwaysVisible="true"
+              Elevation="1"
+              Class="mt-2 tabla-prod">
+        <HeaderContent>
+            <MudTh>
+                <MudTableSortLabel T="Producto" SortBy="@(c => c.Codigo)">Codigo</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Producto" SortBy="@(c => c.Nombre)">Producto</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Producto" SortBy="@(c => c.OCategoria?.Descripcion ?? string.Empty)">
+                    Categoría
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Producto" SortBy="@(c => c.Stock)">Stock</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Producto" SortBy="@(c => c.PrecioLista)">$ Lista ARS</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Producto" SortBy="@(c => c.VentaPesos)">$ Efectivo ARS</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Producto" SortBy="@(c => c.PrecioVenta)">$ Venta USD</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Producto" SortBy="@(c => c.CostoPesos)">Costo ARS</MudTableSortLabel>
+            </MudTh>
+            <MudTh >
+                <MudTableSortLabel T="Producto" SortBy="@(c => c.PrecioCompra)">Costo USD</MudTableSortLabel>
+            </MudTh>
+            <MudTh >
+               
+                <MudTableSortLabel T="Producto" SortBy="@(c => c.ProdSerializable)">Serializable</MudTableSortLabel>
+            </MudTh>
+            <MudTh >
+                <MudTableSortLabel T="Producto" SortBy="@(c => c.ProductoDolar)">Dolarizado</MudTableSortLabel>
+            </MudTh>
+            
+
+
+
+            <MudTh>Acciones</MudTh>
+
+
+
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Descripción">@context.Codigo</MudTd>
+            <MudTd DataLabel="Tipo">@context.Nombre</MudTd>
+            <MudTd DataLabel="Categoría">@((context.OCategoria?.Descripcion) ?? "")</MudTd>
+            <MudTd DataLabel="Tipo">@context.Stock</MudTd>
+
+
+
+            <MudTd DataLabel="Precio Lista" Align="Align.Right">
+                @FormatMoneyByFlag(context.PrecioLista, context.ProductoDolar)
+            </MudTd>
+            <MudTd DataLabel="Precio Efectivo ARS" Align="Align.Right">
+                @FormatArs(context.VentaPesos)
+            </MudTd>
+            <MudTd DataLabel="Precio Venta USD" Align="Align.Right">
+                @FormatUsd(context.PrecioVenta)
+            </MudTd>
+            <MudTd DataLabel="Costo ARS" Align="Align.Right">
+                @FormatArs(context.CostoPesos)
+            </MudTd>
+            <MudTd DataLabel="Costo USD" Align="Align.Right">
+                @FormatUsd(context.PrecioCompra)
+            </MudTd>
+
+            <MudTd DataLabel="Serializable">@SiNo(context.ProdSerializable)</MudTd>
+            <MudTd DataLabel="Dolarizado">@SiNo(context.ProductoDolar)</MudTd>
+
+
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Success" Size="Size.Small" OnClick="() => Editar(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => Eliminar(context)" Class="ms-2" />
+
+            </MudTd>
+        </RowTemplate>
+
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
+                           RowsPerPageString="Registros por página">
+            </MudTablePager>
+        </PagerContent>
+    </MudTable>
+
+</div>;
+
+
+}
+
+
+<style>
+    /* Que respete los anchos que definimos */
+    .tabla-prod table {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    /* 1: Código */
+    .tabla-prod thead th:nth-child(1),
+    .tabla-prod tbody td:nth-child(1) {
+        width: 110px;
+    }
+
+    /* 2: Producto */
+    .tabla-prod thead th:nth-child(2),
+    .tabla-prod tbody td:nth-child(2) {
+        width: 240px;
+    }
+
+    /* 3: Categoría */
+    .tabla-prod thead th:nth-child(3),
+    .tabla-prod tbody td:nth-child(3) {
+        width: 160px;
+    }
+
+    /* 4: Stock (alinear a derecha) */
+    .tabla-prod thead th:nth-child(4),
+    .tabla-prod tbody td:nth-child(4) {
+        width: 80px;
+        text-align: right;
+    }
+
+    /* 5–9: columnas de dinero (derecha) */
+    .tabla-prod thead th:nth-child(5), .tabla-prod tbody td:nth-child(5),
+    .tabla-prod thead th:nth-child(6), .tabla-prod tbody td:nth-child(6),
+    .tabla-prod thead th:nth-child(7), .tabla-prod tbody td:nth-child(7),
+    .tabla-prod thead th:nth-child(8), .tabla-prod tbody td:nth-child(8),
+    .tabla-prod thead th:nth-child(9), .tabla-prod tbody td:nth-child(9) {
+        width: 130px;
+        text-align: right;
+    }
+
+    /* 10–11: flags */
+    .tabla-prod thead th:nth-child(10), .tabla-prod tbody td:nth-child(10),
+    .tabla-prod thead th:nth-child(11), .tabla-prod tbody td:nth-child(11) {
+        width: 110px;
+    }
+
+    /* 12: Acciones */
+    .tabla-prod thead th:nth-child(12),
+    .tabla-prod tbody td:nth-child(12) {
+        width: 120px;
+    }
+
+    /* Evitar desbordes feos */
+    .tabla-prod tbody td {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+</style>
+

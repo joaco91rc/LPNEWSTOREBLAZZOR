@@ -1,0 +1,60 @@
+﻿
+
+@using MudBlazor
+@using Services
+@inject IModalLauncher Modal
+
+
+
+        <MudNavGroup Title="Stock" Icon="@Icons.Material.Filled.Inventory">
+    <MudNavLink Href="/stock" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Stock</MudNavLink>
+    <MudNavLink Href="/traspasomercaderia" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Traspaso de Mercadería</MudNavLink>
+        </MudNavGroup>
+
+        <MudNavGroup Title="Ventas" Icon="@Icons.Material.Filled.PointOfSale">
+    <MudNavLink Href="/registrarventa" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Registrar Venta</MudNavLink>
+    <MudNavLink Href="/historicoventas" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Histórico Ventas</MudNavLink>
+        </MudNavGroup>
+
+        <MudNavGroup Title="Compras" Icon="@Icons.Material.Filled.ShoppingCart">
+    <MudNavLink Href="/registrarcompra" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Registrar Compra</MudNavLink>
+    <MudNavLink Href="/historicocompras" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Histórico Compras</MudNavLink>
+        </MudNavGroup>
+
+<MudNavLink Href="/clientes" Icon="@Icons.Material.Filled.People" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Clientes</MudNavLink>
+
+        <MudNavGroup Title="Pagos Parciales" Icon="@Icons.Material.Filled.Payments">
+    <MudNavLink Href="/pagoparcial" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Registrar Pago Parcial</MudNavLink>
+    <MudNavLink Href="/historicopagosparciales" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Histórico Pagos Parciales</MudNavLink>
+        </MudNavGroup>
+
+        <MudNavGroup Title="Caja Registradora" Icon="@Icons.Material.Filled.AccountBalanceWallet">
+    <MudNavLink OnClick="@(async _ => await Modal.OpenAperturaCajaAsync())" >Apertura Caja</MudNavLink>
+    <MudNavLink Href="/cajadiaria" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Caja Diaria</MudNavLink>
+    <MudNavLink Href="/detallecaja" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Consultar Caja por Fecha</MudNavLink>
+    <MudNavLink Href="/conceptos" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Conceptos</MudNavLink>
+        </MudNavGroup>
+
+        <MudNavLink Href="/rma" Icon="@Icons.Material.Filled.AssignmentReturn">RMA</MudNavLink>
+
+        <MudNavGroup Title="Servicio Técnico" Icon="@Icons.Material.Filled.Build">
+    <MudNavLink Href="/serviciotecnico" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Registrar Servicio</MudNavLink>
+    <MudNavLink Href="/cobrarservicio" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Cobrar Servicio</MudNavLink>
+    <MudNavLink Href="/reportest" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Reportes Servicio Técnico</MudNavLink>
+    <MudNavLink Href="/ordentrabajo" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Órdenes de Trabajo</MudNavLink>
+        </MudNavGroup> 
+
+        <MudNavGroup Title="Consultas" Icon="@Icons.Material.Filled.Search" >
+    <MudNavLink Href="/consultaproducto" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Productos</MudNavLink>
+    <MudNavLink Href="/consultaserializados" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Productos Serializados</MudNavLink>
+    <MudNavLink Href="/snvendidos" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">S/N Vendidos</MudNavLink>
+        </MudNavGroup>
+
+
+
+@code {
+    [Parameter]
+    public EventCallback OnNavigationItemClicked { get; set; }
+
+}
+

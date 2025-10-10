@@ -1,0 +1,540 @@
+﻿@page "/serializarproducto"
+@using LPNEWSTORE.Shared.Modals
+@using MudBlazor
+@using System.Globalization
+@using System.Reflection
+@using Entities <!-- Ajustá este using si tus modelos viven en otro namespace -->
+@using Services
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject ProductoNegocioService StockService
+@inject ProductoDetalleService ProductoDetalleService
+@inject IJSRuntime JS
+<!--
+  Página: Serializar Producto (Blazor + MudBlazor)
+  Ruta: /serializarproducto
+
+  - Barra superior: Código + botón lupa, Producto (solo lectura), Stock (solo lectura), Cantidad (numeric) y botón Agregar filas
+  - Grilla editable: Fecha | Producto | Proveedor | Marca | Modelo | Color | Serial (S/N)
+  - Doble click en Proveedor abre modal de selección
+  - Guardar valida obligatorios: Proveedor y Serial
+
+  Nota: Se incluyen DTOs internos y mapeo flexible por reflexión para integrar
+  con tus modales existentes sin acoplar a clases específicas.
+-->
+
+
+<MudText Typo="Typo.h4"
+         Align="Align.Center"
+         Class="mt-8 mb-6" Color="Color.Secondary">
+    Serialización de Productos
+</MudText>
+
+<MudForm @ref="_form" Model="@Model" Validated="OnValidated">
+    <MudStack Class="p-3 h-full" Spacing="13" Style="margin-top:50px;">
+        <!-- Recuadro superior -->
+        <MudPaper Class="py-3 px-3" Outlined="true" Elevation="6">
+    <MudGrid GutterSize="1" AlignItems="AlignItems.End">
+        <!-- Código -->
+        <MudItem xs="12" md="2">
+            <MudTextField @bind-Value="Model.Codigo"
+                          Label="Código"
+                          Dense="true"
+                          FullWidth="true"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          AdornmentColor="Color.Primary"
+                          OnAdornmentClick="BuscarProductoAsync" />
+        </MudItem>
+
+        <!-- Producto -->
+        <MudItem xs="12" md="3">
+            <MudTextField Value="@Model.Nombre" Label="Producto" ReadOnly="true" Dense="true" FullWidth="true" />
+        </MudItem>
+
+        <!-- Stock -->
+        <MudItem xs="6" md="1">
+            <MudTextField Value="@_stockActual.ToString()" Label="Stock" ReadOnly="true" Dense="true" FullWidth="true" />
+        </MudItem>
+
+        <!-- Pendientes Serialización -->
+        <MudItem xs="6" md="2">
+            <MudTextField Value="@_disponiblesASerializar.ToString()" Label="Pendientes Serialización" ReadOnly="true" Dense="true" FullWidth="true" />
+        </MudItem>
+
+        <!-- Cantidad -->
+        <MudItem xs="6" md="2">
+            <MudNumericField T="int" @bind-Value="_cantidad" Label="Cantidad" Dense="true" Min="1" Required="true" FullWidth="true" />
+        </MudItem>
+
+        <!-- Botón Agregar -->
+        <MudItem xs="6" md="2">
+            <div style="display:flex; justify-content:flex-end; align-items:flex-end; width:100%;">
+                <MudButton Color="Color.Primary" Variant="Variant.Filled"
+                           OnClick="AgregarFilas"
+                           Disabled="@(Model.IdProducto == 0 || _cantidad <= 0)">
+                    Agregar
+                </MudButton>
+            </div>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+
+        <!-- Recuadro inferior con grilla -->
+        <MudPaper Class="p-0 flex-1 overflow-hidden" Style="height: calc(100vh - 360px);" Elevation="1">
+            <MudTable Items="_lineas" Dense="true" Bordered="false" Hover="true" Class="h-full">
+                <HeaderContent>
+                    <MudTh Style="width:140px">Fecha</MudTh>
+                    <MudTh>Producto</MudTh>
+                    <MudTh>Proveedor</MudTh>
+                    <MudTh>Marca</MudTh>
+                    <MudTh>Modelo</MudTh>
+                    <MudTh>Color</MudTh>
+                    <MudTh Style="width:260px">Serial (S/N)</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd>
+                        <MudText Class="px-2">@context.Fecha.ToString("dd/MM/yyyy")</MudText>
+                    </MudTd>
+
+                    <MudTd>
+                        <MudTextField @bind-Value="@context.ProductoNombre" ReadOnly="true" Dense="true" />
+                    </MudTd>
+
+                    <MudTd>
+                        <div @ondblclick="() => AbrirSelectorProveedorAsync(context)" title="Doble click para elegir proveedor">
+                            <MudTextField @bind-Value="@context.ProveedorNombre" ReadOnly="true" Dense="true" Placeholder="Doble click para elegir" Required="true" RequiredError="Seleccione proveedor" />
+                        </div>
+                    </MudTd>
+
+                    <MudTd>
+                        <MudTextField @bind-Value="@context.Marca" Dense="true" Immediate="true" />
+                    </MudTd>
+
+                    <MudTd>
+                        <MudTextField @bind-Value="@context.Modelo" Dense="true" Immediate="true" />
+                    </MudTd>
+
+                    <MudTd>
+                        <MudTextField @bind-Value="@context.Color" Dense="true" Immediate="true" />
+                    </MudTd>
+
+                    <MudTd>
+                        <MudTextField @bind-Value="@context.Serial" Dense="true" Required="true" RequiredError="Ingrese S/N" Immediate="true" />
+                    </MudTd>
+                </RowTemplate>
+
+                <NoRecordsContent>
+                    <MudText Class="p-4 text-sm text-muted">No hay filas. Elegí un producto y presioná "Agregar".</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </MudPaper>
+
+        <!-- Botón Guardar -->
+        <MudStack Direction="Column" AlignItems="AlignItems.End" Class="pt-4">
+            <MudButton Color="Color.Primary"
+                       Variant="Variant.Filled"
+                       OnClick="GuardarAsync"
+                       Disabled="@(!_lineas.Any())">
+                Guardar
+            </MudButton>
+        </MudStack>
+
+    </MudStack>
+</MudForm>
+
+@code {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private MudForm? _form;
+    private int _stockActual = 0;
+    private int _disponiblesASerializar = 0;
+    private int _cantidad = 1;
+    public int IdSucursal { get; set; } // opcional: sucursal/negocio actual para cálculo de stock
+    // ===== Modelo principal de tu proyecto =====
+    // Ajustá los nombres de propiedades si difieren en tu class ProductoDetalle
+    public ProductoDetalle Model { get; set; } = new();
+
+    // ===== Filas de serialización =====
+    public class LineaSerializacion
+    {
+        public DateTime Fecha { get; set; } = DateTime.Now;
+        public int IdProducto { get; set; }
+        public string ProductoNombre { get; set; } = string.Empty;
+        public int IdProveedor { get; set; }
+        public string ProveedorNombre { get; set; }
+        public string? Marca { get; set; }
+        public string? Modelo { get; set; }
+        public string? Color { get; set; }
+        public string Serial { get; set; }
+    }
+
+    private readonly List<LineaSerializacion> _lineas = new();
+
+    // ===== DTOs internos para compatibilidad flexible =====
+    private sealed class ProductoSerialDTO
+    {
+        public int IdProducto { get; set; }
+        public string Codigo { get; set; } = string.Empty;
+        public string Nombre { get; set; } = string.Empty;
+        public int Stock { get; set; }
+        public bool Serializable { get; set; } = true;
+    }
+
+    private sealed class ProveedorDTO
+    {
+        public int IdProveedor { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+
+            if (int.TryParse(sucursal, out int idSucursal))
+            {
+                IdSucursal = idSucursal;
+
+
+            }
+
+            StateHasChanged();
+        }
+
+
+
+    }
+
+    // ===== Acciones =====
+    private async Task CargarStockActualAsync()
+    {
+        if (Model.IdProducto == 0)
+        {
+            _stockActual = 0;
+            return;
+        }
+        try
+        {   var serializados =  await ProductoDetalleService.ContarProductosSerializadosAsync(Model.IdProducto, IdSucursal);
+            _stockActual = await StockService.ObtenerStockProductoEnSucursalAsync(Model.IdProducto, IdSucursal);
+            _disponiblesASerializar = _stockActual - serializados;
+        }
+        catch
+        {
+            _stockActual = 0;
+            _disponiblesASerializar = 0;
+            Snackbar.Add("No se pudo obtener el stock actual.", Severity.Warning);
+        }
+    }
+
+
+    private async Task BuscarProductoAsync()
+    {
+
+
+        // 2) Abrir modal de selección
+
+        var options = new DialogOptions { FullWidth = true, MaxWidth = MaxWidth.Large };
+
+        var dialog = DialogService.Show<MDProductoSerializable>("Seleccionar Producto Serializable", options);
+        var result = await dialog.Result;
+
+        if (result.Canceled)
+            return;
+
+        // 3) Manejo de tipos conocidos
+        if (result.Data is Producto prod)
+        {
+            await SeleccionarProductoYStockAsync(prod.IdProducto, prod.Codigo, prod.Nombre);
+            return;
+        }
+
+        if (result.Data is ProductoSerialDTO p)
+        {
+            await SeleccionarProductoYStockAsync(p.IdProducto, p.Codigo, p.Nombre);
+            return;
+        }
+
+        // 4) Fallback genérico (por si el modal devuelve otro DTO compatible)
+        await MapProductoPorReflexionAsync(result.Data);
+    }
+
+
+    private async Task MapProductoPorReflexionAsync(object? any)
+    {
+        if (any is null)
+        {
+            Snackbar.Add("El modal no devolvió datos.", Severity.Error);
+            return;
+        }
+
+        int id = TryGet<int>(any, "IdProducto");
+        string codigo = TryGet<string>(any, "Codigo") ?? string.Empty;
+        string nombre = TryGet<string>(any, "Nombre")
+                        ?? TryGet<string>(any, "Descripcion")
+                        ?? string.Empty;
+
+        if (id == 0 && string.IsNullOrWhiteSpace(nombre))
+        {
+            Snackbar.Add("El modal no devolvió un producto compatible.", Severity.Error);
+            return;
+        }
+
+        await SeleccionarProductoYStockAsync(id, codigo, nombre);
+    }
+
+    private async Task SeleccionarProductoYStockAsync(int id, string codigo, string nombre)
+    {
+        Model.IdProducto = id;
+        Model.Codigo = codigo;
+        Model.Nombre = nombre;
+        if (_cantidad <= 0) _cantidad = 1;
+        await CargarStockActualAsync();
+        StateHasChanged();
+    }
+
+    private async Task AgregarFilas()
+    {
+        // 1) Validaciones básicas
+        if (Model.IdProducto == 0)
+        {
+            Snackbar.Add("Primero seleccioná un producto.", Severity.Info);
+            return;
+        }
+        if (_cantidad <= 0)
+        {
+            Snackbar.Add("La cantidad debe ser mayor a 0.", Severity.Info);
+            return;
+        }
+
+        // 2) Datos de stock (ya lo tenés en _stockActual si lo cargás al seleccionar producto)
+        var stockDisponible = _stockActual; // int
+        
+        // 3) Cuántos ya están serializados en BD (persistidos)
+        int productosSerializadosDb;
+        try
+        {
+            productosSerializadosDb = await ProductoDetalleService.ContarProductosSerializadosAsync(Model.IdProducto, IdSucursal);
+        }
+        catch
+        {
+            Snackbar.Add("No se pudo verificar el estado de serialización en la base.", Severity.Error);
+            return;
+        }
+
+        // 4) Cuántas filas “pendientes” tenés en la grilla para este mismo producto
+        var pendientesEnGrilla = _lineas.Count(l => l.IdProducto == Model.IdProducto);
+        
+        // 5) Restante real que podés agregar
+        var restante = stockDisponible - productosSerializadosDb - pendientesEnGrilla;
+
+        if (restante <= 0)
+        {
+            Snackbar.Add(
+                $"El stock ya se encuentra completamente serializado ({productosSerializadosDb}/{stockDisponible}).",
+                Severity.Warning);
+            return;
+        }
+
+        if (_cantidad > restante)
+        {
+            Snackbar.Add(
+                $"La cantidad ingresada ({_cantidad}) supera lo pendiente disponible ({restante}). Se agregarán {restante}.",
+                Severity.Info);
+            _cantidad = restante;
+        }
+
+        // 6) Agregar filas
+        for (int i = 0; i < _cantidad; i++)
+        {
+            _lineas.Add(new LineaSerializacion
+            {
+                IdProducto = Model.IdProducto,
+                ProductoNombre = Model.Nombre,
+                Fecha = DateTime.Now
+            });
+        }
+
+        StateHasChanged();
+    }
+
+
+    private async Task AbrirSelectorProveedorAsync(LineaSerializacion linea)
+    {
+        var dialog = DialogService.Show<MDProveedor>("Seleccionar proveedor", options: new DialogOptions { FullWidth = true, MaxWidth = MaxWidth.Medium });
+        var result = await dialog.Result;
+        if (!result.Canceled && result.Data is not null)
+        {
+            if (result.Data is ProveedorDTO prov)
+            {
+                linea.IdProveedor = prov.IdProveedor;
+                linea.ProveedorNombre = prov.Nombre;
+            }
+            else
+            {
+                linea.IdProveedor = TryGet<int>(result.Data, "IdProveedor");
+                linea.ProveedorNombre = TryGet<string>(result.Data, "Nombre") ?? TryGet<string>(result.Data, "RazonSocial");
+            }
+        }
+    }
+
+
+
+    private async Task GuardarAsync()
+    {
+        if (!_lineas.Any())
+        {
+            Snackbar.Add("No hay filas para guardar.", Severity.Info);
+            return;
+        }
+
+        // 1) Validación de controles (Required en los inputs del grid)
+        await _form!.Validate();
+        if (!_form.IsValid)
+        {
+            Snackbar.Add("Hay campos obligatorios sin completar en la grilla.", Severity.Error);
+            return;
+        }
+
+        // 2) Validación lógica de cada fila (por si algún campo no usa Required del UI)
+        var errores = new List<string>();
+        for (int i = 0; i < _lineas.Count; i++)
+        {
+            var l = _lineas[i];
+            if (string.IsNullOrWhiteSpace(l.Serial))
+                errores.Add($"Fila {i + 1}: el Serial (S/N) es obligatorio.");
+
+            if ( l.IdProveedor == 0 )
+                errores.Add($"Fila {i + 1}: el Proveedor es obligatorio.");
+        }
+
+        if (errores.Count > 0)
+        {
+            Snackbar.Add("Hay filas con datos obligatorios faltantes. No se guardó nada.", Severity.Error);
+            // Si querés mostrar el detalle:
+            // Snackbar.Add(string.Join("\n", errores), Severity.Error);
+            return;
+        }
+
+        // (Opcional) Chequeo de duplicados dentro de la misma tanda
+        var repetidos = _lineas
+            .Select(l => new { IdSucursal, Serial = (l.Serial ?? "").Trim().ToUpperInvariant() })
+            .Where(x => !string.IsNullOrWhiteSpace(x.Serial))
+            .GroupBy(x => new { x.IdSucursal, x.Serial }) // anónimo tiene comparación por valor
+            .Where(g => g.Count() > 1)
+            .ToList();
+
+        if (repetidos.Any())
+        {
+            Snackbar.Add("Hay seriales repetidos en la grilla. Corregilos antes de guardar.", Severity.Warning);
+            return;
+        }
+
+        // 3) Insertar uno por uno
+        var exitos = 0;
+        try
+        {
+            foreach (var l in _lineas)
+            {
+                var productoDetalle = new ProductoDetalle
+                {
+                    IdProducto = l.IdProducto,
+                    Fecha = (l.Fecha == default ? DateTime.Now : l.Fecha),
+                    NumeroSerie = l.Serial!.Trim(),
+                    Color = string.IsNullOrWhiteSpace(l.Color) ? null : l.Color.Trim(),
+                    Modelo = string.IsNullOrWhiteSpace(l.Modelo) ? null : l.Modelo.Trim(),
+                    Marca = string.IsNullOrWhiteSpace(l.Marca) ? null : l.Marca.Trim(),
+                    IdNegocio = IdSucursal,
+                    FechaEgreso = null,
+                    IdProveedor = l.IdProveedor,   // int? en tu modelo
+                    IdVenta = null
+                };
+
+                var( id, mensaje) = await ProductoDetalleService.RegistrarSerialNumberAsync(productoDetalle);
+                if(id != 0)
+                {
+                    exitos++;
+
+
+
+
+                } else {
+                    Snackbar.Add($"No se puedo registrar el serial, error: {mensaje}.", Severity.Error);
+
+                }
+
+            }
+
+            {
+
+            }
+        }
+        catch (Exception)
+        {
+            // Si querés, podés cortar en el primer error y avisar:
+            Snackbar.Add("Error durante el guardado. No se completó la operación.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add($"Se guardaron {exitos} seriales.", Severity.Success);
+        _lineas.Clear(); // o eliminá solo las que guardaste
+        _form.ResetAsync();
+        Model.IdProducto = 0;
+    }
+
+    private void OnValidated() { /* Hook opcional si querés reaccionar al resultado de validación */ }
+
+    // ===== Utilidades =====
+    private static T TryGet<T>(object obj, string prop)
+    {
+        var p = obj.GetType().GetProperty(prop, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+        if (p is null) return default!;
+        var val = p.GetValue(obj);
+        if (val is null) return default!;
+        try { return (T)Convert.ChangeType(val, typeof(T), CultureInfo.InvariantCulture); }
+        catch { return default!; }
+    }
+
+    // ===== MOCK de búsqueda por código (reemplazá por tu service real) =====
+    private Task<ProductoSerialDTO?> BuscarProductoPorCodigoMockAsync(string codigo)
+    {
+        var demo = new List<ProductoSerialDTO>
+        {
+            new() { IdProducto = 101, Codigo = "ABC123", Nombre = "iPhone 14 Pro 256GB", Stock = 7, Serializable = true },
+            new() { IdProducto = 102, Codigo = "XYZ789", Nombre = "Samsung S24 Ultra 512GB", Stock = 5, Serializable = true },
+        };
+        var p = demo.FirstOrDefault(x => x.Codigo.Equals(codigo, StringComparison.OrdinalIgnoreCase) && x.Serializable);
+        return Task.FromResult(p);
+    }
+    // Utilidad para setear propiedad si existe (conversión segura)
+    private static void SetIfExists<T>(object target, string prop, T value)
+    {
+        var p = target.GetType().GetProperty(prop, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+        if (p is null || !p.CanWrite) return;
+        try
+        {
+            object? v = value;
+            if (v is not null && p.PropertyType != typeof(T))
+                v = Convert.ChangeType(v, p.PropertyType, CultureInfo.InvariantCulture);
+            p.SetValue(target, v);
+        }
+        catch { }
+    }
+}

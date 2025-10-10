@@ -1,0 +1,315 @@
+﻿@* @page "/historicoVentas"
+@using ClosedXML.Excel
+@using MudBlazor
+@using Microsoft.AspNetCore.Identity
+@using Services
+@using Entities
+@using System.Security.Claims
+@using System.Text
+@using System.Globalization
+@using ClosedXML
+@inject VentaService VentaService
+@inject RolService rolService
+@inject NavigationManager Nav;
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SesionNegocioService SesionNegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+
+
+
+@code {
+    // Example backing variables in a page that consumes the layout component
+    private List<string> _cols = new() { "Fecha", "Tipo", "Nro. Venta", "Total", "Cliente" };
+    List<Venta> _Ventas = new();
+    private List<Venta> _VentasFiltradas = new();
+    private bool _busy;
+    private int? _idSucursal;
+    private DateTime? DateFrom { get; set; }
+    private DateTime? DateTo { get; set; }
+    void Editar(int idVenta) => Nav.NavigateTo($"/registrarVenta/{idVenta}?mode=edit");
+    void VerDetalle(int idVenta) => Nav.NavigateTo($"/registrarVenta/{idVenta}?mode=view");
+
+
+
+
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+        if (int.TryParse(sucursal, out var idSucursal))
+        {
+            _idSucursal = idSucursal;
+            var desde = DateTime.Now.AddDays(-15);
+            var hasta = DateTime.Now;
+            _Ventas = await VentaService.ObtenerVentasConDetalleEntreFechas(idSucursal, desde, hasta);
+            _VentasFiltradas = new List<Venta>(_Ventas);
+            StateHasChanged();
+        }
+    }
+
+    private async Task DoSearch((DateTime? from, DateTime? to) args)
+    {
+        _busy = true;
+        try
+        {
+            if (_idSucursal is null)
+                return; // o mostrás un mensaje
+
+            var fechaInicio = args.from ?? DateFrom ?? DateTime.Now.AddDays(-15);
+            var fechaFin = args.to ?? DateTo ?? DateTime.Now;
+
+            _Ventas = await VentaService.ObtenerVentasConDetalleEntreFechas(_idSucursal.Value, fechaInicio, fechaFin);
+            DateFrom = fechaInicio;
+            DateTo = fechaFin;
+            _VentasFiltradas = new List<Venta>(_Ventas);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+
+    private Task DoClearSearch()
+    {
+        DateFrom = null;
+        DateTo = null;
+        _Ventas = new();
+        _VentasFiltradas = new();
+        return Task.CompletedTask;
+    }
+
+
+    private Task DoFilter((string? col, string? text) f)
+    {
+        var col = f.col?.Trim();
+        var text = f.text?.Trim();
+
+        if (string.IsNullOrWhiteSpace(col) || string.IsNullOrWhiteSpace(text))
+        {
+            _VentasFiltradas = new List<Venta>(_Ventas);
+            return Task.CompletedTask;
+        }
+
+        var key = col!.ToLowerInvariant();
+        var filtro = text!.ToLowerInvariant();
+
+        // Helpers locales
+        static bool TryParseFecha(string input, out DateTime fecha)
+        {
+            var formatos = new[]
+            {
+            "dd/MM/yyyy HH:mm",
+            "dd/MM/yyyy",
+            "d/M/yyyy HH:mm",
+            "d/M/yyyy"
+        };
+            var esAR = new CultureInfo("es-AR");
+            return DateTime.TryParseExact(input, formatos, esAR, DateTimeStyles.None, out fecha)
+                   || DateTime.TryParse(input, esAR, DateTimeStyles.AllowWhiteSpaces, out fecha)
+                   || DateTime.TryParse(input, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out fecha);
+        }
+
+        static bool TryParseDecimalFlexible(string input, out decimal value)
+        {
+            var esAR = new CultureInfo("es-AR");
+            // Primero intentamos con es-AR (1.234,56), luego Invariant (1,234.56 o 1234.56)
+            return decimal.TryParse(input, NumberStyles.Number | NumberStyles.AllowCurrencySymbol, esAR, out value)
+                   || decimal.TryParse(input, NumberStyles.Number | NumberStyles.AllowCurrencySymbol, CultureInfo.InvariantCulture, out value);
+        }
+
+        _VentasFiltradas = key switch
+        {
+            // Texto llano
+            "nrodocumento" or "nro documento" =>
+                _Ventas.FindAll(c => (c.NroDocumento ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            "razonsocial" or "razón social" or "proveedor" =>
+                _Ventas.FindAll(c => (c.oProveedor?.RazonSocial ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            "usuario" or "usuario registro" =>
+                _Ventas.FindAll(c => (c.oUsuario?.NombreCompleto ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            "tipodocumento" or "tipo documento" =>
+                _Ventas.FindAll(c => (c.TipoDocumento ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            // Fecha: intento parse fuerte, si no, fallback a contains de la representación formateada
+            "fecha" or "fecha registro" =>
+                TryParseFecha(text, out var fechaBuscada)
+                    ? _Ventas.FindAll(c => c.FechaRegistro.Date == fechaBuscada.Date)
+                    : _Ventas.FindAll(c => c.FechaRegistro.ToString("dd/MM/yyyy HH:mm", new CultureInfo("es-AR"))
+                                               .Contains(text, StringComparison.OrdinalIgnoreCase)
+                                            || c.FechaRegistro.ToString("dd/MM/yyyy", new CultureInfo("es-AR"))
+                                               .Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            // Monto Total: intento parse decimal fuerte; si no, fallback a contains del formateo es-AR
+            "total" or "monto total" =>
+                TryParseDecimalFlexible(text, out var montoBuscado)
+                    ? _Ventas.FindAll(c => Math.Abs(c.montoTotal - montoBuscado) < 0.005m) // ≈ 2 decimales
+                    : _Ventas.FindAll(c => c.montoTotal
+                                                .ToString("C", new CultureInfo("es-AR"))
+                                                .Contains(text, StringComparison.OrdinalIgnoreCase)
+                                            || c.montoTotal
+                                                .ToString("#,0.##", new CultureInfo("es-AR"))
+                                                .Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            _ => new List<Venta>(_Ventas)
+        };
+
+        return Task.CompletedTask;
+    }
+
+
+    private Task DoClearFilter()
+    {
+        _VentasFiltradas = new List<Venta>(_Ventas);
+        return Task.CompletedTask;
+    }
+
+
+
+
+    private async Task DoExport()
+    {
+        var esAR = new CultureInfo("es-AR");
+
+        // ---------- nombre del archivo con fechas ----------
+        string fromPart = DateFrom?.ToString("yyyyMMdd") ?? "inicio";
+        string toPart = DateTo?.ToString("yyyyMMdd") ?? "hoy";
+        var fileName = $"Historico Ventas desde {fromPart} hasta {toPart}.xlsx";
+        // ---------------------------------------------------
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Ventas");
+
+        // Encabezados
+        int r = 1, c = 1;
+        ws.Cell(r, c++).Value = "IdVenta";
+        ws.Cell(r, c++).Value = "Fecha";
+        ws.Cell(r, c++).Value = "Usuario";
+        ws.Cell(r, c++).Value = "Proveedor";
+        ws.Cell(r, c++).Value = "Documento";
+        ws.Cell(r, c++).Value = "Total";
+
+        ws.Range(1, 1, 1, 6).Style.Font.SetBold();
+        ws.Range(1, 1, 1, 6).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+
+        // Datos
+        r = 2;
+        foreach (var x in _VentasFiltradas)
+        {
+            c = 1;
+            ws.Cell(r, c++).Value = x.IdVenta;
+            ws.Cell(r, c++).Value = x.FechaRegistro;
+            ws.Cell(r, c++).Value = x.oUsuario?.NombreCompleto ?? "";
+            ws.Cell(r, c++).Value = x.oProveedor?.RazonSocial ?? "";
+            ws.Cell(r, c++).Value = x.NroDocumento ?? "";
+            ws.Cell(r, c++).Value = x.montoTotal;
+            r++;
+        }
+
+        // Formatos
+        ws.Column(2).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
+        ws.Column(6).Style.NumberFormat.Format = "$ #.##0,00";
+
+        ws.Columns().AdjustToContents();
+        ws.RangeUsed().SetAutoFilter();
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        var base64 = Convert.ToBase64String(ms.ToArray());
+
+        await JS.InvokeVoidAsync("downloadFileFromBytes",
+            fileName,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            base64);
+    }
+
+
+}
+
+<style>
+    /* separa el contenido de la navbar */
+    .mt-navbar-gap {
+        margin-top: 20px;
+    }
+
+    @@media (min-width: 960px) {
+        .mt-navbar-gap {
+            margin-top: 28px;
+        }
+    }
+
+    /* fuerza que las dos cards de arriba tengan la misma altura */
+    .equal-col {
+        display: flex;
+    }
+
+    .equal-card {
+        flex: 1;
+    }
+</style>
+
+<!-- Título centrado con espacio antes de la navbar -->
+<MudText Typo="Typo.h6" Align="Align.Center" Class="mt-navbar-gap mb-3">
+    Histórico Ventas
+</MudText>
+
+<ReportListLayout TItem="Venta"
+                  Items="@_VentasFiltradas"
+                  FilterColumns="@(new[] {  "Fecha Registro", "Tipo Documento", "Nro Documento", "Razón Social", "Usuario", "Monto Total" })"
+                  OnSearchParameters="DoSearch"
+                  OnFilter="DoFilter"
+                  OnClearParameters="DoClearSearch"
+                  OnClearFilter="DoClearFilter"
+                  OnExport="DoExport">
+
+    <Columns>
+        <PropertyColumn T="Venta" TProperty="int" Property="e => e.IdVenta"
+                        Title="Id Venta"
+                        Visible="false" />
+
+        <PropertyColumn T="Venta" TProperty="DateTime" Property="e => e.FechaRegistro"
+                        Title="Fecha" Format="dd/MM/yyyy" />
+
+        <PropertyColumn T="Venta" TProperty="string" Property="e => e.TipoDocumento"
+                        Title="Tipo Documento" />
+
+        <PropertyColumn T="Venta" TProperty="string" Property="e => e.NroDocumento"
+                        Title="Nro Documento" />
+
+        <PropertyColumn T="Venta" TProperty="decimal"
+                        Property="e => e.montoTotal"
+                        Title="Total"
+                        Format="C"
+                        Culture="@(new System.Globalization.CultureInfo("es-AR"))" />
+
+        <PropertyColumn T="Venta" TProperty="string" Property="e => e.oProveedor.RazonSocial"
+                        Title="Razón Social" />
+
+        <PropertyColumn T="Venta" TProperty="string" Property="e => e.oUsuario.NombreCompleto"
+                        Title="Usuario" />
+
+        <TemplateColumn T="Venta" Title="Acciones" Align="DataGridColumnAlign.Center" Width="160px">
+            <CellTemplate Context="row">
+                <MudIconButton Size="Size.Small"
+                               Icon="@Icons.Material.Filled.Edit"
+                               OnClick="@(()=>Editar(row.Item.IdVenta))" />
+                <MudIconButton Size="Size.Small"
+                               Icon="@Icons.Material.Filled.Visibility"
+                               Color="Color.Primary"
+                               OnClick="@(()=>VerDetalle(row.Item.IdVenta))" />
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+</ReportListLayout>
+
+
+ *@

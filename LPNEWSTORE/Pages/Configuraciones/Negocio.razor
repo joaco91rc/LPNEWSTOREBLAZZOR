@@ -1,0 +1,173 @@
+﻿@page "/negocio"
+@inject IDialogService DialogService
+@inject NegocioService NegocioService
+@inject IJSRuntime JS
+@using LPNEWSTORE.Shared.Modals
+@using MudBlazor
+@using System.Text
+@using Services
+@using Entities
+@using static MudBlazor.Icons.Material
+@inject CajaRegistradoraService CajaService
+
+
+@inject ISnackbar Snackbar
+
+<MudPaper Elevation="3" Class="d-flex p-6" Style="max-width: 900px; margin: auto; margin-top: 80px; align-items: center;">
+    <!-- Columna izquierda: Logo y carga -->
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 16px;">
+        @if (!string.IsNullOrEmpty(logoBase64))
+        {
+            <img src="@logoBase64" style="width:173px;height:184px;" />
+        }
+
+        <!-- Label estilizado como botón -->
+        <label class="mud-button mud-button-filled mud-button-filled-primary" style="cursor:pointer; width:173px;text-align:center">
+            Cargar Logo
+            <InputFile OnChange="OnLogoSelected" style="display:none" />
+        </label>
+    </div>
+
+    <!-- Columna derecha: Campos -->
+    <div style="flex: 2; padding-left: 2rem; padding-top: 16px;">
+        <MudTextField Label="CUIT" @bind-Value="negocio.CUIT" />
+        <MudTextField Label="Razón Social" @bind-Value="negocio.Nombre" />
+        <MudTextField Label="Dirección" @bind-Value="negocio.Direccion" />
+        <MudTextField Label="Teléfono" @bind-Value="negocio.Telefono" />
+        <MudTextField Label="Mail" @bind-Value="negocio.Mail" />
+        <MudTextField Label="Instagram" @bind-Value="negocio.Instagram" />
+        <div style="padding-top: 16px;">
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Guardar">Guardar</MudButton>
+            <MudTextField @bind-Value="_idClienteInput"
+                          Label="Id Cliente"
+                          Variant="Variant.Outlined"
+                          Dense="true"
+                          Type="number" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AbrirSelectorCliente">
+                Seleccionar pago parcial
+            </MudButton>
+        </div>
+    </div>
+
+</MudPaper>
+
+
+@code {
+
+
+
+    private Entities.Negocio negocio = new();
+    private string logoBase64 = string.Empty;
+    private int idNegocio;
+    private CajaRegistradora? _clienteSeleccionado;
+    private PagoParcial? _pagoParcialSeleccionado;
+    private int _idClienteInput;
+    private async Task AbrirSelectorCliente()
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
+
+
+        // Tu componente de diálogo, ejemplo: mdCliente.razor
+        var dialog = DialogService.Show<MDAperturaCaja>("Buscar Producto", options);
+
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is CajaRegistradora cliente)
+        {
+            _clienteSeleccionado = cliente;
+
+            await CajaService.AperturaCajaAsync(_clienteSeleccionado, idNegocio);
+
+            StateHasChanged();
+        }
+    }
+
+
+    private async Task AbrirPagosParciales()
+    {
+        if (_idClienteInput <= 0)
+        {
+            // Validación simple
+            Snackbar.Add("Debe ingresar un IdCliente válido.", Severity.Warning);
+            return;
+        }
+
+        var parameters = new DialogParameters
+        {
+            ["IdCliente"] = _idClienteInput
+        };
+
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.ExtraLarge,
+            FullWidth = true
+        };
+
+        var dialog = DialogService.Show<MDPagoParcial>("Pagos parciales", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is PagoParcial pagoParcial)
+        {
+            _pagoParcialSeleccionado = pagoParcial;
+            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+   {
+        if (firstRender)
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+            if (int.TryParse(sucursal, out int idSucursal))
+            {
+                idNegocio = idSucursal;
+
+                var (logoBytes, obtenido) = await NegocioService.ObtenerLogo(idNegocio);
+                negocio = await NegocioService.ObtenerDatos(idNegocio);
+
+                if (obtenido && logoBytes?.Length > 0)
+                {
+                    logoBase64 = $"data:image/jpeg;base64,{Convert.ToBase64String(logoBytes)}";
+
+                }
+
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task Guardar()
+    {
+        var (respuesta, mensaje) = await NegocioService.Guardardatos(negocio, idNegocio);
+
+        if (respuesta)
+            Snackbar.Add("Datos guardados correctamente", Severity.Success);
+        else
+            Snackbar.Add($"Error: {mensaje}", Severity.Error);
+    }
+
+    private async Task OnLogoSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            var buffer = new byte[file.Size];
+            await file.OpenReadStream().ReadAsync(buffer);
+
+            var (respuesta, mensaje) = await NegocioService.ActualizarLogo(buffer, idNegocio);
+
+            if (respuesta)
+            {
+                logoBase64 = await NegocioService.ObtenerLogoBase64Async(idNegocio);
+                Snackbar.Add("Logo actualizado correctamente", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add($"Error al actualizar logo: {mensaje}", Severity.Error);
+            }
+        }
+    }
+}

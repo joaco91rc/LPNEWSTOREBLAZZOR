@@ -1,0 +1,354 @@
+﻿ /*Paleta de colores */
+:root {
+    --hitech-pantone2421c: #3a8700;
+    --hitech-verde-pastel: #d9f4c7;
+    --hitech-verde-hoover: #aedb91;
+    --hitech-pantoneblack: #2c3138;
+    --hitech-2151c: #385d81;
+    --hitech-pantone375c: #aaf129;
+    --hitech-blanco: white;
+    --drawer-bg-color: var(--hitech-pantoneblack); /* fondo del Drawer */
+    --drawer-text-color: var(--hitech-blanco); /* color del texto */
+    --drawer-hover-bg: var(--hitech-verde-hoover); /* hover */
+}
+
+/* Logo*/
+.logo {
+    width: 150px;
+    height: 140px;
+    background-image: url('/images/logo-hitech-blanco.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+
+ .bg-panel {
+    background-color: var(--hitech-blanco);
+}
+
+ /*Fondo del header (logo + título)*/ 
+.bg-header {
+    background-color: var(--hitech-pantoneblack);
+}
+
+/* Color de texto general*/ 
+.text-primary-custom {
+    color: var(--hitech-2151c) !important;
+}
+
+.appbar-custom {
+    width: 100%;
+    background-color: var(--hitech-pantoneblack);
+    color: var(--hitech-blanco) !important;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    height: 50px;
+    min-height: 50px;
+   
+}
+/*
+    .appbar-custom > div {
+        display: flex !important;
+        align-items: center !important;
+        width: 100% !important;
+        gap: 1rem !important;
+    }
+
+.left-group {
+    display: flex !important;
+    gap: 0.5rem !important;
+    flex-shrink: 0 !important;
+    align-items: center !important;
+}
+
+.spacer {
+    flex-grow: 1 !important;
+}
+
+.right-group {
+    display: flex !important;
+    gap: 1rem !important;
+    flex-shrink: 0 !important;
+    align-items: center !important;
+}
+*/
+
+.btn-cerrar-sesion {
+    background-color: var(--hitech-pantoneblack) !important;
+    color: var(--hitech-pantone2421c) !important;
+    border-radius: 8px; /* bordes redondeados */
+    border: none;
+    padding: 6px 12px; /* un poco de espacio interno */
+    transition: background-color 0.3s ease, color 0.3s ease;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+    .btn-cerrar-sesion:hover {
+        background-color: darkred !important;
+        color: white !important;
+    }
+
+
+/*
+ Tamaños responsivos */
+.header-info {
+    font-size: 0.9rem;
+}
+
+.select-sucursal {
+    width: auto;
+    font-size: 0.9rem;
+}
+
+/* Contenedor izquierdo del AppBar: evita que el texto se amontone */
+.mud-appbar-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 1rem;
+    white-space: nowrap; /* evita saltos de línea */
+}
+
+/* Contenedor derecho del AppBar: evita que los elementos salten o se compriman */
+.mud-appbar-right {
+    display: flex !important;
+    align-items: center !important;
+    gap: 1rem;
+    white-space: nowrap;
+    flex-wrap: nowrap !important; /* evitar wrap de bootstrap */
+}
+
+/* Ajuste específico para el botón cerrar sesión para que no tenga margen extra */
+.btn-cerrar-sesion {
+    margin-left: 0 !important;
+}
+
+/* Ajuste para MudSelect para que no ocupe todo el ancho */
+.select-sucursal {
+    width: 180px !important;
+    min-width: 180px !important;
+    font-size: 0.9rem !important;
+}
+
+
+ /*Navbar principal */
+.navbar-custom {
+    background-color: var(--hitech-pantone2421c) !important;  /*Pantone 2421C*/ 
+    font-size: 0.9rem;
+}
+
+   /*  Marca */
+    .navbar-custom .navbar-brand {
+        color: #ffffff !important;
+        font-weight: bold;
+    }
+
+     /*Ítems de navegación*/ 
+    .navbar-custom .nav-link {
+        color: #ffffff !important;
+        transition: background-color 0.3s ease, color 0.3s ease;
+    }
+/*
+         Hover en nav-link */
+        .navbar-custom .nav-link:hover,
+        .navbar-custom .nav-link:focus {
+            background-color: var(--hitech-pantoneblack); /* Pantone Black C */
+            color: var(--hitech-pantone375c) !important; 
+        }
+
+/*     Dropdown sin flecha */
+    .navbar-custom .dropdown-toggle::after {
+        display: none;
+    }
+/*
+     Dropdown menú */
+    .navbar-custom .dropdown-menu {
+        background-color: var(--hitech-pantoneblack);  /*Pantone Black C*/ 
+        font-size: 0.85rem;
+        border: none;
+    }
+
+/*     Ítems de dropdown */
+    .navbar-custom .dropdown-item {
+        color: var(--hitech-pantone2421c);  /*Pantone 2421C */
+        transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+         /*Hover en dropdown-item */
+        .navbar-custom .dropdown-item:hover {
+            background-color: var(--hitech-pantone375c); 
+            color: var(--hitech-2151c) !important; /* Pantone 2151C */
+        }
+
+
+
+/*.abm-container {
+    width: 100vw;
+    height: 100vh;
+    padding: 0;
+    margin: 0;
+    font-size: 10px !important;
+    display: flex;
+    flex-direction: column;
+}
+
+.abm-form {
+    background-color: var(--hitech-pantone2421c) !important;
+    font-size: 10px !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.abm-grid {
+    background-color: #ffffff;
+    overflow-y: auto;
+    font-size: 10px !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+    .abm-grid thead {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }*/
+
+    
+
+.table thead.mi-th th {
+    background-color: var(--hitech-pantone2421c) !important;
+    color: white !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+    text-align: center !important;
+}
+
+thead.mi-th-hitech th {
+    background-color: var(--hitech-pantone2421c) !important;
+    color: white !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+    text-align: center !important;
+}
+
+
+/* Filas pares del tbody */
+table.table tbody tr:nth-child(even) {
+    background-color: var(--hitech-verde-pastel) !important; /* un celeste suave */
+}
+
+/* Filas impares del tbody */
+table.table tbody tr:nth-child(odd) {
+    background-color: #FFFFFF !important; /* blanco */
+}
+
+/* Efecto hover para ambas */
+table.table tbody tr:hover {
+    background-color: var(--hitech-verde-hoover) !important; /* celeste más oscuro al pasar el mouse */
+}
+
+
+.drawer-custom {
+    background-color: var(--hitech-pantoneblack) !important;
+    color: var(--hitech-blanco) !important;
+}
+
+    /* Color por defecto del texto de los links y grupos */
+    .drawer-custom .mud-nav-link,
+    .drawer-custom .mud-nav-link-text,
+    .drawer-custom .mud-nav-group-text {
+        color: var(--hitech-pantone2421c) !important;
+    }
+
+        /* HOVER links individuales */
+        .drawer-custom .mud-nav-link:hover,
+        .drawer-custom .mud-nav-group .mud-nav-link:hover {
+            background-color: var(--hitech-pantone2421c) !important;
+            color: var(--hitech-blanco) !important;
+        }
+
+            /* HOVER texto dentro del link (asegura visibilidad) */
+            .drawer-custom .mud-nav-link:hover .mud-nav-link-text,
+            .drawer-custom .mud-nav-group .mud-nav-link:hover .mud-nav-link-text,
+            .drawer-custom .mud-nav-group .mud-nav-link:hover .mud-icon-root {
+                color: var(--hitech-blanco) !important;
+            }
+
+    /* Mostrar correctamente el texto del navgroup (soluciona tu problema) */
+    .drawer-custom .mud-nav-group > .mud-nav-link .mud-nav-link-text {
+        color: var(--hitech-pantone2421c) !important;
+    }
+
+    /* Opcional: ícono del grupo cambia color al hacer hover */
+    .drawer-custom .mud-nav-group > .mud-nav-link:hover .mud-icon-root {
+        color: var(--hitech-pantoneblack) !important;
+    }
+
+    /* Evitar que todo el bloque del navgroup se pinte */
+    .drawer-custom .mud-nav-group:hover {
+        background-color: transparent !important;
+    }
+
+    /* Mantener color del título al expandir */
+    .drawer-custom .mud-nav-group.mud-nav-group--expanded .mud-nav-group-text {
+        color: var(--hitech-pantone2421c) !important;
+    }
+
+.drawer-custom {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+    .drawer-custom::-webkit-scrollbar {
+        display: none; /* Chrome, Safari */
+    }
+
+.drawer-content-scroll {
+    flex-grow: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE y Edge */
+}
+
+    .drawer-content-scroll::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, Opera */
+    }
+
+
+.mud-select-paper {
+    background-color: var(--hitech-pantoneblack) !important;
+    color: white; /* Para que el texto contraste */
+}
+
+    /* Opcional: color de las opciones al pasar el mouse */
+    .mud-select-paper .mud-list-item:hover {
+        background-color: #3b414a !important;
+    }
+
+
+.mud-popover .mud-list {
+    background-color: var(--hitech-pantoneblack) !important;
+    color: white !important;
+}
+
+.mud-popover .mud-list-item:hover {
+    background-color: var(--hitech-pantone2421c) !important; /* verde */
+    color: var(--hitech-blanco) !important;
+}
+
+/* Responsive spacing */
+@media (max-width: 768px) {
+    .navbar-custom {
+        font-size: 0.85rem;
+    }
+
+        .navbar-custom .nav-link {
+            padding: 0.5rem 1rem;
+        }
+}
+
+

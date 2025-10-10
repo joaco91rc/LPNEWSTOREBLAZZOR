@@ -1,0 +1,352 @@
+﻿@page "/clientes"
+@using MudBlazor
+@using Microsoft.AspNetCore.Identity
+@using Services
+@using Entities
+@using System.Security.Claims
+
+@inject ClienteService clienteService
+@inject RolService rolService
+
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SesionNegocioService SesionNegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+<AbmLayout TEntity="Cliente"
+           FormContent="@FormCliente"
+           GridContent="@GridClientes" />
+
+
+
+
+
+
+@code {
+    List<Cliente> listaClientes = new();
+    Cliente clienteActual = new();
+    private List<Rol> listaRoles = new();
+    private int idRolSeleccionado = 0;
+    private string claseThead = "mi-th";
+    private MudForm? formCliente;
+    private bool esEdicion = false;
+    private string rolUsuarioActual = string.Empty;
+    private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+
+    
+    private MudTable<Cliente> _table;
+    private string filterString = string.Empty;
+
+    private async Task<TableData<Cliente>> LoadServerData(TableState state, CancellationToken cancellationToken)
+    {
+        var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+    if (!int.TryParse(sucursal, out int idSucursal))
+        return new TableData<Cliente>() { Items = new List<Cliente>(), TotalItems = 0 };
+
+    var allItems = await clienteService.ListarClientesPorNegocio(idSucursal);
+
+    // Filtrado en el backend
+    if (!string.IsNullOrWhiteSpace(filterString))
+    {
+        allItems = allItems.Where(x =>
+            (!string.IsNullOrEmpty(x.NombreCompleto) && x.NombreCompleto.Contains(filterString, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(x.Correo) && x.Correo.Contains(filterString, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(x.Telefono) && x.Telefono.Contains(filterString, StringComparison.OrdinalIgnoreCase))
+        ).ToList();
+    }
+
+    // Ordenamiento
+    if (state.SortDirection != SortDirection.None)
+    {
+        if (state.SortLabel == "Nombre")
+            allItems = (state.SortDirection == SortDirection.Ascending)
+                ? allItems.OrderBy(x => x.NombreCompleto).ToList()
+                : allItems.OrderByDescending(x => x.NombreCompleto).ToList();
+        // Otros campos si querés
+    }
+
+    var pagedData = allItems
+        .Skip(state.Page * state.PageSize)
+        .Take(state.PageSize)
+        .ToList();
+
+    return new TableData<Cliente>()
+    {
+        Items = pagedData,
+        TotalItems = allItems.Count
+    };
+    
+}
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // if (firstRender)
+        // {
+        //     var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+            
+        //     if (int.TryParse(sucursal, out int idSucursal))
+        //     {
+        //         listaClientes = await clienteService.ListarClientesPorNegocio(idSucursal);
+        //     }
+
+        //     StateHasChanged();
+        // }
+
+
+
+    }
+   
+
+
+
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+        }
+
+        listaRoles = await rolService.Listar();
+        clienteActual.Estado = true;
+
+        var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+        if (int.TryParse(sucursal, out int idSucursal))
+        {
+            listaClientes = await clienteService.ListarClientesPorNegocio(idSucursal);
+        }
+
+    }
+
+    private void Editar(Cliente c)
+    {
+        clienteActual = new Cliente
+        {
+            IdCliente = c.IdCliente,
+            Documento = c.Documento,
+            Direccion = c.Direccion,
+            NombreCompleto = c.NombreCompleto,
+            Telefono = c.Telefono,
+            Correo = c.Correo,
+            Estado = c.Estado,
+            Ciudad = c.Ciudad,
+            FechaRegistro = DateTime.Now.ToString(),
+
+        };
+
+
+        esEdicion = true;
+    }
+
+    private async Task Registrar()
+    {
+        if (formCliente is null)
+            return;
+
+        await formCliente.Validate();
+
+        if (!formCliente.IsValid)
+        {
+            Snackbar.Add("Por favor completá todos los campos requeridos.", Severity.Error);
+            return;
+        }
+
+        string mensaje = string.Empty;
+        bool resultado = false;
+
+        if (esEdicion)
+        {
+            var (exito, msg) = await clienteService.Editar(clienteActual);
+            resultado = exito;
+            mensaje = msg;
+        }
+        else
+        {
+            var (idGenerado, msg) = await clienteService.Registrar(clienteActual);
+            resultado = idGenerado > 0;
+            if (resultado)
+            {
+                await clienteService.AsignarClienteANegocio(idGenerado, sucursalSeleccionada);
+            }
+            mensaje = msg;
+        }
+
+        if (resultado)
+        {
+            Snackbar.Add(mensaje, Severity.Success);
+            clienteActual = new Cliente();
+            esEdicion = false;
+            listaClientes = await clienteService.Listar();
+            await formCliente.ResetAsync(); // resetea el form
+            clienteActual.Estado = true;
+        }
+        else
+        {
+            Snackbar.Add(mensaje, Severity.Error);
+        }
+    }
+
+
+
+
+    private async Task Eliminar(Cliente c)
+    {
+        bool? confirmado = await DialogService.ShowMessageBox(
+            title: "Eliminar cliente",
+            markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar a {c.NombreCompleto}?</b>",
+            yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
+        );
+
+        if (confirmado == true)
+        {
+            var (exito, mensaje) = await clienteService.Eliminar(c.IdCliente);
+
+            if (exito)
+            {
+                Snackbar.Add(mensaje, Severity.Success);
+                listaClientes = await clienteService.ListarClientesPorNegocio(sucursalSeleccionada);
+            }
+            else
+            {
+                if (mensaje.Contains("FK") || mensaje.Contains("clave foránea") || mensaje.Contains("restricción"))
+                    Snackbar.Add("No se puede eliminar el Cliente porque tiene un Pago Parcial asociado.", Severity.Error);
+                else
+                    Snackbar.Add(mensaje, Severity.Error);
+            }
+        }
+    }
+
+   
+
+    private void CancelarEdicion()
+    {
+        clienteActual = new Cliente();
+        clienteActual.Estado = true;
+
+        esEdicion = false;
+    }
+
+    private string GetClaseTablaPorSucursal()
+    {
+        return sucursalSeleccionada switch
+        {
+            1 => "table-sucursal-1",
+            2 => "table-sucursal-2",
+            3 => "table-sucursal-3",
+            4 => "table-sucursal-4",
+            _ => "table-sucursal-default"
+        };
+    }
+
+    RenderFragment FormCliente => @<div style="padding: 16px;  padding-top : 16px">
+    <MudForm @ref="formCliente" OnValidSubmit="Registrar">
+        <MudStack Spacing="2">
+            <MudTextField Label="Número Documento" @bind-Value="clienteActual.Documento" Required="true" />
+            <MudTextField Label="Nombre Completo" @bind-Value="clienteActual.NombreCompleto" Required="true" />
+            <MudTextField Label="Email" @bind-Value="clienteActual.Correo" Required="true" />
+            <MudTextField Label="Teléfono" @bind-Value="clienteActual.Telefono" />
+            <MudTextField Label="Dirección" @bind-Value="clienteActual.Direccion" />
+            <MudTextField Label="Ciudad" @bind-Value="clienteActual.Ciudad" />
+
+            <MudSelect T="bool" Label="Estado" @bind-Value="clienteActual.Estado" Required="true">
+                <MudSelectItem Value="true">Activo</MudSelectItem>
+                <MudSelectItem Value="false">No Activo</MudSelectItem>
+            </MudSelect>
+
+            <MudStack Direction="Row" Spacing="2">
+                <MudButton OnClick="Registrar" Variant="Variant.Filled" Color="Color.Primary">
+                    @(esEdicion ? "Actualizar" : "Guardar")
+                </MudButton>
+                @if (esEdicion)
+                {
+                    <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CancelarEdicion">
+                        Cancelar
+                    </MudButton>
+                }
+            </MudStack>
+        </MudStack>
+    </MudForm>
+</div>;
+
+
+    
+    RenderFragment GridClientes => @<div style="padding: 16px; padding-top : 16px">
+    <MudTable T="Cliente"
+              Items="listaClientes"
+              Dense="true"
+              Hover="true"
+              Bordered="true"
+              Striped="true"
+              Sortable="true"
+              Breakpoint="Breakpoint.Sm"
+              
+              RowsPerPageOptions="new int[]{ 5, 10, 20,30,40,50 }"
+              PagerAlwaysVisible="true"
+              Elevation = "1"
+              Class="mt-2">
+        <HeaderContent>
+            <MudTh>
+                <MudTableSortLabel T="Cliente" SortBy="@(c => c.Documento)">Documento</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Cliente" SortBy="@(c => c.NombreCompleto)">Nombre</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Cliente" SortBy="@(c => c.Correo)">Email</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Cliente" SortBy="@(c => c.Telefono)">Teléfono</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Cliente" SortBy="@(c => c.Direccion)">Dirección</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Cliente" SortBy="@(c => c.Ciudad)">Ciudad</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Cliente" SortBy="@(c => c.Estado)">Estado</MudTableSortLabel>
+            </MudTh>
+            <MudTh>Acciones</MudTh>
+        </HeaderContent>
+
+        <RowTemplate>
+            <MudTd DataLabel="Documento">@context.Documento</MudTd>
+            <MudTd DataLabel="Nombre">@context.NombreCompleto</MudTd>
+            <MudTd DataLabel="Email">@context.Correo</MudTd>
+            <MudTd DataLabel="Teléfono">@context.Telefono</MudTd>
+            <MudTd DataLabel="Dirección">@context.Direccion</MudTd>
+            <MudTd DataLabel="Ciudad">@context.Ciudad</MudTd>
+            <MudTd DataLabel="Estado">@((context.Estado) ? "Activo" : "No Activo")</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Success" Size="Size.Small" OnClick="() => Editar(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => Eliminar(context)" Class="ms-2" />
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
+                           RowsPerPageString="Registros por página"
+                           >
+            </MudTablePager>
+        </PagerContent>
+        
+
+        
+    </MudTable>
+</div>;
+
+
+
+}

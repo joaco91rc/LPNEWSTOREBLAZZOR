@@ -1,0 +1,54 @@
+﻿@page "/aperturacaja"
+@inject IDialogService DialogService
+
+@inject IJSRuntime JS
+@using LPNEWSTORE.Shared.Modals
+@using MudBlazor
+@using System.Text
+@using Services
+@using Entities
+@using static MudBlazor.Icons.Material
+@inject CajaRegistradoraService CajaService
+
+@code {
+    private CajaRegistradora? _clienteSeleccionado;
+    private int idNegocio;
+
+
+    private async Task AbrirAperturaCaja()
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
+
+
+        // Tu componente de diálogo, ejemplo: mdCliente.razor
+        var dialog = DialogService.Show<MDAperturaCaja>("Apertura Caja", options);
+
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is CajaRegistradora cliente)
+        {
+            _clienteSeleccionado = cliente;
+
+            await CajaService.AperturaCajaAsync(_clienteSeleccionado, idNegocio);
+
+            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+            if (int.TryParse(sucursal, out int idSucursal))
+            {
+                idNegocio = idSucursal;
+
+                await AbrirAperturaCaja();
+
+                StateHasChanged();
+            }
+        }
+    }
+}

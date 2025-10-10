@@ -1,0 +1,83 @@
+﻿@page
+@using Services
+@model LPNEWSTORE.Pages.LoginModel
+@{
+    Layout = "/Pages/EmptyLayout.cshtml";
+}
+@inject SesionNegocioService SesionNegocioService
+
+@section Styles {
+    <link href="css/login.css" rel="stylesheet" />
+}
+
+<form method="post" asp-antiforgery="true">
+    <div class="hero">
+        <div class="main-box">
+            <div class="form-box">
+                <!-- Líneas animadas -->
+                <div class="sp sp-t"></div>
+                <div class="sp sp-r"></div>
+                <div class="sp sp-b"></div>
+                <div class="sp sp-l"></div>
+
+                <!-- LOGO -->
+                <div class="logo-container" style="display: flex; justify-content: center; align-items: center; margin-bottom: 50px;">
+                    <img src="~/images/LOGO_LOGIN.png" alt="Logo" class="logo-img" height="170px" width="170px"  />
+                </div>
+                <div class="input-group">
+                    <input type="text" class="input-field" name="Input.Username" placeholder="Usuario" required />
+                    <input type="password" class="input-field" name="Input.Password" placeholder="Contraseña" required />
+                    <select class="input-field" name="Input.Sucursal" required>
+                        <option value="" disabled selected>Seleccione Sucursal</option>
+                        <option value="1">Hitech 1</option>
+                        <option value="2">Hitech 2</option>
+                        <option value="3">Apple Store 49</option>
+                        <option value="4">Apple Cafe</option>
+                    </select>
+
+                    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+                    {
+                        <div class="alert alert-danger mt-2">@Model.ErrorMessage</div>
+                    }
+
+                    <button type="submit" class="submit-btn">Iniciar sesión</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <script>
+        window.onload = function () {
+            var sucursal = getCookie("sucursalSeleccionada");
+            var archivoCss;
+            switch (sucursal) {
+                case "1":
+                case "2":
+                    archivoCss = "css/custom-theme-hitech.css";
+                    break;
+                case "3":
+                    archivoCss = "css/custom-theme-apple49.css";
+                    break;
+                case "4":
+                    archivoCss = "css/custom-theme-cafe.css";
+                    break;
+                default:
+                    archivoCss = "css/custom-theme-apple49.css";
+            }
+            if (archivoCss) {
+                cambiarEstiloSucursal(archivoCss);
+            }
+        };
+
+        function getCookie(name) {
+            let matches = document.cookie.match(new RegExp(
+                "(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, '\\$1') + "=([^;]*)"
+            ));
+            return matches ? decodeURIComponent(matches[1]) : undefined;
+        }
+    </script>
+}
+
+

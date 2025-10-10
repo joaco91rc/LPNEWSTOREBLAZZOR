@@ -1,0 +1,84 @@
+﻿@page "/login"
+@using Entities
+@using Microsoft.AspNetCore.Identity
+@layout EmptyLayout
+
+@inject UserManager<Usuario> _userManager
+@inject SignInManager<Usuario> _signInManager
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<div class="hero">
+	<div class="main-box">
+		<div class="form-box">
+			<div class="input-group">
+				<input type="text" class="input-field" placeholder="Usuario" @bind="usuario" required />
+				<input type="password" class="input-field" placeholder="Contraseña" @bind="password" required />
+				<select class="input-field" @bind="sucursalSeleccionada" required>
+					<option value="" disabled selected>Seleccione Sucursal</option>
+					<option value="1">Hitech 1</option>
+					<option value="2">Hitech 2</option>
+					<option value="3">Apple Store 49</option>
+					<option value="4">Apple Cafe</option>
+				</select>
+
+				@if (!string.IsNullOrWhiteSpace(mensajeError))
+				{
+					<div class="alert alert-danger mt-2">@mensajeError</div>
+				}
+
+				<button type="button" class="submit-btn" @onclick="IniciarSesion">Log in</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+@code {
+	private string usuario = string.Empty;
+	private string password = string.Empty;
+	private string sucursalSeleccionada = string.Empty;
+	private string mensajeError = string.Empty;
+
+	private async Task IniciarSesion()
+	{
+		mensajeError = string.Empty;
+
+		if (string.IsNullOrWhiteSpace(sucursalSeleccionada))
+		{
+			mensajeError = "Debe seleccionar una sucursal.";
+			return;
+		}
+
+		var user = await _userManager.FindByNameAsync(usuario);
+		if (user == null)
+		{
+			mensajeError = "Usuario o contraseña incorrectos.";
+			return;
+		}
+
+		var result = await _signInManager.PasswordSignInAsync(user, password, isPersistent: false, lockoutOnFailure: false);
+
+		if (!result.Succeeded)
+		{
+			mensajeError = "Usuario o contraseña incorrectos.";
+			return;
+		}
+
+		// Guardar sucursal en sessionStorage
+		await JS.InvokeVoidAsync("sessionStorage.setItem", "sucursalSeleccionada", sucursalSeleccionada);
+
+		// Cambiar tema según sucursal
+		string archivoCss = sucursalSeleccionada switch
+		{
+			"1" or "2" => "css/custom-theme-hitech.css",
+			"3" => "css/custom-theme-apple49.css",
+			"4" => "css/custom-theme-cafe.css",
+			_ => "css/custom-theme-apple49.css"
+		};
+
+		await JS.InvokeVoidAsync("cambiarEstiloSucursal", archivoCss);
+
+		// Redirigir al inicio, forzando recarga
+		Navigation.NavigateTo("/", forceLoad: true);
+	}
+}
