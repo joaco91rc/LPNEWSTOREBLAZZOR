@@ -186,3 +186,4 @@ C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\re
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.pdb
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.genruntimeconfig.cache
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\ref\LPNEWSTORE.dll
+C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.sourcelink.json

@@ -1,0 +1,390 @@
+﻿@page "/snvendidos"
+@using ClosedXML.Excel
+@using MudBlazor
+@using Microsoft.AspNetCore.Identity
+@using Services
+@using Entities
+@using System.Security.Claims
+@using System.Text
+@using System.Globalization
+@using ClosedXML
+@inject ProductoDetalleService ProductoDetalleService
+@inject RolService rolService
+@inject NavigationManager Nav;
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SesionNegocioService SesionNegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+
+
+
+@code {
+    // Example backing variables in a page that consumes the layout component
+    private List<string> _cols = new() { "Ingreso", "Egreso", "Codigo", "Producto", "Proveedor", "Marca", "Modelo", "Color", "SerialNumber", "Venta", "Local" };
+    List<ProductoDetalle> _ProductoDetalles = new();
+    private List<ProductoDetalle> _ProductoDetallesFiltradas = new();
+    private bool _busy;
+    private int? _idSucursal;
+    private DateTime? DateFrom { get; set; }
+    private DateTime? DateTo { get; set; }
+
+
+
+
+
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+        if (int.TryParse(sucursal, out var idSucursal))
+        {
+            _idSucursal = idSucursal;
+            var desde = DateTime.Now.AddDays(-15);
+            var hasta = DateTime.Now;
+            _ProductoDetalles = await ProductoDetalleService.ListarProductosVendidosAsync(idSucursal);
+            _ProductoDetallesFiltradas = new List<ProductoDetalle>(_ProductoDetalles);
+            StateHasChanged();
+        }
+    }
+
+    private async Task DoSearch((DateTime? from, DateTime? to) args)
+    {
+        _busy = true;
+        try
+        {
+            if (_idSucursal is null)
+                return; // o mostrás un mensaje
+
+            var fechaInicio = args.from ?? DateFrom ?? DateTime.Now.AddDays(-15);
+            var fechaFin = args.to ?? DateTo ?? DateTime.Now;
+
+            _ProductoDetalles = await ProductoDetalleService.ListarProductosVendidosPorFechaAsync(_idSucursal.Value, fechaInicio, fechaFin);
+
+            DateFrom = fechaInicio;
+            DateTo = fechaFin;
+            _ProductoDetallesFiltradas = _ProductoDetalles;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+
+    private async Task DoClearSearch()
+    {
+        DateFrom = null;
+        DateTo = null;
+        _ProductoDetalles = await ProductoDetalleService.ListarProductosVendidosAsync(_idSucursal.Value);
+        _ProductoDetallesFiltradas = _ProductoDetalles;
+
+    }
+
+
+    private Task DoFilter((string? col, string? text) f)
+    {
+        var col = f.col?.Trim();
+        var text = f.text?.Trim();
+
+        if (string.IsNullOrWhiteSpace(col) || string.IsNullOrWhiteSpace(text))
+        {
+            _ProductoDetallesFiltradas = new List<ProductoDetalle>(_ProductoDetalles);
+            return Task.CompletedTask;
+        }
+
+        var key = col!.ToLowerInvariant();
+        var filtro = text!.ToLowerInvariant();
+
+        // Helpers locales
+        static bool TryParseFecha(string input, out DateTime fecha)
+        {
+            var formatos = new[]
+            {
+            "dd/MM/yyyy HH:mm",
+            "dd/MM/yyyy",
+            "d/M/yyyy HH:mm",
+            "d/M/yyyy"
+        };
+            var esAR = new CultureInfo("es-AR");
+            return DateTime.TryParseExact(input, formatos, esAR, DateTimeStyles.None, out fecha)
+                   || DateTime.TryParse(input, esAR, DateTimeStyles.AllowWhiteSpaces, out fecha)
+                   || DateTime.TryParse(input, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out fecha);
+        }
+
+        static bool TryParseDecimalFlexible(string input, out decimal value)
+        {
+            var esAR = new CultureInfo("es-AR");
+            // Primero intentamos con es-AR (1.234,56), luego Invariant (1,234.56 o 1234.56)
+            return decimal.TryParse(input, NumberStyles.Number | NumberStyles.AllowCurrencySymbol, esAR, out value)
+                   || decimal.TryParse(input, NumberStyles.Number | NumberStyles.AllowCurrencySymbol, CultureInfo.InvariantCulture, out value);
+        }
+
+        _ProductoDetallesFiltradas = key switch
+        {
+            // Texto llano
+            "codigo" or "codigo" =>
+                _ProductoDetalles.FindAll(c => (c.Codigo ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+            "nombre" or "producto" =>
+                _ProductoDetalles.FindAll(c => (c.Nombre ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            "nombreProveedor" or "razón social" or "proveedor" =>
+                _ProductoDetalles.FindAll(c => (c.NombreProveedor ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            "marca" or "marca" =>
+                _ProductoDetalles.FindAll(c => (c.Marca ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            "modelo" or "modelo" =>
+                _ProductoDetalles.FindAll(c => (c.Modelo ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+            "color" or "color" =>
+                _ProductoDetalles.FindAll(c => (c.Color ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+            "serialNumber" or "serialNumber" =>
+            _ProductoDetalles.FindAll(c => (c.NumeroSerie ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            "Venta" or "NumeroVenta" =>
+                 _ProductoDetalles.FindAll(c =>
+                     (c.NumeroVenta?.ToString() ?? string.Empty)
+                         .Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+
+            "Local" or "NombreLocal" =>
+            _ProductoDetalles.FindAll(c => (c.NombreLocal ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            // Fecha: intento parse fuerte, si no, fallback a contains de la representación formateada
+            "fecha" or "fecha registro" =>
+                TryParseFecha(text, out var fechaBuscada)
+                    ? _ProductoDetalles.FindAll(c => c.Fecha.Date == fechaBuscada.Date)
+                    : _ProductoDetalles.FindAll(c => c.Fecha.ToString("dd/MM/yyyy HH:mm", new CultureInfo("es-AR"))
+                                               .Contains(text, StringComparison.OrdinalIgnoreCase)
+                                            || c.Fecha.ToString("dd/MM/yyyy", new CultureInfo("es-AR"))
+                                               .Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            "fechaEgreso" or "fecha egreso" =>
+                TryParseFecha(text, out var fechaBuscada)
+                    ? _ProductoDetalles.FindAll(c =>
+                        c.FechaEgreso != null && c.FechaEgreso.Value.Date == fechaBuscada.Date)
+                    : _ProductoDetalles.FindAll(c =>
+                        (c.FechaEgreso?.ToString("dd/MM/yyyy HH:mm", new CultureInfo("es-AR")) ?? string.Empty)
+                            .Contains(text, StringComparison.OrdinalIgnoreCase)
+                        || (c.FechaEgreso?.ToString("dd/MM/yyyy", new CultureInfo("es-AR")) ?? string.Empty)
+                            .Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+
+
+
+            _ => new List<ProductoDetalle>(_ProductoDetalles)
+        };
+
+        return Task.CompletedTask;
+    }
+
+
+    private Task DoClearFilter()
+    {
+        _ProductoDetallesFiltradas = new List<ProductoDetalle>(_ProductoDetalles);
+        return Task.CompletedTask;
+    }
+
+
+
+
+    private async Task DoExport()
+    {
+        var esAR = new CultureInfo("es-AR");
+
+        // ---------- nombre del archivo con fechas ----------
+        string fromPart = DateFrom?.ToString("yyyyMMdd") ?? "inicio";
+        string toPart = DateTo?.ToString("yyyyMMdd") ?? "hoy";
+        var fileName = $"Historico ProductoDetalles desde {fromPart} hasta {toPart}.xlsx";
+        // ---------------------------------------------------
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("ProductoDetalles");
+
+        // Encabezados
+        int r = 1, c = 1;
+        ws.Cell(r, c++).Value = "Ingreso";
+        ws.Cell(r, c++).Value = "Egreso";
+        ws.Cell(r, c++).Value = "Codigo";
+        ws.Cell(r, c++).Value = "Nombre";
+        ws.Cell(r, c++).Value = "Proveedor";
+        ws.Cell(r, c++).Value = "Marca";
+        ws.Cell(r, c++).Value = "Modelo";
+        ws.Cell(r, c++).Value = "Color";
+        ws.Cell(r, c++).Value = "SerialNumber";
+        ws.Cell(r, c++).Value = "Venta";
+        ws.Cell(r, c++).Value = "Local";
+
+        ws.Range(1, 1, 1, 6).Style.Font.SetBold();
+        ws.Range(1, 1, 1, 6).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+
+        // Datos
+        r = 2;
+        foreach (var x in _ProductoDetallesFiltradas)
+        {
+            c = 1;
+            ws.Cell(r, c++).Value = x.Fecha;
+            ws.Cell(r, c++).Value = x.FechaEgreso;
+            ws.Cell(r, c++).Value = x.Codigo;
+            ws.Cell(r, c++).Value = x.NombreProveedor;
+            ws.Cell(r, c++).Value = x.Marca;
+            ws.Cell(r, c++).Value = x.Modelo;
+            ws.Cell(r, c++).Value = x.Color;
+            ws.Cell(r, c++).Value = x.NumeroSerie;
+            ws.Cell(r, c++).Value = x.IdVenta;
+            ws.Cell(r, c++).Value = x.NombreLocal;
+            r++;
+        }
+
+        // Formatos
+        ws.Column(2).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
+        ws.Column(6).Style.NumberFormat.Format = "$ #.##0,00";
+
+        ws.Columns().AdjustToContents();
+        ws.RangeUsed().SetAutoFilter();
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        var base64 = Convert.ToBase64String(ms.ToArray());
+
+        await JS.InvokeVoidAsync("downloadFileFromBytes",
+            fileName,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            base64);
+    }
+
+
+}
+
+<style>
+    /* separa el contenido de la navbar */
+    .mt-navbar-gap {
+        margin-top: 20px;
+    }
+
+    @@media (min-width: 960px) {
+        .mt-navbar-gap {
+            margin-top: 28px;
+        }
+    }
+
+    /* fuerza que las dos cards de arriba tengan la misma altura */
+    .equal-col {
+        display: flex;
+    }
+
+    .equal-card {
+        flex: 1;
+    }
+</style>
+
+<!-- Título centrado con espacio antes de la navbar -->
+<MudText Typo="Typo.h6" Align="Align.Center" Color="Color.Secondary" Class="mt-navbar-gap mb-3">
+    Productos Serializados
+</MudText>
+
+<ReportListLayout TItem="ProductoDetalle"
+                  Items="@_ProductoDetallesFiltradas"
+                  FilterColumns="@(new[] {  "Ingreso", "Egreso", "Codigo", "Producto", "Proveedor", "Marca", "Modelo","Color","S/N","Venta","Local" })"
+                  OnSearchParameters="DoSearch"
+                  OnFilter="DoFilter"
+                  OnClearParameters="DoClearSearch"
+                  OnClearFilter="DoClearFilter"
+                  OnExport="DoExport">
+
+    <Columns>
+        <!-- Más chicas -->
+        <PropertyColumn T="ProductoDetalle" TProperty="DateTime"
+                        Property="e => e.Fecha"
+                        Title="Ingreso" Format="dd/MM/yyyy"
+                        Width="60px"
+                        CellClass="col-fecha"
+                        HeaderClass="col-fecha" />
+
+        <PropertyColumn T="ProductoDetalle" TProperty="DateTime?"
+                        Property="e => e.FechaEgreso"
+                        Title="Egreso" Format="dd/MM/yyyy"
+                        Width="60px"
+                        CellClass="col-fecha"
+                        HeaderClass="col-fecha" />
+
+        <PropertyColumn T="ProductoDetalle" TProperty="string"
+                        Property="e => e.Codigo"
+                        Title="Codigo"
+                        Width="80px" />
+
+        <!-- Más ancha -->
+        <PropertyColumn T="ProductoDetalle" TProperty="string"
+                        Property="e => e.Nombre"
+                        CellClass="nowrap-ellipsis"
+                        HeaderClass="nowrap-ellipsis"
+                        Title="Producto"
+                        Width="850px" />
+
+        <PropertyColumn T="ProductoDetalle" TProperty="string"
+                        Property="e => e.NombreProveedor"
+                        Title="Proveedor"
+                        Width="120px" />
+
+        <PropertyColumn T="ProductoDetalle" TProperty="string"
+                        Property="e => e.Marca"
+                        Title="Marca"
+                        Width="110px" />
+
+        <PropertyColumn T="ProductoDetalle" TProperty="string"
+                        Property="e => e.Modelo"
+                        Title="Modelo"
+                        Width="110px" />
+
+        <PropertyColumn T="ProductoDetalle" TProperty="string"
+                        Property="e => e.Color"
+                        Title="Color"
+                        Width="110px" />
+
+        <PropertyColumn T="ProductoDetalle" TProperty="string"
+                        Property="e => e.NumeroSerie"
+                        Title="NumeroSerie"
+                        Width="200px" />
+
+        <!-- Más chica -->
+        <PropertyColumn T="ProductoDetalle" TProperty="string"
+                        Property="e => e.NumeroVenta"
+                        Title="Venta"
+                        Width="90px" />
+
+        <!-- Más chica -->
+        <PropertyColumn T="ProductoDetalle" TProperty="string"
+                        Property="e => e.NombreLocal"
+                        Title="Local"
+                        Width="90px" />
+    </Columns>
+</ReportListLayout>
+
+<style>
+
+    .nowrap-ellipsis {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis; /* opcional */
+    }
+
+    .col-fecha {
+        width: 110px !important;
+        min-width: 110px !important;
+        max-width: 110px !important;
+        padding-left: 2px !important;
+        padding-right: 2px !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis; /* si querés “…” */
+        box-sizing: border-box;
+    }
+
+</style>
+
+

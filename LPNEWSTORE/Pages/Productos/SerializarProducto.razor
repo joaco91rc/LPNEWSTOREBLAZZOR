@@ -243,6 +243,36 @@
             Snackbar.Add("No se pudo obtener el stock actual.", Severity.Warning);
         }
     }
+    private async Task RecalcularDisponiblesActualizar()
+    {
+        if (Model.IdProducto == 0)
+        {
+            _disponiblesASerializar = 0;
+            StateHasChanged();
+            return;
+        }
+
+        var pendientesEnGrilla = _lineas.Count(l => l.IdProducto == Model.IdProducto);
+
+        int serializadosDB = 0;
+        try
+        {
+            serializadosDB = await ProductoDetalleService
+                .ContarProductosSerializadosAsync(Model.IdProducto, IdSucursal);
+        }
+        catch
+        {
+            // Podés avisar si querés: Snackbar.Add("No se pudo obtener serializados.", Severity.Error);
+        }
+
+        // total que queda por serializar (según BD)
+        var totalDisponibles = Math.Max(0, _stockActual - serializadosDB);
+
+        // disponibles reales para agregar ahora (restando lo ya puesto en grilla)
+        _disponiblesASerializar = Math.Max(0, totalDisponibles - pendientesEnGrilla);
+
+        StateHasChanged();
+    }
 
 
     private async Task BuscarProductoAsync()
@@ -342,27 +372,27 @@
         // 4) Cuántas filas “pendientes” tenés en la grilla para este mismo producto
         var pendientesEnGrilla = _lineas.Count(l => l.IdProducto == Model.IdProducto);
         
-        // 5) Restante real que podés agregar
-        var restante = stockDisponible - productosSerializadosDb - pendientesEnGrilla;
+        await RecalcularDisponiblesActualizar();  // deja _disponiblesASerializar al día
 
-        if (restante <= 0)
+        if (_disponiblesASerializar <= 0)
         {
-            Snackbar.Add(
-                $"El stock ya se encuentra completamente serializado ({productosSerializadosDb}/{stockDisponible}).",
-                Severity.Warning);
+            Snackbar.Add("No hay disponibilidad para agregar.", Severity.Warning);
             return;
         }
 
-        if (_cantidad > restante)
+        var aAgregar = Math.Min(_cantidad, _disponiblesASerializar);
+
+        if (aAgregar < _cantidad)
         {
-            Snackbar.Add(
-                $"La cantidad ingresada ({_cantidad}) supera lo pendiente disponible ({restante}). Se agregarán {restante}.",
-                Severity.Info);
-            _cantidad = restante;
+            Snackbar.Add($"Ingresaste {_cantidad}, pero sólo hay {_disponiblesASerializar} disponibles. Se agregarán {aAgregar}.",
+                         Severity.Info);
         }
 
-        // 6) Agregar filas
-        for (int i = 0; i < _cantidad; i++)
+        // 1) actualizar contador *antes* de agregar, así la UI ya muestra el número post-agregado
+        _disponiblesASerializar = Math.Max(0, _disponiblesASerializar - aAgregar);
+
+        // 2) agregar filas
+        for (int i = 0; i < aAgregar; i++)
         {
             _lineas.Add(new LineaSerializacion
             {
@@ -373,6 +403,7 @@
         }
 
         StateHasChanged();
+
     }
 
 
@@ -512,17 +543,8 @@
         catch { return default!; }
     }
 
-    // ===== MOCK de búsqueda por código (reemplazá por tu service real) =====
-    private Task<ProductoSerialDTO?> BuscarProductoPorCodigoMockAsync(string codigo)
-    {
-        var demo = new List<ProductoSerialDTO>
-        {
-            new() { IdProducto = 101, Codigo = "ABC123", Nombre = "iPhone 14 Pro 256GB", Stock = 7, Serializable = true },
-            new() { IdProducto = 102, Codigo = "XYZ789", Nombre = "Samsung S24 Ultra 512GB", Stock = 5, Serializable = true },
-        };
-        var p = demo.FirstOrDefault(x => x.Codigo.Equals(codigo, StringComparison.OrdinalIgnoreCase) && x.Serializable);
-        return Task.FromResult(p);
-    }
+    
+    
     // Utilidad para setear propiedad si existe (conversión segura)
     private static void SetIfExists<T>(object target, string prop, T value)
     {

@@ -37,13 +37,15 @@
                 <div style="flex:0 0 40%;">
                     <MudTextField @bind-Value="_busqueda"
                                   Variant="Variant.Outlined"
+                                  @ref="_txtBusqueda"
                                   Dense="true"
                                   Placeholder="Buscar..."
                                   Adornment="Adornment.Start"
                                   AdornmentIcon="@Icons.Material.Filled.Search"
                                   Immediate="true" DebounceInterval="150"
                                   @onkeydown="OnBusquedaKeyDown"
-                                  FullWidth="true" />
+                                  FullWidth="true"
+                                  AutoFocus="true"/>
                 </div>
 
                 <!-- Botón Buscar 10% -->
@@ -129,7 +131,7 @@
 @code {
     // Si estás en MudBlazor 6/7, cambiar IMudDialogInstance -> MudDialogInstance
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
-    
+
 
     private List<Producto> _items = new();
     private IEnumerable<Producto> _itemsFiltrados => Filtrar(_items);
@@ -139,6 +141,7 @@
     private string _busqueda = string.Empty;
     private bool _verTodos;
     private int SucursalId;
+    private MudTextField<string>? _txtBusqueda;
 
 
     private void OnRowClick(TableRowClickEventArgs<Producto> e)
@@ -146,31 +149,35 @@
 
 
 
+    
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            // 1) Intentar leer cookie, pero sin romper si no existe la función
+            // 1) leer sucursal (try/catch como ya tenés)
             try
             {
                 var sucursal = await JS.InvokeAsync<string?>("getCookie", "sucursalSeleccionada");
                 if (int.TryParse(sucursal, out var idSucursal))
                     SucursalId = idSucursal;
             }
-            catch // JSException u otras
-            {
-                // fallback: sucursal 0 o la que quieras por defecto
-                SucursalId = 0;
-            }
+            catch { SucursalId = 0; }
 
-            
-
-            // 2) Cargar datos sin tirar excepción
+            // 2) cargar datos
             await CargarDatosAsync();
 
+            // 3) forzar un render y luego enfocar el textbox
             StateHasChanged();
+            await InvokeAsync(async () =>
+            {
+                await Task.Yield();              // garantiza que el render terminó
+                if (_txtBusqueda is not null)
+                    await _txtBusqueda.FocusAsync();
+            });
         }
     }
+
 
     private async Task CargarDatosAsync()
     {
