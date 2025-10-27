@@ -4,6 +4,7 @@
 @using Services
 @using Entities
 @using System.Security.Claims
+@using System.Text
 
 
 @inject CotizacionService CotizacionService
@@ -18,9 +19,13 @@
 
 <AbmLayout TEntity="Cotizacion"
            FormContent="@FormCotizacion"
-           GridContent="@GridCotizaciones" />
+           GridContent="@GridCotizaciones"
+           OnSearchChanged="HandleSearch"
+           OnExport="ExportarCsv"
+           SearchPlaceholder="Buscar Forma de Pago …" />
 
 @code {
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
     List<Cotizacion> listaCotizaciones = new();
     Cotizacion CotizacionActual = new();
     private List<Rol> listaRoles = new();
@@ -32,6 +37,47 @@
     private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
     private DateTime fecha = DateTime.Now;
 
+    private IEnumerable<Cotizacion> CotizacionesFiltradas
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(GridSearch))
+                return listaCotizaciones;
+
+            var term = GridSearch.Trim();
+
+            bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
+
+            return listaCotizaciones.Where(p =>
+                Has(p.Fecha.ToString()) ||
+                 Has(p.Importe.ToString()) ||
+                Has(p.Estado?"Activo":"No Activo")  
+            );
+        }
+    }
+
+    private Task HandleSearch(string value)
+    {
+        GridSearch = value;
+        // StateHasChanged(); // opcional, normalmente no hace falta
+        return Task.CompletedTask;
+    }
+
+    private async Task ExportarCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Fecha;Importe;Estado");
+        foreach (var p in CotizacionesFiltradas)
+        {
+            string[] cols = {
+                p.Fecha?.ToString("dd/mm/yyyy"),
+                p.Importe.ToString(),
+                p.Estado?"Activo":"No Activo"
+    };
+            sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
+        }
+        await JS.InvokeVoidAsync("downloadFileFromText", "Cotizaciones Dolar.csv", sb.ToString(), "text/csv;charset=utf-8;");
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -187,7 +233,7 @@
 
 
 RenderFragment GridCotizaciones => @<div style="padding: 16px;  padding-top : 16px">
-    <MudTable Items="listaCotizaciones"
+    <MudTable Items="CotizacionesFiltradas"
               Dense="true"
               Hover="true"
               Bordered="true"

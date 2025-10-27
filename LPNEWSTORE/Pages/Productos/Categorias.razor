@@ -6,6 +6,7 @@
 @using Entities
 @using System.Security.Claims
 @using System.ComponentModel.DataAnnotations
+@using System.Text
 
 
 
@@ -21,9 +22,13 @@
 
 <AbmLayout TEntity="Categoria"
            FormContent="@FormCategoria"
-           GridContent="@GridCategoria" />
+           GridContent="@GridCategoria"
+           OnSearchChanged="HandleSearch"
+           OnExport="ExportarCsv"
+           SearchPlaceholder="Buscar  categoría…" />
 
 @code {
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
     List<Categoria> listaCategorias = new();
     Categoria CategoriaActual = new();
     private List<Rol> listaRoles = new();
@@ -35,7 +40,21 @@
     private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
     private DateTime fecha = DateTime.Now;
 
+    private IEnumerable<Categoria> CategoriasFiltradas
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(GridSearch))
+                return listaCategorias;
 
+            var term = GridSearch.Trim();
+
+            bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
+
+            return listaCategorias.Where(p =>
+                Has(p.Descripcion));
+        }
+    }
 
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -77,6 +96,29 @@
 
 
 
+    }
+
+    private Task HandleSearch(string value)
+    {
+        GridSearch = value;
+        // StateHasChanged(); // opcional, normalmente no hace falta
+        return Task.CompletedTask;
+    }
+
+    private async Task ExportarCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Descripcion;Estado");
+        foreach (var p in CategoriasFiltradas)
+        {
+            string[] cols = {
+                p.Descripcion,
+                p.Estado?"Activo":"Inactivo"
+                
+    };
+            sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
+        }
+        await JS.InvokeVoidAsync("downloadFileFromText", "Categorias.csv", sb.ToString(), "text/csv;charset=utf-8;");
     }
 
     private void Editar(Categoria c)
@@ -210,7 +252,7 @@
 
 
 RenderFragment GridCategoria => @<div style="padding: 16px;  padding-top : 16px">
-    <MudTable Items="listaCategorias"
+    <MudTable Items="CategoriasFiltradas"
               Dense="true"
               Hover="true"
               Bordered="true"

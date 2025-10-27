@@ -838,12 +838,12 @@ namespace DataLayer
             {
                 using (SqlConnection oconexion = new SqlConnection(_cadenaConexion))
                 {
-                    string query = "UPDATE PRODUCTO_DETALLE SET estado = @estado WHERE numeroSerie = @numeroSerie";
+                    string query = "UPDATE PRODUCTO_DETALLE SET estado = @estado, idNegocio = @idNegocio WHERE numeroSerie = @numeroSerie";
 
                     SqlCommand cmd = new SqlCommand(query, oconexion);
                     cmd.Parameters.AddWithValue("@estado", productoDetalle.Estado);
                     cmd.Parameters.AddWithValue("@numeroSerie", productoDetalle.NumeroSerie);
-
+                    cmd.Parameters.AddWithValue("@idNegocio", productoDetalle.IdNegocio);
                     await oconexion.OpenAsync();
 
                     int rowsAffected = await cmd.ExecuteNonQueryAsync();

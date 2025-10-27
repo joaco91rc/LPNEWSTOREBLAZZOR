@@ -35,7 +35,6 @@
     <Folder Include="Pages\ServicioTecnico\" />
     <Folder Include="Pages\RMA\" />
     <Folder Include="Pages\PagosParciales\" />
-    <Folder Include="Pages\Stock\" />
   </ItemGroup>
 
 </Project>

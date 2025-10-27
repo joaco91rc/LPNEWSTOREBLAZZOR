@@ -4,6 +4,7 @@
 @using Services
 @using Entities
 @using System.Security.Claims
+@using System.Text
 
 @inject VendedorService VendedorService
 @inject RolService rolService
@@ -17,9 +18,13 @@
 
 <AbmLayout TEntity="Vendedor"
            FormContent="@FormVendedor"
-           GridContent="@GridVendedores" />
+           GridContent="@GridVendedores"
+           OnSearchChanged="HandleSearch"
+           OnExport="ExportarCsv"
+           SearchPlaceholder="Buscar Vendedor …" />
 
 @code {
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
     List<Vendedor> listaVendedores = new();
     Vendedor VendedorActual = new();
     private List<Rol> listaRoles = new();
@@ -30,6 +35,50 @@
     private string rolUsuarioActual = string.Empty;
     private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
 
+    private IEnumerable<Vendedor> VendedoresFiltrados
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(GridSearch))
+                return listaVendedores;
+
+            var term = GridSearch.Trim();
+
+            bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
+
+            return listaVendedores.Where(p =>
+                Has(p.DNI) ||
+                Has(p.Nombre) ||
+                Has(p.Apellido) ||
+                
+                Has(p.Estado ? "Activo" : "Inactivo")
+            );
+        }
+    }
+
+    private Task HandleSearch(string value)
+    {
+        GridSearch = value;
+        // StateHasChanged(); // opcional, normalmente no hace falta
+        return Task.CompletedTask;
+    }
+
+    private async Task ExportarCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("DNI;Nombre Completo;Estado");
+        foreach (var p in VendedoresFiltrados)
+        {
+            string[] cols = {
+                p.DNI,
+                p.Apellido + " " + p.Nombre,
+                
+                p.Estado?"Activo":"Inactivo"
+    };
+            sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
+        }
+        await JS.InvokeVoidAsync("downloadFileFromText", "Vendedores.csv", sb.ToString(), "text/csv;charset=utf-8;");
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -205,7 +254,7 @@
 
 
     RenderFragment GridVendedores => @<div style="padding: 16px; padding-top:16px">
-    <MudTable Items="listaVendedores"
+    <MudTable Items="VendedoresFiltrados"
               Dense="true"
               Hover="true"
               Bordered="true"
@@ -218,7 +267,7 @@
               Class="mt-2">
         <HeaderContent>
             <MudTh>
-                <MudTableSortLabel T="Vendedor" SortBy="@(c => c.DNI)">CUIT</MudTableSortLabel>
+                <MudTableSortLabel T="Vendedor" SortBy="@(c => c.DNI)">DNI</MudTableSortLabel>
             </MudTh>
             <MudTh>
                 <MudTableSortLabel T="Vendedor" SortBy="@(c => c.Nombre)">Nombre</MudTableSortLabel>

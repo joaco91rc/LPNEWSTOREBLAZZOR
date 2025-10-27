@@ -4,6 +4,7 @@
 @using Services
 @using Entities
 @using System.Security.Claims
+@using System.Text
 
 
 @inject MonedaService MonedaService
@@ -18,9 +19,13 @@
 
 <AbmLayout TEntity="Moneda"
            FormContent="@FormMoneda"
-           GridContent="@GridMonedas" />
+           GridContent="@GridMonedas"
+           OnSearchChanged="HandleSearch"
+           OnExport="ExportarCsv"
+           SearchPlaceholder="Buscar Moneda …" />
 
 @code {
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
     List<Moneda> listaMonedas = new();
     Moneda MonedaActual = new();
     private List<Rol> listaRoles = new();
@@ -32,6 +37,46 @@
     private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
     private DateTime fecha = DateTime.Now;
 
+
+    private IEnumerable<Moneda> MonedasFiltradas
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(GridSearch))
+                return listaMonedas;
+
+            var term = GridSearch.Trim();
+
+            bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
+
+            return listaMonedas.Where(p =>
+                Has(p.Nombre) ||
+                Has(p.Simbolo) 
+            );
+        }
+    }
+
+    private Task HandleSearch(string value)
+    {
+        GridSearch = value;
+        // StateHasChanged(); // opcional, normalmente no hace falta
+        return Task.CompletedTask;
+    }
+
+    private async Task ExportarCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Moneda;Simbolo");
+        foreach (var p in MonedasFiltradas)
+        {
+            string[] cols = {
+                p.Nombre,
+                p.Simbolo
+    };
+            sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
+        }
+        await JS.InvokeVoidAsync("downloadFileFromText", "Monedas.csv", sb.ToString(), "text/csv;charset=utf-8;");
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -202,7 +247,7 @@
 
 
 RenderFragment GridMonedas => @<div style="padding: 16px;  padding-top : 16px">
-    <MudTable Items="listaMonedas"
+    <MudTable Items="MonedasFiltradas"
               Dense="true"
               Hover="true"
               Bordered="true"

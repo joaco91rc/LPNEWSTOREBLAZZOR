@@ -40,21 +40,31 @@ namespace DataLayer
             return stock;
         }
 
-        public async Task CargarOActualizarStockProductoAsync(int idProducto, int idNegocio, int stock)
+        public async Task<string> CargarOActualizarStockProductoAsync(int idProducto, int idNegocio, int stock)
         {
-            using (SqlConnection connection = new SqlConnection(_cadenaConexion))
+            using var connection = new SqlConnection(_cadenaConexion);
+            using var cmd = new SqlCommand("SP_CARGAROACTUALIZARSTOCKPRODUCTO", connection)
             {
-                await connection.OpenAsync();
-                using (SqlCommand cmd = new SqlCommand("SP_CARGAROACTUALIZARSTOCKPRODUCTO", connection))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@idProducto", idProducto);
-                    cmd.Parameters.AddWithValue("@idNegocio", idNegocio);
-                    cmd.Parameters.AddWithValue("@stock", stock);
+                CommandType = CommandType.StoredProcedure
+            };
 
-                    await cmd.ExecuteNonQueryAsync();
-                }
-            }
+            cmd.Parameters.Add("@idProducto", SqlDbType.Int).Value = idProducto;
+            cmd.Parameters.Add("@idNegocio", SqlDbType.Int).Value = idNegocio;
+            cmd.Parameters.Add("@stock", SqlDbType.Int).Value = stock;
+
+            // OUTPUTs del SP
+            var pMensaje = cmd.Parameters.Add("@Mensaje", SqlDbType.NVarChar, 200);
+            pMensaje.Direction = ParameterDirection.Output;
+
+           
+            
+
+            await connection.OpenAsync();
+            await cmd.ExecuteNonQueryAsync();
+
+           
+
+            return pMensaje.Value?.ToString() ?? string.Empty;
         }
 
         public async Task SobrescribirStockAsync(int idProducto, int idNegocio, int stock)

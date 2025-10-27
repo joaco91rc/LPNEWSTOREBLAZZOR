@@ -4,6 +4,7 @@
 @using Services
 @using Entities
 @using System.Security.Claims
+@using System.Text
 
 @inject ClienteService clienteService
 @inject RolService rolService
@@ -17,7 +18,10 @@
 
 <AbmLayout TEntity="Cliente"
            FormContent="@FormCliente"
-           GridContent="@GridClientes" />
+           GridContent="@GridClientes" 
+           OnSearchChanged="HandleSearch"
+           OnExport="ExportarCsv"
+           SearchPlaceholder="Buscar Cliente …" />
 
 
 
@@ -25,6 +29,7 @@
 
 
 @code {
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
     List<Cliente> listaClientes = new();
     Cliente clienteActual = new();
     private List<Rol> listaRoles = new();
@@ -47,6 +52,7 @@
         return new TableData<Cliente>() { Items = new List<Cliente>(), TotalItems = 0 };
 
     var allItems = await clienteService.ListarClientesPorNegocio(idSucursal);
+
 
     // Filtrado en el backend
     if (!string.IsNullOrWhiteSpace(filterString))
@@ -81,6 +87,58 @@
     
 }
 
+    private IEnumerable<Cliente> ClientesFiltrados
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(GridSearch))
+                return listaClientes;
+
+            var term = GridSearch.Trim();
+
+            bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
+
+            return listaClientes.Where(p =>
+                Has(p.NombreCompleto) ||
+                Has(p.Documento)||
+                Has(p.Correo)||
+                Has(p.Telefono)||
+                Has(p.Ciudad)||
+                Has(p.Direccion)
+            
+            
+            );
+        }
+    }
+
+    private Task HandleSearch(string value)
+    {
+        GridSearch = value;
+        // StateHasChanged(); // opcional, normalmente no hace falta
+        return Task.CompletedTask;
+    }
+
+    private async Task ExportarCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Documento;Cliente;Correo;Direccion;Ciudad;Telefono;Estado");
+        foreach (var p in ClientesFiltrados)
+        {
+            string[] cols = {
+                p.Documento,
+                p.NombreCompleto,
+                p.Correo,
+                p.Direccion,
+                p.Ciudad,
+                p.Telefono,
+                
+                p.Estado?"Activo":"Inactivo"
+
+    };
+            sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
+        }
+        await JS.InvokeVoidAsync("downloadFileFromText", "Clientes.csv", sb.ToString(), "text/csv;charset=utf-8;");
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -285,7 +343,7 @@
     
     RenderFragment GridClientes => @<div style="padding: 16px; padding-top : 16px">
     <MudTable T="Cliente"
-              Items="listaClientes"
+              Items="ClientesFiltrados"
               Dense="true"
               Hover="true"
               Bordered="true"

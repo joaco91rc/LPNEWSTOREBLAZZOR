@@ -10,3 +10,4 @@ C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\Entities\obj\Debug\net8.0\Enti
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\Entities\obj\Debug\net8.0\refint\Entities.dll
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\Entities\obj\Debug\net8.0\Entities.pdb
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\Entities\obj\Debug\net8.0\ref\Entities.dll
+C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\Entities\obj\Debug\net8.0\Entities.sourcelink.json

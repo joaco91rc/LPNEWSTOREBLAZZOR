@@ -1,0 +1,217 @@
+﻿@using MudBlazor
+@using Entities
+@using Services
+@inject ISnackbar Snackbar
+@inject ProductoService ProductoService
+@inject ProductoDetalleService ProductoDetalleService
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.h6">Seleccionar número de serie</MudText>
+
+            <!-- Filtros -->
+            <MudGrid Class="p-2" Dense="true">
+                <MudItem xs="12" md="4">
+                    <MudSelect T="string" @bind-Value="_columnaFiltro" Label="Filtrar por" Dense="true" FullWidth="true">
+                        @foreach (var col in _columnasBusqueda)
+                        {
+                            <MudSelectItem Value="@col.Valor">@col.Texto</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_textoBusqueda"
+                                  Label="Buscar..."
+                                  Dense="true"
+                                  FullWidth="true"
+                                  OnKeyDown="OnKeyDownBuscar" />
+                </MudItem>
+                <MudItem xs="6" md="1">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AplicarFiltro" FullWidth="true">Buscar</MudButton>
+                </MudItem>
+                <MudItem xs="6" md="1">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="LimpiarFiltro" FullWidth="true">Limpiar</MudButton>
+                </MudItem>
+            </MudGrid>
+
+            <!-- Grilla -->
+            @if (_cargando)
+            {
+                <MudPaper Class="p-6"><MudProgressCircular Indeterminate="true" /></MudPaper>
+            }
+            else if (_filtrados.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                    No hay resultados para mostrar.
+                </MudAlert>
+            }
+            else
+            {
+                <MudTable Items="_filtrados"
+                          Dense="true"
+                          Hover="true"
+                          FixedHeader="true"
+                          Elevation="0"
+                          RowClick="OnRowClick">
+                    <HeaderContent>
+                        <MudTh style="width:110px;">IdDetalle</MudTh>
+                        <MudTh style="width:110px;">IdProducto</MudTh>
+                        <MudTh style="width:140px;">Código</MudTh>
+                        <MudTh>Nombre</MudTh>
+                        <MudTh style="width:140px;">Marca</MudTh>
+                        <MudTh style="width:140px;">Modelo</MudTh>
+                        <MudTh style="width:120px;">Color</MudTh>
+                        <MudTh style="width:200px;">Serial</MudTh>
+                        <MudTh style="width:110px;">Negocio</MudTh>
+                        <MudTh style="width:130px;">Acciones</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="IdDetalle">@context.IdProductoDetalle</MudTd>
+                        <MudTd DataLabel="IdProducto">@context.IdProducto</MudTd>
+                        <MudTd DataLabel="Código">@context.Codigo</MudTd>
+                        <MudTd DataLabel="Nombre">@context.Nombre</MudTd>
+                        <MudTd DataLabel="Marca">@context.Marca</MudTd>
+                        <MudTd DataLabel="Modelo">@context.Modelo</MudTd>
+                        <MudTd DataLabel="Color">@context.Color</MudTd>
+                        <MudTd DataLabel="Serial">@context.NumeroSerie</MudTd>
+                        <MudTd DataLabel="Negocio">@context.IdNegocio</MudTd>
+                        <MudTd>
+                            <MudButton Size="Size.Small" Color="Color.Primary" OnClick="@(() => Seleccionar(context))">
+                                Seleccionar
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText Class="pa-4">Sin registros.</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            }
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Cancelar">Cancelar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    // Parámetros que recibe el modal
+    [Parameter] public int IdProducto { get; set; }
+    [Parameter] public int? IdNegocio { get; set; } // sucursal local (opcional, para filtrar por local)
+
+    // Estado
+    private bool _cargando = true;
+    private List<ProductoDetalle> _data = new();      // Dataset completo
+    private List<ProductoDetalle> _filtrados = new(); // Dataset filtrado
+
+    // Búsqueda
+    private string _columnaFiltro = "nombre";
+    private string _textoBusqueda = string.Empty;
+
+    // Columnas disponibles para el combo (como en WinForms)
+    private readonly List<OpcionCombo> _columnasBusqueda = new()
+    {
+        new OpcionCombo{ Valor = "codigo",      Texto = "Código"},
+        new OpcionCombo{ Valor = "nombre",      Texto = "Nombre"},
+        new OpcionCombo{ Valor = "marca",       Texto = "Marca"},
+        new OpcionCombo{ Valor = "modelo",      Texto = "Modelo"},
+        new OpcionCombo{ Valor = "color",       Texto = "Color"},
+        new OpcionCombo{ Valor = "numeroSerie", Texto = "Serial"},
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Carga inicial de grilla (por local si viene IdNegocio)
+            if (IdNegocio.HasValue)
+                _data = (await ProductoDetalleService.ListarProductosConSerialNumberByIDNegocioAsync(IdProducto, IdNegocio.Value))?.ToList() ?? new();
+            else
+                _data = (await ProductoDetalleService.ListarProductosConSerialNumberByIDAsync(IdProducto))?.ToList() ?? new();
+
+            // Default: similar a SelectedIndex=1 en WinForms => "nombre"
+            _columnaFiltro = _columnasBusqueda.ElementAtOrDefault(1)?.Valor ?? "nombre";
+
+            _filtrados = _data.ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error cargando seriales: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private void AplicarFiltro()
+    {
+        if (string.IsNullOrWhiteSpace(_textoBusqueda))
+        {
+            _filtrados = _data.ToList();
+            return;
+        }
+
+        var q = _textoBusqueda.Trim();
+        _filtrados = _data.Where(row =>
+        {
+            var val = _columnaFiltro switch
+            {
+                "codigo" => row.Codigo,
+                "nombre" => row.Nombre,
+                "marca" => row.Marca,
+                "modelo" => row.Modelo,
+                "color" => row.Color,
+                "numeroSerie" => row.NumeroSerie,
+                _ => row.Nombre
+            };
+
+            return (val ?? string.Empty).Contains(q, StringComparison.OrdinalIgnoreCase);
+        }).ToList();
+    }
+
+    private void LimpiarFiltro()
+    {
+        _textoBusqueda = string.Empty;
+        _filtrados = _data.ToList();
+    }
+
+    private void OnKeyDownBuscar(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            AplicarFiltro();
+    }
+
+    // Doble clic de fila (simulado con RowClick: si Detail==2 tomamos como doble clic)
+    private void OnRowClick(TableRowClickEventArgs<ProductoDetalle> args)
+    {
+        if (args.MouseEventArgs?.Detail == 2) // doble clic
+            Seleccionar(args.Item);
+    }
+
+    private void Seleccionar(ProductoDetalle item)
+    {
+        // Validar campos requeridos como en WinForms
+        if (item?.IdProductoDetalle is int && item.IdProducto is int && !string.IsNullOrWhiteSpace(item.NumeroSerie))
+        {
+            // Si querés mantener una lista acumulando selecciones, podrías agregar aquí.
+            // En este modal devolvemos un único serialNumber como en tu flujo actual.
+            MudDialog.Close(DialogResult.Ok(item.NumeroSerie));
+            return;
+        }
+
+        Snackbar.Add("Faltan datos para seleccionar el producto.", Severity.Warning);
+    }
+
+    private void Cancelar() => MudDialog.Cancel();
+
+    // Helpers
+    private sealed class OpcionCombo
+    {
+        public string Valor { get; set; } = "";
+        public string Texto { get; set; } = "";
+    }
+}

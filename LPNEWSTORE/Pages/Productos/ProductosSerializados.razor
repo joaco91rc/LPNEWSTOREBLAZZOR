@@ -1,1 +1,415 @@
-﻿
+﻿@page "/serializados"
+@using LPNEWSTORE.Shared.Modals
+@using LPNEWSTORE.Utils
+@using MudBlazor
+@using Microsoft.AspNetCore.Identity
+@using Services
+@using Entities
+@using System.Security.Claims
+@using System.ComponentModel.DataAnnotations
+@using System.Reflection
+@using System.Globalization
+@using System.Text
+
+
+
+@inject ProductoDetalleService ProductoDetalleService
+@inject RolService rolService
+
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SesionNegocioService SesionNegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+<AbmLayout TEntity="ProductoDetalle"
+           FormContent="@FormProductoDetalle"
+           GridContent="@GridProductoDetalle"
+           OnSearchChanged="HandleSearch"
+           OnExport="ExportarCsv"
+           SearchPlaceholder="Buscar producto, código o categoría…" />
+
+@code {
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
+    List<ProductoDetalle> listaProductoDetalles = new();
+    ProductoDetalle ProductoDetalleActual = new();
+    private List<Rol> listaRoles = new();
+    private int idRolSeleccionado = 0;
+    private string claseThead = "mi-th";
+    private MudForm? formProductoDetalle;
+    private bool esEdicion = false;
+    private string rolUsuarioActual = string.Empty;
+    private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+    private DateTime fecha = DateTime.Now;
+    private static string EstadoTexto(bool? estado) => estado == true ? "En Stock" : "Vendido"; 
+
+    private IEnumerable<ProductoDetalle> ProductosDetalleFiltrados
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(GridSearch))
+                return listaProductoDetalles;
+
+            var term = GridSearch.Trim();
+
+            bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
+
+            return listaProductoDetalles.Where(p =>
+                Has(p.Codigo) ||
+                Has(p.Nombre) ||
+                Has(p.Marca) ||
+                Has(p.Modelo) ||
+                Has(p.NombreProveedor) ||
+                Has(p.Color) ||
+                Has(p.NumeroSerie) ||
+                Has(p.NombreLocal));
+        }
+    }
+
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+
+            if (int.TryParse(sucursal, out int idSucursal))
+            {
+                listaProductoDetalles = await ProductoDetalleService.ListarProductosConSerialNumberPorLocalDisponiblesAsync(idSucursal);
+            }
+
+            StateHasChanged();
+        }
+
+
+
+    }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+        }
+
+        listaRoles = await rolService.Listar();
+        ProductoDetalleActual.Estado = true;
+        ProductoDetalleActual.Fecha = DateTime.Now.Date;
+
+
+
+    }
+
+
+    private Task HandleSearch(string value)
+    {
+        GridSearch = value;
+        // StateHasChanged(); // opcional, normalmente no hace falta
+        return Task.CompletedTask;
+    }
+
+    private async Task ExportarCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Fecha;Codigo;Producto;Proveedor;Marca;Modelo;Color;S/N;Local;Estado");
+        foreach (var p in ProductosDetalleFiltrados)
+        {
+            string[] cols = {
+                p.Fecha.ToString("dd/mm/yyyy"),
+                p.Codigo,
+                p.Nombre,
+                p.NombreProveedor,
+                p.Marca,
+                p.Modelo,
+                p.Color,
+                p.NumeroSerie,
+                p.NombreLocal,
+                p.Estado ? "En Stock" : "Vendido"
+    };
+            sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
+        }
+        await JS.InvokeVoidAsync("downloadFileFromText", "productosSerializados.csv", sb.ToString(), "text/csv;charset=utf-8;");
+    }
+
+    private void Editar(ProductoDetalle c)
+    {
+        ProductoDetalleActual = new ProductoDetalle
+        {
+            IdProductoDetalle = c.IdProductoDetalle,
+            IdProducto =c.IdProducto,
+            IdNegocio =c.IdNegocio,
+            NombreLocal =c.NombreLocal,
+            Fecha = c.Fecha,
+            Codigo = c.Codigo,
+            Nombre = c.Nombre,
+            Marca = c.Marca,
+            Modelo= c.Modelo,
+            Color = c.Color,
+            NumeroSerie = c.NumeroSerie,
+            IdProveedor = c.IdProveedor,
+            NombreProveedor = c.NombreProveedor,
+            Estado = c.Estado
+
+
+        };
+
+
+        esEdicion = true;
+    }
+
+    private async Task Registrar()
+    {
+
+        if (!esEdicion)
+        {
+            Snackbar.Add("Debe seleccionar un Producto de la grilla Para modificar", Severity.Warning);
+            return;
+        }
+
+
+
+        if (formProductoDetalle is null)
+            return;
+
+        await formProductoDetalle.Validate();
+
+        if (!formProductoDetalle.IsValid)
+        {
+            Snackbar.Add("Por favor completá todos los campos requeridos.", Severity.Error);
+            return;
+        }
+
+        string mensaje = string.Empty;
+        bool resultado = false;
+
+        if (esEdicion)
+        {
+            var (exito, msg) = await ProductoDetalleService.EditarSerialNumberAsync(ProductoDetalleActual);
+            resultado = exito;
+            mensaje = msg;
+        }
+        else
+        {
+            
+        }
+
+        if (resultado)
+        {
+            Snackbar.Add(mensaje, Severity.Success);
+            ProductoDetalleActual = new ProductoDetalle();
+            ProductoDetalleActual.Estado = true;
+            esEdicion = false;
+            listaProductoDetalles = await ProductoDetalleService.ListarProductosConSerialNumberPorLocalDisponiblesAsync(sucursalSeleccionada);
+            await formProductoDetalle.ResetAsync(); // resetea el form
+
+        }
+        else
+        {
+
+            Snackbar.Add(mensaje, Severity.Error);
+        }
+    }
+
+
+    private async Task Eliminar(ProductoDetalle c)
+    {
+        bool? confirmado = await DialogService.ShowMessageBox(
+            title: "Eliminar Serial Number",
+            markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar el S/N de {c.Nombre}?</b>",
+            yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
+        );
+
+        if (confirmado == true)
+        {
+            var (exito, mensaje) = await ProductoDetalleService.EliminarSerialNumberAsync(c);
+
+            if (exito)
+            {
+                Snackbar.Add(mensaje, Severity.Success);
+                listaProductoDetalles = await ProductoDetalleService.ListarProductosConSerialNumberPorLocalDisponiblesAsync(sucursalSeleccionada);
+            }
+            else
+            {
+                Snackbar.Add(mensaje, Severity.Error);
+            }
+        }
+    }
+
+    private static T TryGet<T>(object obj, string prop)
+    {
+        var p = obj.GetType().GetProperty(prop, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+        if (p is null) return default!;
+        var val = p.GetValue(obj);
+        if (val is null) return default!;
+        try { return (T)Convert.ChangeType(val, typeof(T), CultureInfo.InvariantCulture); }
+        catch { return default!; }
+    }
+
+    private async Task AbrirSelectorProveedorAsync(ProductoDetalle pd)
+    {
+        var dialog = DialogService.Show<MDProveedor>("Seleccionar proveedor", options: new DialogOptions { FullWidth = true, MaxWidth = MaxWidth.Medium });
+        var result = await dialog.Result;
+        if (!result.Canceled && result.Data is not null)
+        {
+            if (result.Data is Proveedor prov)
+            {
+                pd.IdProveedor = prov.IdProveedor;
+                pd.NombreProveedor = prov.RazonSocial;
+            }
+            else
+            {
+                pd.IdProveedor = TryGet<int>(result.Data, "IdProveedor");
+                pd.NombreProveedor = TryGet<string>(result.Data, "Nombre") ?? TryGet<string>(result.Data, "RazonSocial");
+            }
+        }
+    }
+
+
+
+    private void CancelarEdicion()
+    {
+        ProductoDetalleActual = new ProductoDetalle();
+        ProductoDetalleActual.Estado = true;
+
+        esEdicion = false;
+    }
+
+    RenderFragment FormProductoDetalle => @<div style="padding: 16px;  padding-top : 16px">
+    <MudForm @ref="formProductoDetalle" OnValidSubmit="Registrar">
+        <MudStack Spacing="2">
+
+            <MudTextField Label="Fecha" @bind-Value="ProductoDetalleActual.Fecha"   Required="true" ReadOnly="true" />
+            <MudTextField Label="Codigo" @bind-Value="ProductoDetalleActual.Codigo" Required="true" ReadOnly ="true" />
+            <MudTextField Label="Producto" @bind-Value="ProductoDetalleActual.Nombre" Required="true" ReadOnly="true" />
+            <div @ondblclick="() => AbrirSelectorProveedorAsync(ProductoDetalleActual)">
+                <MudTextField Label="Proveedor (Para modificar el Proveedor haga doble click)"
+                              @bind-Value="ProductoDetalleActual.NombreProveedor"
+                              Required="true"
+                              ReadOnly="true" />
+            </div>
+            <MudTextField Label="Marca" @bind-Value="ProductoDetalleActual.Marca"  />
+            <MudTextField Label="Modelo" @bind-Value="ProductoDetalleActual.Modelo" />
+            <MudTextField Label="Color" @bind-Value="ProductoDetalleActual.Color" />
+            
+            <MudTextField Label="S/N" @bind-Value="ProductoDetalleActual.NumeroSerie" Required="true" />
+
+
+
+            <MudStack Direction="Row" Spacing="2">
+                <MudButton OnClick="Registrar" Variant="Variant.Filled" Color="Color.Primary">
+                    @(esEdicion ? "Actualizar" : "Guardar")
+                </MudButton>
+                @if (esEdicion)
+                                {
+
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CancelarEdicion">
+                    Cancelar
+                </MudButton>
+                                }
+            </MudStack>
+        </MudStack>
+    </MudForm>
+</div>;
+
+
+RenderFragment GridProductoDetalle => @<div style="padding: 16px;  padding-top : 16px">
+    <MudTable Items="ProductosDetalleFiltrados"
+              Dense="true" Hover="true" Bordered="true" Striped="true"
+              Sortable="true" Breakpoint="Breakpoint.Sm"
+              RowsPerPageOptions="new int[]{ 5, 10, 20, 30, 40, 50 }"
+              PagerAlwaysVisible="true" Elevation="1"
+              Class="mt-2 tabla-fija">
+
+        <HeaderContent>
+            <MudTh  Class="col-90"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Fecha)">Fecha</MudTableSortLabel></MudTh>
+            <MudTh Class="col-90"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Codigo)">Código</MudTableSortLabel></MudTh>
+            <MudTh Class="col-prod ellipsis"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Nombre)">Producto</MudTableSortLabel></MudTh>
+            <MudTh Class="col-90 ellipsis"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.NombreProveedor)">Proveedor</MudTableSortLabel></MudTh>
+            <MudTh Class="col-90"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Marca)">Marca</MudTableSortLabel></MudTh>
+            <MudTh Class="col-90"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Modelo)">Modelo</MudTableSortLabel></MudTh>
+            <MudTh Class="col-90"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Color)">Color</MudTableSortLabel></MudTh>
+            <MudTh Class="col-sn ellipsis"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.NumeroSerie)">S/N</MudTableSortLabel></MudTh>
+            <MudTh Class="col-90"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.NombreLocal)">Local</MudTableSortLabel></MudTh>
+            <MudTh Class="col-90"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Estado)">Estado</MudTableSortLabel></MudTh>
+            <MudTh Class="col-acciones">Acciones</MudTh>
+        </HeaderContent>
+
+        <RowTemplate>
+            <MudTd DataLabel="Fecha" Class="col-90 nowrap">@context.Fecha.ToString("dd/MM/yyyy")</MudTd>
+            <MudTd DataLabel="Código" Class="col-90 nowrap">@context.Codigo</MudTd>
+            <MudTd DataLabel="Producto" Class="col-prod ellipsis" title="@context.Nombre">@context.Nombre</MudTd>
+            <MudTd DataLabel="Proveedor" Class="col-90 ellipsis" title="@context.NombreProveedor">@context.NombreProveedor</MudTd>
+            <MudTd DataLabel="Marca" Class="col-90 nowrap">@context.Marca</MudTd>
+            <MudTd DataLabel="Modelo" Class="col-90 nowrap">@context.Modelo</MudTd>
+            <MudTd DataLabel="Color" Class="col-90 nowrap">@context.Color</MudTd>
+            <MudTd DataLabel="S/N" Class="col-sn ellipsis" title="@context.NumeroSerie">@context.NumeroSerie</MudTd>
+            <MudTd DataLabel="Local" Class="col-90 nowrap">@context.NombreLocal</MudTd>
+            <MudTd DataLabel="Estado" Class="col-90 nowrap">@((context.Estado == true) ? "En stock" : "Vendido")</MudTd>
+            <MudTd Class="col-acciones nowrap">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Success" Size="Size.Small" OnClick="() => Editar(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => Eliminar(context)" Class="ms-2" />
+            </MudTd>
+        </RowTemplate>
+
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
+                           RowsPerPageString="Registros por página" />
+        </PagerContent>
+    </MudTable>
+
+</div>;
+
+
+}
+
+<style>
+    /* Hace que los anchos fijos funcionen correctamente */
+    .tabla-fija table {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+        /* Columna ancha para Producto (350px) */
+        .col-prod {
+            width: 350px;
+        }
+
+        /* S/N a 150px */
+        .col-sn {
+            width: 150px;
+        }
+
+        /* Genérica para columnas ~90px */
+        .col-90 {
+            width: 90px;
+        }
+
+        /* Acciones un poquito más ancha para dos íconos */
+        .col-acciones {
+            width: 120px;
+        }
+
+        /* Utilidades */
+        .nowrap {
+            white-space: nowrap;
+        }
+
+        .ellipsis {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+
+

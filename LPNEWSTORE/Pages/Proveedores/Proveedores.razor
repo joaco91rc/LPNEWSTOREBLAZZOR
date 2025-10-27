@@ -4,6 +4,7 @@
 @using Services
 @using Entities
 @using System.Security.Claims
+@using System.Text
 
 @inject ProveedorService ProveedorService
 @inject RolService rolService
@@ -17,9 +18,13 @@
 
 <AbmLayout TEntity="Proveedor"
            FormContent="@FormProveedor"
-           GridContent="@GridProveedores" />
+           GridContent="@GridProveedores"
+           OnSearchChanged="HandleSearch"
+           OnExport="ExportarCsv"
+           SearchPlaceholder="Buscar Proveedor …" />
 
 @code {
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
     List<Proveedor> listaProveedores = new();
     Proveedor ProveedorActual = new();
     private List<Rol> listaRoles = new();
@@ -30,6 +35,51 @@
     private string rolUsuarioActual = string.Empty;
     private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
 
+    private IEnumerable<Proveedor> ProveedoresFiltrados
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(GridSearch))
+                return listaProveedores;
+
+            var term = GridSearch.Trim();
+
+            bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
+
+            return listaProveedores.Where(p =>
+                Has(p.Documento) ||
+                Has(p.RazonSocial) ||
+                Has(p.Correo) ||
+                Has(p.Telefono) ||
+                Has(p.Estado?"Activo":"Inactivo") 
+            );
+        }
+    }
+
+    private Task HandleSearch(string value)
+    {
+        GridSearch = value;
+        // StateHasChanged(); // opcional, normalmente no hace falta
+        return Task.CompletedTask;
+    }
+
+    private async Task ExportarCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("CUIT;Proveedor;Correo;Telefono;Estado");
+        foreach (var p in ProveedoresFiltrados)
+        {
+            string[] cols = {
+                p.Documento,
+                p.RazonSocial,
+                p.Correo,
+                p.Telefono,
+                p.Estado?"Activo":"Inactivo"
+    };
+            sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
+        }
+        await JS.InvokeVoidAsync("downloadFileFromText", "Proveedores.csv", sb.ToString(), "text/csv;charset=utf-8;");
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -204,7 +254,7 @@
 
 
     RenderFragment GridProveedores => @<div style="padding: 16px; padding-top:16px">
-    <MudTable Items="listaProveedores"
+    <MudTable Items="ProveedoresFiltrados"
               Dense="true"
               Hover="true"
               Bordered="true"

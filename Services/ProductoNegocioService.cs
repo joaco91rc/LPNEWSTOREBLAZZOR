@@ -19,7 +19,7 @@ namespace Services
         public Task<int> ObtenerStockProductoEnSucursalAsync(int idProducto, int idNegocio)
             => _productoNegocioDL.ObtenerStockProductoEnSucursalAsync(idProducto, idNegocio);
 
-        public Task CargarOActualizarStockProductoAsync(int idProducto, int idNegocio, int stock)
+        public Task<string> CargarOActualizarStockProductoAsync(int idProducto, int idNegocio, int stock)
             => _productoNegocioDL.CargarOActualizarStockProductoAsync(idProducto, idNegocio, stock);
 
         public Task SobrescribirStockAsync(int idProducto, int idNegocio, int stock)

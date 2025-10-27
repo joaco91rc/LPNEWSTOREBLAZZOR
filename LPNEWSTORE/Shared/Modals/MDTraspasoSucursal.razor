@@ -1,0 +1,215 @@
+﻿@using MudBlazor
+@using System.ComponentModel.DataAnnotations
+@using Entities
+@using Services
+@inject ISnackbar Snackbar
+@inject SesionNegocioService SesionNegocioService
+@inject ProductoService ProductoService
+@inject ProductoDetalleService ProductoDetalleService
+@inject ProductoNegocioService ProductoNegocioService
+@inject OrdenTraspasoService OrdenTraspasoService
+@inject NegocioService NegocioService
+@inject IJSRuntime JS
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            
+
+            <!-- Datos del producto -->
+            <MudPaper Class="p-3">
+                <MudGrid Dense="true">
+                    <MudItem xs="12" md="3">
+                        <MudTextField Label="Id Producto" Value="@IdProducto.ToString()" ReadOnly="true" Dense="true" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField Label="Producto" Value="@Nombre" ReadOnly="true" Dense="true" />
+                    </MudItem>
+                    <MudItem xs="6" md="3">
+                        <MudTextField Label="Stock actual (origen)" Value="@_stockActual.ToString()" ReadOnly="true" Dense="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudTextField Label="Serial Number" Value="@(_serialNumber ?? "-")" ReadOnly="true" Dense="true" />
+                    </MudItem>
+                    <MudItem xs="6" md="4">
+                        <MudTextField T="string"
+                                      Label="Fecha traspaso"
+                                      @bind-Value="_fechaTraspasoTxt"
+                                      Dense="true"
+                                      ReadOnly="true"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@Icons.Material.Filled.CalendarToday" />
+                    </MudItem>
+                    <MudItem xs="6" md="4">
+                        <MudNumericField @bind-Value="_model.Cantidad"
+                                         Label="Cantidad"
+                                         Min="1"
+                                         ReadOnly="@_cantidadBloqueada"
+                                         Disabled="@_cantidadBloqueada"
+                                         Dense="true"
+                                         Required="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="6">
+                        <MudSelect T="int" Label="Sucursal destino" @bind-Value="_model.IdSucursalDestino" Dense="true" Required="true" FullWidth="true">
+                            @foreach (var s in _sucursales)
+                            {
+                                <MudSelectItem Value="@s.IdNegocio">@s.Nombre</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_model.Observaciones"
+                                      Label="Observaciones"
+                                      Lines="2"
+                                      Dense="true"
+                                      FullWidth="true" />
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancelar">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Guardar">Guardar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public int IdProducto { get; set; }
+    [Parameter] public string Nombre { get; set; } = string.Empty;
+    [Parameter] public string? SerialNumber { get; set; } // llega "0" si no hay serial (como WinForms)
+
+    private int _stockActual;
+    private string? _serialNumber;
+    private bool _cantidadBloqueada;
+    private int _sucursalOrigenId; // GlobalSettings.SucursalId en tu WinForms
+    private List<Negocio> _sucursales = new();
+    private string _fechaTraspasoTxt = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
+    private readonly TraspasoVM _model = new()
+    {
+        FechaTraspaso = DateTime.Today,
+        Cantidad = 1
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Origen (sucursal actual)
+        var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+
+        if (int.TryParse(sucursal, out int idSucursal))
+        {
+            _sucursalOrigenId = idSucursal;
+
+
+        }
+         ;
+
+        // Setea serial y comportamiento de cantidad
+        _serialNumber = SerialNumber;
+        _cantidadBloqueada = !string.IsNullOrEmpty(_serialNumber) && _serialNumber != "0";
+        if (_cantidadBloqueada)
+            _model.Cantidad = 1;
+
+        // Fecha (igual que txtFechaTraspaso = DateTime.Now.Date)
+        _model.FechaTraspaso = DateTime.Today;
+
+        // Carga stock actual en sucursal de origen
+        _stockActual = await ProductoNegocioService.ObtenerStockProductoEnSucursalAsync(IdProducto, _sucursalOrigenId);
+
+        // Cargar sucursales
+        _sucursales = (await NegocioService.ListarNegocios())?.ToList() ?? new();
+    }
+
+    private async Task Guardar()
+    {
+        // Validaciones básicas
+        if (_model.IdSucursalDestino == 0 )
+        {
+            Snackbar.Add("Seleccioná una sucursal destino.", Severity.Warning);
+            return;
+        }
+        if (_model.Cantidad < 1)
+        {
+            Snackbar.Add("La cantidad debe ser mayor a 0.", Severity.Warning);
+            return;
+        }
+        if (_model.IdSucursalDestino == _sucursalOrigenId)
+        {
+            Snackbar.Add("La sucursal destino debe ser distinta a la de origen.", Severity.Warning);
+            return;
+        }
+
+        // Chequeo de stock
+        var stockOrigen = _stockActual; // ya cargado en OnInitializedAsync
+        if (_model.Cantidad > stockOrigen)
+        {
+            Snackbar.Add("La cantidad a traspasar debe ser menor o igual al stock actual en la sucursal de origen.", Severity.Error);
+            return;
+        }
+
+        // Costo * cantidad
+        var costoUnitario = await ProductoService.ObtenerCostoProducto(IdProducto);
+        var costoTotal = costoUnitario * _model.Cantidad;
+
+        // Armar la orden (igual a tu WinForms)
+        var orden = new OrdenTraspaso
+        {
+            FechaCreacion = Convert.ToDateTime(_fechaTraspasoTxt),
+            FechaConfirmacion = null,
+            IdProducto = IdProducto,
+            IdSucursalDestino = _model.IdSucursalDestino,
+            IdSucursalOrigen = _sucursalOrigenId,
+            Cantidad = _model.Cantidad,
+            Confirmada = "0",
+            CostoProducto = costoTotal,
+            SerialNumber = _serialNumber
+        };
+
+        // Guardar
+         var insertado =await OrdenTraspasoService.InsertarAsync(orden);
+        if (!insertado)
+        {
+            Snackbar.Add("No se pudo generar la orden de traspaso.", Severity.Error);
+            return;
+        }
+
+        // Descontar stock origen
+        var actualizacionStock = await ProductoNegocioService.CargarOActualizarStockProductoAsync(
+            orden.IdProducto, orden.IdSucursalOrigen, -orden.Cantidad);
+
+        // Si hay serial, marcarlo como traspasado (estado=false como en tu WinForms)
+        string msgSN = string.Empty;
+        if (!string.IsNullOrWhiteSpace(orden.SerialNumber))
+        {
+            var prodDet = new ProductoDetalle
+            {
+                Estado = false,
+                NumeroSerie = orden.SerialNumber
+                
+                
+            };
+
+            var (okSN, mensaje) = await ProductoDetalleService.ActualizarSerialNumberTrasasadoAsync(prodDet);
+            if (okSN) msgSN = " | Serial Number descontado del local de origen";
+        }
+
+        Snackbar.Add($"Orden de traspaso generada. {actualizacionStock}{msgSN}", Severity.Success);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Cancelar() => MudDialog.Cancel();
+
+    // ViewModel para el formulario
+    private sealed class TraspasoVM
+    {
+        [Required] public DateTime FechaTraspaso { get; set; }
+        [Required, Range(1, int.MaxValue)] public int Cantidad { get; set; }
+        [Required] public int IdSucursalDestino { get; set; }
+        public string? Observaciones { get; set; } // si querés persistirla, agregala a OrdenTraspaso
+    }
+}

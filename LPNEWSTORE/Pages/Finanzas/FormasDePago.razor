@@ -6,6 +6,7 @@
 @using Entities
 @using System.Security.Claims
 @using System.ComponentModel.DataAnnotations
+@using System.Text
 
 
 
@@ -21,9 +22,13 @@
 
 <AbmLayout TEntity="FormaPago"
            FormContent="@FormFormaPago"
-           GridContent="@GridFormaPago" />
+           GridContent="@GridFormaPago"
+           OnSearchChanged="HandleSearch"
+           OnExport="ExportarCsv"
+           SearchPlaceholder="Buscar Forma de Pago …" />
 
 @code {
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
     List<FormaPago> listaFormaPagos = new();
     FormaPago FormaPagoActual = new();
     private List<Rol> listaRoles = new();
@@ -35,7 +40,53 @@
     private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
     private DateTime fecha = DateTime.Now;
 
-    
+    private IEnumerable<FormaPago> FormasDePagoFiltradas
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(GridSearch))
+                return listaFormaPagos;
+
+            var term = GridSearch.Trim();
+
+            bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
+
+            return listaFormaPagos.Where(p =>
+                Has(p.Descripcion) ||
+                Has(p.Tipo.ToString()) ||
+               
+                Has(p.CajaAsociada.ToString())
+            );
+        }
+    }
+
+    private Task HandleSearch(string value)
+    {
+        GridSearch = value;
+        // StateHasChanged(); // opcional, normalmente no hace falta
+        return Task.CompletedTask;
+    }
+
+    private async Task ExportarCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Forma de Pago;Tipo;% Retencion ARS;% Recargo ARS;% Descuento ARS;% Recargo USD;% Descuento USD;Caja Asociada");
+        foreach (var p in FormasDePagoFiltradas)
+        {
+            string[] cols = {
+                p.Descripcion,
+                p.Tipo.ToString(),
+                p.PorcentajeRetencion.ToString(),
+                p.PorcentajeRecargo.ToString(),
+                p.PorcentajeDescuento.ToString(),
+                p.PorcentajeRecargoDolar.ToString(),
+                p.PorcentajeDescuentoDolar.ToString(),
+                p.CajaAsociada.ToString()
+    };
+            sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
+        }
+        await JS.InvokeVoidAsync("downloadFileFromText", "Formas de Pago.csv", sb.ToString(), "text/csv;charset=utf-8;");
+    }
 
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -235,7 +286,7 @@
 
 
 RenderFragment GridFormaPago => @<div style="padding: 16px;  padding-top : 16px">
-    <MudTable Items="listaFormaPagos"
+    <MudTable Items="FormasDePagoFiltradas"
               Dense="true"
               Hover="true"
               Bordered="true"

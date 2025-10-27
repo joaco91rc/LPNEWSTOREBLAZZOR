@@ -15,3 +15,4 @@ C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\DataLayer\obj\Debug\net8.0\ref
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\DataLayer\obj\Debug\net8.0\DataLayer.pdb
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\DataLayer\obj\Debug\net8.0\DataLayer.genruntimeconfig.cache
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\DataLayer\obj\Debug\net8.0\ref\DataLayer.dll
+C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\DataLayer\obj\Debug\net8.0\DataLayer.sourcelink.json

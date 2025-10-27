@@ -51,23 +51,33 @@
         <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.Logout" OnClick="CerrarSesion"></MudButton>
     </MudAppBar>
 
-    <MudDrawer Variant="DrawerVariant.Responsive" Open="@drawerOpen" MiniVariant="@miniDrawer" Anchor="Anchor.Start" Elevation="1">
+    <MudDrawer Variant="DrawerVariant.Responsive"
+               Open="@drawerOpen"
+               MiniVariant="@miniDrawer"
+               Anchor="Anchor.Start"
+               Elevation="1"
+               Class="drawer-col">
 
-        <MudDrawerHeader>
-            <img src="@logoUrl" alt="Logo" style="height: 150px;" />
-        </MudDrawerHeader>
+        <div class="drawer-inner">
+            @* <- único scroll *@
+            <div class="drawer-header">
+                <div class="drawer-logo-box @LogoCssClass"></div>
+            </div>
 
-        <MudNavMenu Dense="true">
-            @if (esAdmin)
-            {
-                <AdminMenu OnNavigationItemClicked="CerrarDrawer" />
-            }
-            else if (esVendedor)
-            {
-                <VendedorMenu OnNavigationItemClicked="CerrarDrawer" />
-            }
-        </MudNavMenu>
+            <MudNavMenu Dense="true" Class="nav-compact">
+                @if (esAdmin)
+                {
+                    <AdminMenu OnNavigationItemClicked="CerrarDrawer" />
+                }
+                else if (esVendedor)
+                {
+                    <VendedorMenu OnNavigationItemClicked="CerrarDrawer" />
+                }
+            </MudNavMenu>
+        </div>
     </MudDrawer>
+
+
 
     <MudMainContent Style="overflow-y:auto;">
         @Body
@@ -109,7 +119,14 @@
     private bool drawerOpen = true;
     private bool miniDrawer = false;
 
-
+    private string LogoCssClass =>
+    idSucursal switch
+    {
+        1 or 2 => "logo-hitech",
+        3 => "logo-apple49",
+        4 => "logo-cafe",
+        _ => "logo-default"
+    };
 
     private async Task ToggleDarkMode()
     {

@@ -6,6 +6,7 @@
 @using Entities
 @using System.Security.Claims
 @using MudBlazor
+@using System.Text
 @inject UsuarioService usuarioService
 @inject RolService rolService
 @inject IPasswordHasher<Usuario> passwordHasher
@@ -17,9 +18,13 @@
 
 <AbmLayout TEntity="Usuario"
            FormContent="@FormUsuario"
-           GridContent="@GridUsuarios" />
+           GridContent="@GridUsuarios"
+           OnSearchChanged="HandleSearch"
+           OnExport="ExportarCsv"
+           SearchPlaceholder="Buscar Moneda …" />
 
 @code {
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
     List<Usuario> listaUsuarios = new();
     Usuario usuarioActual = new();
     private List<Rol> listaRoles = new();
@@ -29,6 +34,47 @@
     private string rolUsuarioActual = string.Empty;
     private string claseThead = "mi-th";
     private MudForm? formUsuario;
+
+
+    private IEnumerable<Usuario> UsuariosFiltrados
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(GridSearch))
+                return listaUsuarios;
+
+            var term = GridSearch.Trim();
+
+            bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
+
+            return listaUsuarios.Where(p =>
+                Has(p.UserName) ||
+                Has(p.Email) 
+            );
+        }
+    }
+
+    private Task HandleSearch(string value)
+    {
+        GridSearch = value;
+        // StateHasChanged(); // opcional, normalmente no hace falta
+        return Task.CompletedTask;
+    }
+
+    private async Task ExportarCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Usuario;Correo");
+        foreach (var p in UsuariosFiltrados)
+        {
+            string[] cols = {
+                p.UserName,
+                p.Email
+    };
+            sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
+        }
+        await JS.InvokeVoidAsync("downloadFileFromText", "Usuarios.csv", sb.ToString(), "text/csv;charset=utf-8;");
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -204,7 +250,7 @@
 
 
     RenderFragment GridUsuarios => @<div style="padding: 16px; padding-top:16px">
-    <MudTable Items="listaUsuarios"
+    <MudTable Items="UsuariosFiltrados"
               Dense="true"
               Hover="true"
               Bordered="true"

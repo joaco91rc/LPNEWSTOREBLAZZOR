@@ -30,7 +30,7 @@
     private int? _idSucursal;
     private DateTime? DateFrom { get; set; }
     private DateTime? DateTo { get; set; }
-
+    
 
 
 
@@ -64,7 +64,7 @@
             var fechaInicio = args.from ?? DateFrom ?? DateTime.Now.AddDays(-15);
             var fechaFin = args.to ?? DateTo ?? DateTime.Now;
 
-            _ProductoDetalles = await ProductoDetalleService.ListarProductosVendidosPorFechaAsync(_idSucursal.Value, fechaInicio, fechaFin);
+            _ProductoDetalles = await ProductoDetalleService.ListarProductosVendidosPorFechaAsync(_idSucursal.Value,fechaInicio,fechaFin);
 
             DateFrom = fechaInicio;
             DateTo = fechaFin;
@@ -83,7 +83,7 @@
         DateTo = null;
         _ProductoDetalles = await ProductoDetalleService.ListarProductosVendidosAsync(_idSucursal.Value);
         _ProductoDetallesFiltradas = _ProductoDetalles;
-
+         
     }
 
 
@@ -175,7 +175,7 @@
                             .Contains(text, StringComparison.OrdinalIgnoreCase)),
 
 
-
+            
 
             _ => new List<ProductoDetalle>(_ProductoDetalles)
         };

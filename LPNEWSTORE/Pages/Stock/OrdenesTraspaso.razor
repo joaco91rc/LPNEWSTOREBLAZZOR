@@ -1,0 +1,297 @@
+﻿@page "/ordenestraspaso"
+@using System.Globalization
+@using System.Collections.Generic
+@using System.Threading.Tasks
+@using Entities
+@using MudBlazor
+@using Services
+
+@* --- Inyecciones de servicios (ajusta las interfaces a tus nombres reales) --- *@
+@inject OrdenTraspasoService OrdenTraspasoService
+@inject ProductoService ProductoService
+@inject ProductoDetalleService ProductoDetalleService
+@inject ProductoNegocioService ProductoNegocioService
+@inject CotizacionService CotizacionService
+@inject RolService RolService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UsuarioService UsuarioService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IJSRuntime JS
+
+<MudPaper Class="p-4" Elevation="1">
+    <MudStack Spacing="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.h6">Órdenes de traspaso pendientes</MudText>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" Disabled="@_loading" OnClick="CargarGrillaAsync">
+                Actualizar
+            </MudButton>
+        </MudStack>
+
+        <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+            Mostrando órdenes <b>pendientes de Confirmación </b> de la <b>Sucursal  @NombreSucursal(SucursalId)</b>.
+        </MudAlert>
+
+        <MudTable Items="@_ordenes" Hover="true" Dense="true" Bordered="true" Loading="@_loading">
+            <HeaderContent>
+                <MudTh>Fecha creación</MudTh>
+                <MudTh>IdProducto</MudTh>
+                <MudTh>Producto</MudTh>
+                <MudTh>Serial</MudTh>
+                <MudTh class="text-right">Cantidad</MudTh>
+                <MudTh>Local Origen</MudTh>
+                <MudTh>Local Destino</MudTh>
+                <MudTh class="text-center">Acciones</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Fecha creación">@context.FechaCreacion.ToString("dd/MM/yyyy HH:mm", _culture)</MudTd>
+                <MudTd DataLabel="IdProducto">@context.IdProducto</MudTd>
+                <MudTd DataLabel="Producto">@context.NombreProducto</MudTd>
+                <MudTd DataLabel="Serial">@context.SerialNumber</MudTd>
+                <MudTd DataLabel="Cantidad" Class="text-right">@context.Cantidad</MudTd>
+                <MudTd DataLabel="Local Origen">@NombreSucursal(@context.IdSucursalOrigen)</MudTd>
+                <MudTd DataLabel="Local Destino">@NombreSucursal(@context.IdSucursalDestino)</MudTd>
+                <MudTd DataLabel="Acciones" Class="text-center">
+                    <MudTooltip Text="Confirmar recepción" Disabled="@PuedeOperar">
+                        <MudIconButton Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Disabled="@(!PuedeOperar)" OnClick="@(() => ConfirmarRecepcionAsync(context))" />
+                    </MudTooltip>
+                    <MudTooltip Text="Rechazar recepción" Disabled="@PuedeOperar">
+                        <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Color="Color.Error" Disabled="@(!PuedeOperar)" OnClick="@(() => RechazarRecepcionAsync(context))" />
+                    </MudTooltip>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Dense="true">No hay órdenes pendientes.</MudText>
+            </NoRecordsContent>
+        </MudTable>
+    </MudStack>
+</MudPaper>
+
+@code {
+    // === Ajusta estas 2 propiedades según tu forma real de obtenerlas ===
+    private int SucursalId; // o léelo de cookie si lo preferís
+    private bool PuedeOperar;
+    private string rolUsuario = "";
+    private readonly CultureInfo _culture = new("es-AR");
+
+    private bool _loading;
+    private decimal _cotizacionActiva;
+    private List<OrdenTraspasoVM> _ordenes = new();
+
+
+    private static string NombreSucursal(int id) => id switch
+    {
+        1 => "Hitech 1",
+        2 => "Hitech 2",
+        3 => "Apple Store 49",
+        4 => "Apple Cafe",
+        _ => $"Sucursal {id}"
+    };
+    protected override async Task OnInitializedAsync()
+    {
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+
+
+
+
+            // Obtener rol (asumiendo que hay uno)
+            var roles = user.FindAll(System.Security.Claims.ClaimTypes.Role).Select(r => r.Value);
+            rolUsuario = roles.Any() ? string.Join(", ", roles) : "Sin rol";
+            if(rolUsuario == "ADMIN")
+            {
+                PuedeOperar = true;
+            }
+        }
+        var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+
+        if (int.TryParse(sucursal, out int idSucursal))
+        {
+            SucursalId = idSucursal;
+
+
+        }
+        await CargarCotizacionAsync();
+        await CargarGrillaAsync();
+    }
+
+    private async Task CargarCotizacionAsync()
+    {
+        try
+        {
+            var cot = await CotizacionService.CotizacionActiva();
+            _cotizacionActiva = cot?.Importe ?? 0m;
+        }
+        catch
+        {
+            _cotizacionActiva = 0m;
+        }
+    }
+
+    private async Task CargarGrillaAsync()
+    {
+        _loading = true;
+        try
+        {
+            _ordenes.Clear();
+
+            // 1) Traer todas y filtrar como hacía WinForms
+            var lista = await OrdenTraspasoService.ListarAsync();
+            var pendientesDestino = lista
+                .Where(ot => ot.Confirmada == "0" && ot.IdSucursalDestino == SucursalId)
+                .ToList();
+
+            // 2) Resolver nombres de productos minimizando N+1
+            var cacheNombre = new Dictionary<int, string>();
+            foreach (var item in pendientesDestino)
+            {
+                if (!cacheNombre.TryGetValue(item.IdProducto, out var nombre))
+                {
+                    var prod = await ProductoService.ObtenerProductoPorId(item.IdProducto);
+                    nombre = prod?.Nombre ?? "(sin nombre)";
+                    cacheNombre[item.IdProducto] = nombre;
+                }
+
+                _ordenes.Add(new OrdenTraspasoVM
+                {
+                    IdOrdenTraspaso = item.IdOrdenTraspaso,
+                    FechaCreacion = item.FechaCreacion,
+                    IdProducto = item.IdProducto,
+                    NombreProducto = cacheNombre[item.IdProducto],
+                    SerialNumber = item.SerialNumber,
+                    Cantidad = item.Cantidad,
+                    Confirmada = item.Confirmada,
+                    LocalOrigen = item.LocalOrigen,
+                    LocalDestino = item.LocalDestino,
+                    IdSucursalOrigen = item.IdSucursalOrigen,
+                    IdSucursalDestino = item.IdSucursalDestino,
+                    FechaConfirmacion = item.FechaConfirmacion,
+                    CostoProducto = item.CostoProducto
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar órdenes: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ConfirmarRecepcionAsync(OrdenTraspasoVM row)
+    {
+        if (!PuedeOperar)
+        {
+            Snackbar.Add("No posee permisos para Confirmar la Recepción de Mercadería. Contacte a un administrador.", Severity.Warning);
+            return;
+        }
+
+        var confirm = await DialogService.ShowMessageBox(
+            "Confirmar recepción",
+            $"¿Confirmar recepción de {row.Cantidad} unidad(es) del producto #{row.NombreProducto} en sucursal {NombreSucursal(row.IdSucursalDestino)}?",
+            yesText: "Confirmar",
+            cancelText: "Cancelar");
+        if (confirm is not true) return;
+
+        try
+        {
+            await OrdenTraspasoService.ConfirmarAsync(row.IdOrdenTraspaso);
+
+
+            var act = await ProductoNegocioService.CargarOActualizarStockProductoAsync(row.IdProducto, SucursalId, row.Cantidad);
+
+            string extra = string.Empty;
+            bool estado = true;
+            if (!string.IsNullOrWhiteSpace(row.SerialNumber))
+            {
+                var pd = new ProductoDetalle
+                {
+                    IdNegocio = row.IdSucursalDestino,
+                    NumeroSerie = row.SerialNumber,
+                    Estado = estado
+                };
+                var (snOk, mensaje) = await ProductoDetalleService.ActualizarSerialNumberTrasasadoAsync(pd);
+                if (snOk) extra = " Serial Number ingresado al local de destino.";
+            }
+
+            Snackbar.Add($"{act}{extra}", Severity.Success);
+            await CargarGrillaAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al confirmar recepción: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task RechazarRecepcionAsync(OrdenTraspasoVM row)
+    {
+        if (!PuedeOperar)
+        {
+            Snackbar.Add("No posee permisos para Rechazar el Traspaso de Mercadería. Contacte a un administrador.", Severity.Warning);
+            return;
+        }
+
+        var confirm = await DialogService.ShowMessageBox(
+            "Rechazar recepción",
+            $"¿Rechazar y devolver {row.Cantidad} unidad(es) del producto #{row.NombreProducto} a la sucursal origen {NombreSucursal(row.IdSucursalOrigen)}?",
+            yesText: "Rechazar",
+            cancelText: "Cancelar");
+        if (confirm is not true) return;
+
+        try
+        {
+            await OrdenTraspasoService.RechazarAsync(row.IdOrdenTraspaso);
+            
+
+            var act = await ProductoNegocioService.CargarOActualizarStockProductoAsync(row.IdProducto, row.IdSucursalOrigen, row.Cantidad);
+
+            string extra = string.Empty;
+            if (!string.IsNullOrWhiteSpace(row.SerialNumber))
+            {
+                var pd = new ProductoDetalle { Estado = true, NumeroSerie = row.SerialNumber };
+                var( snOk,mensaje) = await ProductoDetalleService.ActualizarSerialNumberTrasasadoAsync(pd);
+                if (snOk) extra = " Serial Number devuelto al local de origen.";
+            }
+
+            Snackbar.Add($"Producto devuelto al origen. {act}{extra}", Severity.Success);
+            await CargarGrillaAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al rechazar recepción: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // === ViewModel para la grilla ===
+    private sealed class OrdenTraspasoVM
+    {
+        public int IdOrdenTraspaso { get; set; }
+        public DateTime FechaCreacion { get; set; }
+        public int IdProducto { get; set; }
+        public string NombreProducto { get; set; } = string.Empty;
+        public string SerialNumber { get; set; } = string.Empty;
+        public int Cantidad { get; set; }
+        public string Confirmada { get; set; } = "0";
+        public string LocalOrigen { get; set; } = string.Empty;
+        public string LocalDestino { get; set; } = string.Empty;
+        public int IdSucursalOrigen { get; set; }
+        public int IdSucursalDestino { get; set; }
+        public DateTime? FechaConfirmacion { get; set; }
+        public decimal CostoProducto { get; set; }
+    }
+
+    public sealed class ProductoDetalleDTO
+    {
+        public int IdNegocio { get; set; }
+        public string NumeroSerie { get; set; } = string.Empty;
+        public bool Estado { get; set; }
+    }
+
+}

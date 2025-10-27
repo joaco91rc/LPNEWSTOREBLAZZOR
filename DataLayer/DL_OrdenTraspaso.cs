@@ -40,7 +40,7 @@ namespace DataLayer
                         FechaCreacion = reader.GetDateTime(6),
                         FechaConfirmacion = reader.IsDBNull(7) ? null : reader.GetDateTime(7),
                         CostoProducto = reader.GetDecimal(8),
-                        SerialNumber = reader.GetString(9)
+                        SerialNumber = reader.IsDBNull(9) ? null : reader.GetString(9)
                     });
                 }
             }
@@ -79,24 +79,40 @@ namespace DataLayer
             return orden;
         }
 
-        public async Task InsertarAsync(OrdenTraspaso o)
+        public async Task<bool> InsertarAsync(OrdenTraspaso o)
         {
-            using var conexion = new SqlConnection(_cadenaConexion);
-            using var comando = new SqlCommand("SP_INSERTAR_ORDENTRASPASO", conexion);
-            comando.CommandType = CommandType.StoredProcedure;
+            try
+            {
+                using var conexion = new SqlConnection(_cadenaConexion);
+                using var comando = new SqlCommand("SP_INSERTAR_ORDENTRASPASO", conexion)
+                {
+                    CommandType = CommandType.StoredProcedure
+                };
 
-            comando.Parameters.AddWithValue("@IdSucursalOrigen", o.IdSucursalOrigen);
-            comando.Parameters.AddWithValue("@IdSucursalDestino", o.IdSucursalDestino);
-            comando.Parameters.AddWithValue("@IdProducto", o.IdProducto);
-            comando.Parameters.AddWithValue("@Cantidad", o.Cantidad);
-            comando.Parameters.AddWithValue("@Confirmada", o.Confirmada);
-            comando.Parameters.AddWithValue("@FechaCreacion", o.FechaCreacion);
-            comando.Parameters.AddWithValue("@FechaConfirmacion", o.FechaConfirmacion.HasValue ? o.FechaConfirmacion.Value : (object)DBNull.Value);
-            comando.Parameters.AddWithValue("@CostoProducto", o.CostoProducto);
-            comando.Parameters.AddWithValue("@SerialNumber", o.SerialNumber);
+                comando.Parameters.AddWithValue("@IdSucursalOrigen", o.IdSucursalOrigen);
+                comando.Parameters.AddWithValue("@IdSucursalDestino", o.IdSucursalDestino);
+                comando.Parameters.AddWithValue("@IdProducto", o.IdProducto);
+                comando.Parameters.AddWithValue("@Cantidad", o.Cantidad);
+                comando.Parameters.AddWithValue("@Confirmada", o.Confirmada);
+                comando.Parameters.AddWithValue("@FechaCreacion", o.FechaCreacion);
+                comando.Parameters.AddWithValue("@FechaConfirmacion",
+                    o.FechaConfirmacion.HasValue ? o.FechaConfirmacion.Value : (object)DBNull.Value);
+                comando.Parameters.AddWithValue("@CostoProducto", o.CostoProducto);
+                comando.Parameters.AddWithValue("@SerialNumber",
+                    string.IsNullOrEmpty(o.SerialNumber) ? (object)DBNull.Value : o.SerialNumber);
 
-            await conexion.OpenAsync();
-            await comando.ExecuteNonQueryAsync();
+                await conexion.OpenAsync();
+
+                int filasAfectadas = await comando.ExecuteNonQueryAsync();
+
+                return filasAfectadas > 0; // true si insertó al menos una fila
+            }
+            catch (Exception ex)
+            {
+                // Opcional: loguear el error (Console, logger, etc.)
+                Console.WriteLine($"Error al insertar orden de traspaso: {ex.Message}");
+                return false;
+            }
         }
 
         public async Task ConfirmarAsync(int id)

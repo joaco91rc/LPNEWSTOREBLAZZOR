@@ -32,6 +32,7 @@
            SearchPlaceholder="Buscar producto, código o categoría…"/>
 
 @code {
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
     List<Producto> listaProductos = new();
     Producto ProductoActual = new();
     private int IdGenerado;
@@ -69,7 +70,7 @@
     private readonly CultureInfo _culture = new("es-AR");
     private bool CostoVentaEnDolares { get; set; }
 
-    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
+   
 
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

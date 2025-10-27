@@ -1,0 +1,211 @@
+﻿@page "/traspasomercaderia"
+@using LPNEWSTORE.Shared.Modals
+@using LPNEWSTORE.Utils
+@using MudBlazor
+@using Microsoft.AspNetCore.Components.Authorization
+@using Services
+@using Entities
+@using System.Globalization
+@inject IJSRuntime JS
+@inject ProductoService ProductoService
+@inject CategoriaService CategoriaService
+@inject SesionNegocioService SesionNegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudStack Spacing="2">
+
+
+    <MudPaper Class="pa-3 mb-3 mt-4" Outlined="true" Elevation="1">
+        <MudTextField @bind-Value="_filtro"
+                      Placeholder="Filtrar por código, producto o categoría…"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Immediate="true"
+                      Clearable="true"
+                      Dense="true"
+                      FullWidth="true" />
+    </MudPaper>
+
+    <MudPaper Class="p-2 mt-4">
+        <MudTable Items="_filtrados"
+                  Hover="true"
+                  Dense="true"
+                  Elevation="0">
+            <HeaderContent>
+                <MudTh style="width: 140px;">Código</MudTh>
+                <MudTh>Producto</MudTh>
+                <MudTh style="width: 220px;">Categoría</MudTh>
+                <MudTh style="width: 110px;" class="text-end">Stock</MudTh>
+                <MudTh style="width: 140px;">Serializable</MudTh>
+                <MudTh style="width: 130px;">Acciones</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Código">@context.Codigo</MudTd>
+                <MudTd DataLabel="Producto">@context.Nombre</MudTd>
+                <MudTd DataLabel="Categoría">@context.Categoria</MudTd>
+                <MudTd DataLabel="Stock" Class="text-end">@context.Stock</MudTd>
+                <MudTd DataLabel="Serializable">
+                    @if (context.EsSerializable)
+                    {
+                        <MudChip T="bool"   Color="Color.Success" Variant="Variant.Outlined" Label="true">Sí</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="bool" Color="Color.Default" Variant="Variant.Outlined" Label="true">No</MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Acciones">
+                    <MudTooltip Text="Traspaso">
+                    <MudButton Size="Size.Small"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.SwapHoriz"
+                               Variant="Variant.Filled"
+                               
+                               OnClick="@(() => AbrirTraspaso(context))">
+                                
+                    </MudButton>
+                    </MudTooltip>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="pa-4">No hay productos para mostrar.</MudText>
+            </NoRecordsContent>
+        </MudTable>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private string _filtro = string.Empty;
+    private List<ProductoRow> _productos = new();
+    private int IdSucursal;
+    private IEnumerable<ProductoRow> _filtrados =>
+        string.IsNullOrWhiteSpace(_filtro)
+        ? _productos
+        : _productos.Where(p =>
+             (p.Codigo?.Contains(_filtro, StringComparison.OrdinalIgnoreCase) ?? false) ||
+             (p.Nombre?.Contains(_filtro, StringComparison.OrdinalIgnoreCase) ?? false) ||
+             (p.Categoria?.Contains(_filtro, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+
+            if (int.TryParse(sucursal, out int idSucursal))
+            {
+                IdSucursal = idSucursal;
+
+
+            }
+            // Idealmente el servicio devuelve ya la categoría y si es serializable.
+            var lista = await ProductoService.ListarProductosEnStockAsync(IdSucursal);
+
+            // Map a la fila de la grilla. Adaptá los nombres a tu entidad real.
+            _productos = lista.Select(p => new ProductoRow
+            {
+                IdProducto = p.IdProducto,
+                Codigo = p.Codigo,
+                Nombre = p.Nombre,
+                Categoria = p.OCategoria.Descripcion ?? p.OCategoria?.Descripcion, // fallback
+                Stock = p.Stock,
+                EsSerializable = p.ProdSerializable, // o p.EsSerializable
+                
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error cargando productos: {ex.Message}", Severity.Error);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+
+            if (int.TryParse(sucursal, out int idSucursal))
+            {
+                IdSucursal = idSucursal;
+               
+
+            }
+
+            StateHasChanged();
+        }
+
+
+
+    }
+
+    private async Task AbrirTraspaso(ProductoRow row)
+    {
+        string? serialSeleccionado = row.SerialNumber;
+
+        if (row.EsSerializable)
+        {
+            
+
+            var selParams = new DialogParameters
+            {
+                ["IdProducto"] = row.IdProducto,
+                ["IdNegocio"] = IdSucursal
+            };
+
+            var selOpts = new DialogOptions
+            {
+                FullWidth = true,
+                MaxWidth = MaxWidth.Large,
+                CloseOnEscapeKey = true,
+                CloseButton = true
+            };
+
+            var dlgSel = DialogService.Show<MDSeleccionSN>("Seleccionar serial", selParams, selOpts);
+            var resSel = await dlgSel.Result;
+
+            if (resSel.Canceled) return;
+
+            serialSeleccionado = resSel.Data as string;
+            if (string.IsNullOrWhiteSpace(serialSeleccionado))
+            {
+                Snackbar.Add("No se seleccionó un serial válido.", Severity.Warning);
+                return;
+            }
+        }
+
+        // Abrir modal de traspaso con/ sin serial
+        var parameters = new DialogParameters
+        {
+            ["IdProducto"] = row.IdProducto,
+            ["Nombre"] = row.Nombre,
+            ["SerialNumber"] = serialSeleccionado
+        };
+
+        var options = new DialogOptions
+        {
+            FullWidth = true,
+            MaxWidth = MaxWidth.Medium,
+            CloseOnEscapeKey = true,
+            CloseButton = true,
+        };
+
+        var dialog = DialogService.Show<MDTraspasoSucursal>("Traspaso a sucursal", parameters, options);
+        await dialog.Result;
+    }
+
+
+    private sealed class ProductoRow
+    {
+        public int IdProducto { get; set; }
+        public string? Codigo { get; set; }
+        public string? Nombre { get; set; }
+        public string? Categoria { get; set; }
+        public int Stock { get; set; }
+        public bool EsSerializable { get; set; }
+        public string? SerialNumber { get; set; }
+    }
+}

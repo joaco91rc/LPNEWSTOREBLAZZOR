@@ -8,35 +8,49 @@ html, body {
     padding: 0;
 }
 
-.logo-apple49 {
-    width: 150px;
-    height: 140px;
-    background-image: url('/images/applestore49-logo.png');
-    background-size: contain;
-    background-repeat: no-repeat;
-}
+
+
+/* Solo cambian las imágenes, NO el tamaño */
 .logo-hitech {
-    width: 150px;
-    height: 140px;
     background-image: url('/images/logo-hitech-blanco.png');
-    background-size: contain;
-    background-repeat: no-repeat;
+}
+
+.logo-apple49 {
+    background-image: url('/images/applestore49-logo.png');
 }
 
 .logo-cafe {
-    width: 150px;
-    height: 150px;
     background-image: url('/images/logo-apple-cafe.jpeg');
-    background-size: contain;
-    background-repeat: no-repeat;
 }
+
 .logo-default {
-    width: 150px;
-    height: 150px;
     background-image: url('/images/LOGO_LOGIN.png');
-    background-size: contain;
-    background-repeat: no-repeat;
 }
+
+/* Drawer layout */
+.drawer-col {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.drawer-scroll {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0;
+}
+
+/* (opcional) Mini variant: si querés achicarlo SOLO en mini */
+.mud-drawer--mini .drawer-header {
+    height: 64px;
+}
+
+.mud-drawer--mini .drawer-logo-box {
+    width: 110px;
+    height: 48px;
+}
+
 
 h1:focus {
     outline: none;
@@ -155,5 +169,95 @@ table.table tbody tr:hover {
 .hidden-col {
     display: none;
 }
+
+
+
+/* Drawer en columna */
+.drawer-col {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+
+
+/* Logo ocupa todo el alto del header y mantiene proporción */
+.drawer-logo {
+    display: block;
+    height: 100%; /* <- fijo por altura */
+    width: auto;
+    margin: 0 auto;
+    object-fit: contain;
+}
+
+/* Área del menú */
+.drawer-scroll {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0;
+}
+
+/* Opcional: en mini variant, si querés más chico el header */
+.mud-drawer--mini .drawer-header {
+    flex-basis: 56px;
+    height: 56px;
+}
+
+.mud-drawer--mini .drawer-logo {
+    height: 100%;
+}
+
+/* Header del drawer: centrado real y sin padding lateral */
+.drawer-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--mud-palette-surface, var(--mud-palette-drawer-background, inherit));
+    height: 110px;
+    padding: 0 !important; /* <-- anula padding interno de MudBlazor */
+    margin: 0;
+    box-sizing: border-box;
+    display: grid; /* centrado simple */
+    place-items: center; /* centra en X e Y */
+}
+
+    /* Por si MudBlazor mete un contenedor interno, lo centramos igual */
+    .drawer-header > * {
+        margin: 0 auto !important;
+    }
+
+/* Marco del logo: mismo tamaño y centrado */
+.drawer-logo-box {
+    width: 170px;
+    height: 110px;
+    display: block;
+    margin-inline: auto; /* centra horizontalmente */
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: contain;
+    /* no agregues padding-left aquí */
+}
+
+.kbd-active {
+    background-color: var(--mud-palette-action-hover) !important;
+}
+
+/* Opcional: resaltar toda la fila */
+.kbd-row-active > td,
+.kbd-row-active .mud-table-cell {
+    background-color: var(--mud-palette-action-hover) !important;
+}
+
+.btn-bar {
+    display: flex;
+    justify-content: flex-end; /* a la derecha */
+    align-items: center;
+    gap: .5rem; /* separación entre botones */
+    flex-wrap: wrap; /* si no entra, pasa a otra línea */
+    width: 100%; /* ocupa todo el ancho del contenedor */
+}
+
+
 
 

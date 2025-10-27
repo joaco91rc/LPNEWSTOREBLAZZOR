@@ -111,6 +111,18 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUHJvdmVlZG9yZXNcUHJvdmVlZG9yZXMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Stock/OrdenesTraspaso.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU3RvY2tcT3JkZW5lc1RyYXNwYXNvLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Stock/Stock.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU3RvY2tcU3RvY2sucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Stock/TraspasoMercaderia.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU3RvY2tcVHJhc3Bhc29NZXJjYWRlcmlhLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Usuarios/Usuarios.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcVXN1YXJpb3NcVXN1YXJpb3MucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
@@ -153,6 +165,18 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Shared/Modals/MDProveedor.razor]
 build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXE1vZGFsc1xNRFByb3ZlZWRvci5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Shared/Modals/MDSeleccionSN.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXE1vZGFsc1xNRFNlbGVjY2lvblNOLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Shared/Modals/MDTraspasoStock.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXE1vZGFsc1xNRFRyYXNwYXNvU3RvY2sucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Shared/Modals/MDTraspasoSucursal.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXE1vZGFsc1xNRFRyYXNwYXNvU3VjdXJzYWwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Shared/RegisterLayout.razor]

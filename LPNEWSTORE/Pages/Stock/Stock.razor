@@ -1,0 +1,803 @@
+﻿@page "/stock"
+@using LPNEWSTORE.Shared.Modals
+@using MudBlazor
+@using Entities
+@using System.Globalization
+@using Services
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject IDialogService DialogService
+@inject ProductoService ProductoService 
+@inject ProductoNegocioService ProductoNegocioService
+@inject PrecioProductoService PrecioProductoService
+@inject MonedaService MonedaService
+@inject CotizacionService CotizacionService
+
+<MudText Typo="Typo.h5" Class="mb-2">Edición de Stock y Precios</MudText>
+
+<!-- Recuadro superior -->
+<MudPaper Class="pa-3 mb-3" Outlined="true">
+    <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="2">
+        <MudTextField T="string"
+                      Value="@SearchText"
+                      ValueChanged="OnSearchInput"
+                      Placeholder="@SearchPlaceholder"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Immediate="true"
+                      DebounceInterval="250"
+                      FullWidth="true" />
+
+        
+    </MudStack>
+</MudPaper>
+
+<!-- Contenedor grilla + overlay de carga -->
+<!-- Grilla (sin altura fija, deja que la página haga scroll) -->
+<MudPaper Class="p-0" Elevation="1">
+    <MudTable T="Producto"
+              Items="_filtered"
+              Dense="true" Hover="true" Bordered="true"
+              @key="_tableVersion"
+              Breakpoint="Breakpoint.Sm"
+              Class="w-100"
+              RowsPerPage="40"
+              >
+        <HeaderContent>
+            <MudTh Style="width:110px">Código</MudTh>
+            <MudTh>Producto</MudTh>
+            <MudTh Style="width:90px">Moneda</MudTh>
+            <MudTh Style="width:140px">Stock</MudTh>
+            <MudTh Style="width:140px">Nuevo Costo</MudTh>
+            <MudTh Style="width:140px">Nuevo Precio Venta</MudTh>
+            <MudTh Style="width:140px">Precio Lista</MudTh>
+            <MudTh Style="width:140px">Costo $</MudTh>
+            <MudTh Style="width:140px">Costo Compra</MudTh>
+            <MudTh Style="width:140px">Precio Venta</MudTh>
+            <MudTh Style="width:130px">Prod. Dolarizado</MudTh>
+        </HeaderContent>
+
+        <RowTemplate>
+            <MudTd @key="(context.IdProducto, context.NombreLocal)" class="cell-nowrap">
+                <MudText Typo="Typo.body2">@context.Codigo</MudText>
+            </MudTd>
+            <MudTd><MudText Typo="Typo.body2">@context.Nombre</MudText></MudTd>
+            <MudTd><MudText Typo="Typo.caption">@((context.ProductoDolar ? "USD" : "ARS"))</MudText></MudTd>
+
+            <MudTd>
+                <MudNumericField T="int"
+                                 Id="@($"stock-{context.IdProducto}")"
+                                 @bind-Value="context.Stock"
+                                 Dense="true" Min="0" Class="w-100"
+                                 OnKeyDown="@(e => HandleNavKey(e, context.IdProducto, "stock"))"
+                                 />
+            </MudTd>
+            <MudTd>
+                <MudNumericField T="decimal?" @bind-Value="context.NuevoCosto"
+                                 Dense="true" Min="0" Step="0.01M" Format="0.##"
+                                 Placeholder="(S/C)"
+                                 Adornment="Adornment.Start"
+                                 AdornmentText="@(context.ProductoDolar ? "USD" : "$")"
+                                 Class="w-100" />
+            </MudTd>
+
+            <MudTd>
+                <MudNumericField T="decimal?" @bind-Value="context.NuevoPrecioVenta"
+                                 Dense="true" Min="0" Step="0.01M" Format="0.##"
+                                 Placeholder="(S/C)"
+                                 Adornment="Adornment.Start"
+                                 AdornmentText="@(context.ProductoDolar ? "USD" : "$")"
+                                 Class="w-100" />
+            </MudTd>
+            <MudTd>
+                <MudNumericField T="decimal"
+                                 Id="@($"plista-{context.IdProducto}")"
+                                 @bind-Value="context.PrecioLista" ReadOnly="true"
+                                 Dense="true" Min="0" Step="0.01M" Format="0.##"
+                                 Adornment="Adornment.Start" AdornmentText="@(context.ProductoDolar ? "USD" : "$")"
+                                 Class="w-100"
+                                 OnKeyDown="@(e => HandleNavKey(e, context.IdProducto, "plista"))" />
+            </MudTd>
+
+            <MudTd>
+                <MudNumericField T="decimal"
+                                 Id="@($"costo-{context.IdProducto}")"
+                                 @bind-Value="context.CostoPesos"
+                                 Dense="true" Min="0" Step="0.01M" Format="0.##"
+                                 Adornment="Adornment.Start" AdornmentText="$" Class="w-100"
+                                 OnKeyDown="@(e => HandleNavKey(e, context.IdProducto, "costo"))" ReadOnly="true" />
+            </MudTd>
+
+            <MudTd>
+                <MudNumericField T="decimal"
+                                 Id="@($"usd-{context.IdProducto}")"
+                                 @bind-Value="context.PrecioCompra" ReadOnly="true"
+                                 Dense="true" Min="0" Step="0.01M" Format="0.##"
+                                 Adornment="Adornment.Start" AdornmentText="USD" Class="w-100"
+                                 OnKeyDown="@(e => HandleNavKey(e, context.IdProducto, "usd"))" />
+            </MudTd>
+
+            
+
+            <MudTd>
+                <MudNumericField T="decimal"
+                                 Id="@($"pventa-{context.IdProducto}")"
+                                 @bind-Value="context.PrecioVenta" ReadOnly="true"
+                                 Dense="true" Min="0" Step="0.01M" Format="0.##"
+                                 Adornment="Adornment.Start" AdornmentText="USD"
+                                 Class="w-100"
+                                 OnKeyDown="@(e => HandleNavKey(e, context.IdProducto, "pventa"))" />
+            </MudTd>
+
+            <MudTd>
+                <MudCheckBox T="bool" @bind-Value="context.ProductoDolar" Disabled="true" />
+
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
+                           RowsPerPageString="Registros por página">
+            </MudTablePager>
+        </PagerContent>
+
+        <NoRecordsContent>
+            <MudText Class="p-4 text-sm text-muted">No hay productos para mostrar.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudPaper>
+
+<MudPaper Class="mt-3 p-3 w-100">
+    <div class="btn-bar">
+        
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.CompareArrows"
+                   OnClick="AbrirTraspasoStockAsync"
+                   Disabled="@(_productos is null || _productos.Count == 0)">
+            Traspasar stock
+        </MudButton>
+
+        <MudButton Variant="Variant.Outlined"
+                   OnClick="CancelarCambios" Disabled="@(!_permiteCancelar)">
+            Cancelar
+        </MudButton>
+
+        <MudButton Color="Color.Primary" Variant="Variant.Filled"
+                   OnClick="GuardarAsync"
+                   Disabled="@(_productos is null || _productos.Count == 0)">
+            Actualizar Stock
+        </MudButton>
+    </div>
+</MudPaper>
+
+
+
+
+@code {
+
+
+
+
+
+
+
+    /* ===== Estado ===== */
+    private List<Producto> _productos = new();
+    private List<Producto> _filtered = new();
+    private List<Producto>? _snapshot;
+    private bool _loading;
+    private int _tableVersion = 0;
+    private string? SearchText { get; set; } = string.Empty;
+    private string SearchPlaceholder => "Buscar por código o producto...";
+    private bool ShowSoloSucursal { get; set; } = false;
+
+    private int SucursalId { get; set; } = 0;
+    private string SucursalNombre => MapSucursal(SucursalId);
+    private bool _permiteCancelar => _snapshot is not null;
+
+    private static bool IsNavKey(KeyboardEventArgs e)
+    => e.Key is "ArrowUp" or "ArrowDown" or "ArrowLeft" or "ArrowRight" or "Enter";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _loading = true; StateHasChanged();
+
+        try
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+            if (!int.TryParse(sucursal, out var idSucursal)) idSucursal = 0;
+            SucursalId = idSucursal;
+
+            _productos = await ProductoService.ListarAsync(SucursalId) ?? new();
+
+            // 🔽 Normalizar precios sincrónicamente (maneja nulls/faltantes)
+            foreach (var p in _productos)
+            {
+                // Null-safe por si el mapeo llega con null (si tus props son decimal no-null, esto sobra)
+                p.CostoPesos = p.CostoPesos;
+                p.PrecioCompra = p.PrecioCompra;   // USD (de tu SELECT)
+                p.PrecioVenta = p.PrecioVenta;    // si es ARS y viene 0, lo arreglamos abajo
+                p.PrecioLista = p.PrecioLista;
+                p.VentaPesos = p.VentaPesos;
+
+                // Si el producto NO es en dólares, usá los precios en pesos para mostrar/editar
+                if (!p.ProductoDolar)
+                {
+                    // En tu SELECT "ventaPesos" trae el precio venta ARS
+                    if (p.PrecioVenta == 0 && p.VentaPesos > 0)
+                        p.PrecioVenta = p.VentaPesos;
+
+                    // Si por algún motivo precioLista ARS vino 0, dejalo en 0 explícito
+                    p.PrecioLista = p.PrecioLista;
+                }
+                else
+                {
+                    // Si trabajás USD y no tenés precioLista USD en la SELECT, calculalo como hacés al guardar
+                    if (p.PrecioLista == 0 && p.PrecioVenta > 0)
+                        p.PrecioLista = Math.Round(p.PrecioVenta * 1.40m, 2);
+                }
+
+                // A prueba de faltantes: si algo vino null/0, al menos que se vea 0 y no quede “en blanco”
+                // (con MudNumericField decimal, 0 se muestra bien)
+            }
+
+            // 🔁 Cambiamos referencia para que MudTable detecte cambios
+            _productos = _productos.ToList();
+            ApplyFilter();                 // _filtered = _productos filtrados (ToList adentro)
+            await InvokeAsync(StateHasChanged);
+            _snapshot = Clonar(_productos); // si usás Cancelar
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error cargando productos: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false; 
+            _tableVersion++;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+
+
+    private async Task PrefetchPreciosAsync()
+    {
+        var ids = _productos.Select(p => p.IdProducto).Distinct().ToList();
+
+        // Lanzamos en paralelo, pero cada tarea ya es "safe" (nunca deja null)
+        var pesosTasks = ids.ToDictionary(id => id, id => SafePrecioAsync(id, 1)); // ARS
+        var usdTasks = ids.ToDictionary(id => id, id => SafePrecioAsync(id, 2)); // USD
+
+        await Task.WhenAll(pesosTasks.Values.Concat(usdTasks.Values));
+
+        foreach (var row in _productos)
+        {
+            // Como SafePrecioAsync nunca devuelve null, acá es seguro usar Result/await
+            var ppArs = await pesosTasks[row.IdProducto]; // precios en pesos (o ceros)
+            var ppUsd = await usdTasks[row.IdProducto];   // precios en USD (o ceros)
+
+            // Costo $ y Costo USD
+            row.CostoPesos = ppArs.PrecioCompra;
+            row.PrecioCompra = ppUsd.PrecioCompra; // tu columna "Costo USD"
+
+            // Según el flag del producto, tomamos la lista/venta de una u otra moneda
+            if (!row.ProductoDolar)
+            {
+                row.PrecioLista = ppArs.PrecioLista;
+                row.PrecioVenta = ppArs.PrecioVenta;
+            }
+            else
+            {
+                row.PrecioLista = ppUsd.PrecioLista;
+                row.PrecioVenta = ppUsd.PrecioVenta;
+            }
+        }
+
+        // Cambio de referencia para que MudTable detecte actualización
+        _productos = _productos.ToList();
+    }
+
+    private async Task<PrecioProducto> SafePrecioAsync(int idProducto, int idMoneda)
+    {
+        try
+        {
+            var r = await PrecioProductoService.ObtenerPreciosPorProductoYMonedaAsync(idProducto, idMoneda);
+            if (r == null)
+                return new PrecioProducto
+                {
+                    IdProducto = idProducto,
+                    IdMoneda = idMoneda,
+                    PrecioCompra = 0m,
+                    PrecioVenta = 0m,
+                    PrecioLista = 0m,
+                    PrecioEfectivo = 0m
+                };
+            // Por si el DTO trae nullables, normalizamos a 0
+            r.PrecioCompra = r.PrecioCompra;
+            r.PrecioVenta = r.PrecioVenta;
+            r.PrecioLista = r.PrecioLista;
+            r.PrecioEfectivo = r.PrecioEfectivo;
+            return r;
+        }
+        catch
+        {
+            return new PrecioProducto
+            {
+                IdProducto = idProducto,
+                IdMoneda = idMoneda,
+                PrecioCompra = 0m,
+                PrecioVenta = 0m,
+                PrecioLista = 0m,
+                PrecioEfectivo = 0m
+            };
+        }
+    }
+
+
+    /* ===== Filtro precomputado (mejora rendimiento) ===== */
+    private void ApplyFilter()
+    {
+        IEnumerable<Producto> src = _productos;
+
+        var term = (SearchText ?? string.Empty).Trim();
+        if (!string.IsNullOrEmpty(term))
+        {
+            src = src.Where(p =>
+                (p.Codigo ?? string.Empty).Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                (p.Nombre ?? string.Empty).Contains(term, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (ShowSoloSucursal && SucursalId > 0)
+        {
+            var nombreSuc = SucursalNombre;
+            if (!string.IsNullOrWhiteSpace(nombreSuc))
+                src = src.Where(p => string.Equals(p.NombreLocal, nombreSuc, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // materializamos una sola vez
+        _filtered = src.ToList();
+    }
+
+    /* ===== Interacciones ===== */
+    private Task OnSearchInput(string value)
+    {
+        SearchText = value ?? string.Empty;
+        ApplyFilter();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnToggleSucursal(bool value)
+    {
+        ShowSoloSucursal = value;
+        ApplyFilter();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /* ===== Acciones ===== */
+    private async Task GuardarAsync()
+    {
+        // 1) Cotización segura
+        Cotizacion? cotizacionActiva = null;
+        try { cotizacionActiva = await CotizacionService.CotizacionActiva(); } catch { }
+        var tieneCotizacion = cotizacionActiva is not null && cotizacionActiva.Importe > 0m;
+
+        // 2) Snapshot para comparar stock (los precios actuales son solo lectura)
+        var snapshot = _snapshot ?? new List<Producto>(_productos);
+
+        // 3) Filtramos SOLO los que requieren acción:
+        // - Cambió el stock
+        // - O el usuario cargó NuevoCosto > 0 o NuevoPrecioVenta > 0
+        var candidatos = _productos.Where(p =>
+        {
+            var prev = snapshot.FirstOrDefault(s => s.IdProducto == p.IdProducto);
+            var stockCambio = prev == null || p.Stock != prev.Stock;
+
+            var quierePrecio = (p.NuevoCosto.HasValue && p.NuevoCosto.Value > 0m)
+                            || (p.NuevoPrecioVenta.HasValue && p.NuevoPrecioVenta.Value > 0m);
+
+            return stockCambio || quierePrecio;
+        }).ToList();
+
+        if (SucursalId == 0)
+        {
+            Snackbar.Add("Seleccione una sucursal.", Severity.Info);
+            return;
+        }
+        if (candidatos.Count == 0)
+        {
+            Snackbar.Add("No hubo cambios para guardar.", Severity.Info);
+            return;
+        }
+
+        int totalActualizadosStock = 0;
+        int totalActualizadosPesos = 0;
+        int totalActualizadosDolares = 0;
+
+        foreach (var prod in candidatos)
+        {
+            var idProducto = prod.IdProducto;
+
+            // ========== STOCK ==========
+            try
+            {
+                int stockActual = await ProductoNegocioService.ObtenerStockProductoEnSucursalAsync(idProducto, SucursalId);
+                if (prod.Stock != stockActual)
+                {
+                    await ProductoNegocioService.SobrescribirStockAsync(idProducto, SucursalId, prod.Stock);
+                    totalActualizadosStock++;
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"[{prod.Codigo}] Error al actualizar stock: {ex.Message}", Severity.Error);
+            }
+
+            // ========== PRECIOS (solo si usuario cargó nuevos valores) ==========
+            var quierePrecio = (prod.NuevoCosto is > 0m) || (prod.NuevoPrecioVenta is > 0m);
+            if (!quierePrecio)
+                continue;
+
+            try
+            {
+                // Podrían venir null si no hay registro
+                var precioPesosActual = await PrecioProductoService.ObtenerPreciosPorProductoYMonedaAsync(idProducto, 1);
+                var precioDolarActual = await PrecioProductoService.ObtenerPreciosPorProductoYMonedaAsync(idProducto, 2);
+
+                if (!prod.ProductoDolar)
+                {
+                    // -------- Base ARS --------
+                    if (precioPesosActual is null)
+                        goto limpiarCampos; // omitimos si no existe registro en ARS
+
+                    var nuevoCompraARS = Math.Round(prod.NuevoCosto ?? precioPesosActual.PrecioCompra, 2);
+                    var nuevoVentaARS = Math.Round(prod.NuevoPrecioVenta ?? precioPesosActual.PrecioVenta, 2);
+
+                    bool hayCambioARS = nuevoCompraARS != precioPesosActual.PrecioCompra
+                                     || nuevoVentaARS != precioPesosActual.PrecioVenta;
+
+                    if (hayCambioARS)
+                    {
+                        var nuevoPesos = new PrecioProducto
+                        {
+                            IdPrecioProducto = precioPesosActual.IdPrecioProducto,
+                            IdProducto = idProducto,
+                            IdMoneda = 1,
+                            PrecioCompra = nuevoCompraARS,
+                            PrecioVenta = nuevoVentaARS,
+                            PrecioLista = nuevoVentaARS, // calc
+                            PrecioEfectivo = Math.Round(nuevoVentaARS * 0.85m, 2)
+                        };
+
+                        _ = await PrecioProductoService.EditarPrecioProductoAsync(nuevoPesos);
+                        totalActualizadosPesos++;
+
+                        // Actualización espejo a USD si existe y hay cotización
+                        if (precioDolarActual is not null && tieneCotizacion)
+                        {
+                            decimal compraUSD = Math.Round(nuevoCompraARS / cotizacionActiva!.Importe, 2);
+                            decimal ventaUSD = Math.Round(nuevoVentaARS / cotizacionActiva!.Importe, 2);
+
+                            var nuevoUsd = new PrecioProducto
+                            {
+                                IdPrecioProducto = precioDolarActual.IdPrecioProducto,
+                                IdProducto = idProducto,
+                                IdMoneda = 2,
+                                PrecioCompra = compraUSD,
+                                PrecioVenta = ventaUSD,
+                                PrecioLista = Math.Round(ventaUSD * 1.40m, 2),
+                                PrecioEfectivo = ventaUSD
+                            };
+                            _ = await PrecioProductoService.EditarPrecioProductoAsync(nuevoUsd);
+                            totalActualizadosDolares++;
+                            prod.CostoPesos = nuevoCompraARS;
+
+                            prod.PrecioCompra = compraUSD;
+                            prod.PrecioVenta = ventaUSD;
+                            prod.PrecioLista = nuevoVentaARS;
+                        }
+
+                        // Refrescar modelo en memoria (opcional)
+
+                    }
+                }
+                else
+                {
+                    // -------- Base USD --------
+                    if (precioDolarActual is null)
+                        goto limpiarCampos; // omitimos si no existe registro en USD
+
+                    var nuevoCompraUSD = Math.Round(prod.NuevoCosto ?? precioDolarActual.PrecioCompra, 2);
+                    var nuevoVentaUSD = Math.Round(prod.NuevoPrecioVenta ?? precioDolarActual.PrecioVenta, 2);
+
+                    bool hayCambioUSD = nuevoCompraUSD != precioDolarActual.PrecioCompra
+                                     || nuevoVentaUSD != precioDolarActual.PrecioVenta;
+
+                    if (hayCambioUSD)
+                    {
+                        var nuevoUsd = new PrecioProducto
+                        {
+                            IdPrecioProducto = precioDolarActual.IdPrecioProducto,
+                            IdProducto = idProducto,
+                            IdMoneda = 2,
+                            PrecioCompra = nuevoCompraUSD,
+                            PrecioVenta = nuevoVentaUSD,
+                            PrecioLista = Math.Round(nuevoVentaUSD * 1.40m, 2),
+                            PrecioEfectivo = nuevoVentaUSD
+                        };
+
+                        _ = await PrecioProductoService.EditarPrecioProductoAsync(nuevoUsd);
+                        totalActualizadosDolares++;
+
+                        // Espejo a ARS si existe y hay cotización
+                        if (precioPesosActual is not null && tieneCotizacion)
+                        {
+                            decimal compraARS = Math.Round(nuevoCompraUSD * cotizacionActiva!.Importe, 2);
+                            decimal ventaARS = Math.Round(nuevoVentaUSD * cotizacionActiva!.Importe, 2);
+
+                            var nuevoPesos = new PrecioProducto
+                            {
+                                IdPrecioProducto = precioPesosActual.IdPrecioProducto,
+                                IdProducto = idProducto,
+                                IdMoneda = 1,
+                                PrecioCompra = compraARS,
+                                PrecioVenta = ventaARS,
+                                PrecioLista = ventaARS,
+                                PrecioEfectivo = Math.Round(ventaARS * 0.85m, 2)
+                            };
+                            _ = await PrecioProductoService.EditarPrecioProductoAsync(nuevoPesos);
+                            totalActualizadosPesos++;
+                            // Refrescar modelo en memoria (opcional)
+                            prod.PrecioCompra = nuevoCompraUSD;
+                            prod.PrecioVenta = nuevoVentaUSD;
+                            prod.PrecioLista = Math.Round(nuevoVentaUSD * 1.40m, 2);
+
+                            prod.CostoPesos = compraARS;
+
+                        }
+
+                        
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"[{prod.Codigo}] Error al actualizar precios: {ex.Message}", Severity.Error);
+            }
+
+        limpiarCampos:
+            // Limpiamos entradas de usuario para que no se repliquen en el próximo guardado
+            prod.NuevoCosto = null;
+            prod.NuevoPrecioVenta = null;
+        }
+
+        if (totalActualizadosStock + totalActualizadosPesos + totalActualizadosDolares == 0)
+            Snackbar.Add("No hubo cambios para guardar.", Severity.Info);
+        else
+        {
+            if (totalActualizadosStock > 0) Snackbar.Add($"Stock actualizado en {totalActualizadosStock} fila(s).", Severity.Success);
+            if (totalActualizadosPesos > 0) Snackbar.Add($"Se actualizaron precios en pesos en {totalActualizadosPesos} producto(s).", Severity.Success);
+            if (totalActualizadosDolares > 0) Snackbar.Add($"Se actualizaron precios en dólares en {totalActualizadosDolares} producto(s).", Severity.Success);
+
+            _snapshot = Clonar(_productos);
+        }
+    }
+
+
+
+    private async Task ActualizarSoloStockAsync()
+    {
+        var stockUpdates = _productos.Select(p => new { p.IdProducto, p.NombreLocal, p.Stock }).ToList();
+        try
+        {
+            // TODO: await ProductoService.ActualizarStockMasivoAsync(stockUpdates);
+            Snackbar.Add($"Stock actualizado para {stockUpdates.Count} filas.", Severity.Success);
+            _snapshot = Clonar(_productos);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al actualizar stock: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task AbrirTraspasoStockAsync()
+    {
+        var opciones = new DialogOptions { FullWidth = true, MaxWidth = MaxWidth.Small };
+        var parametros = new DialogParameters
+        {
+            { "Productos", _productos
+                .GroupBy(p => new { p.IdProducto, p.Codigo, p.Nombre })
+                .Select(g => new Producto { IdProducto = g.Key.IdProducto, Codigo = g.Key.Codigo, Nombre = g.Key.Nombre })
+                .OrderBy(p => p.Nombre)
+                .ToList()
+            },
+            { "SucursalOrigenId", SucursalId }
+        };
+
+        var dialog = DialogService.Show<MDTraspasoStock>("Traspasar stock", parametros, opciones);
+        var result = await dialog.Result;
+        if (result.Canceled || result.Data is null) return;
+
+        var req = (TraspasoRequest)result.Data;
+
+        try
+        {
+            var nombreOrigen  = MapSucursal(req.SucursalOrigenId);
+            var nombreDestino = MapSucursal(req.SucursalDestinoId);
+
+            var filaOrigen  = _productos.FirstOrDefault(p => p.IdProducto == req.IdProducto && p.NombreLocal == nombreOrigen);
+            var filaDestino = _productos.FirstOrDefault(p => p.IdProducto == req.IdProducto && p.NombreLocal == nombreDestino);
+
+            if (filaOrigen is null)
+                Snackbar.Add("No se encontró la fila de origen en la grilla. Se actualizará al refrescar.", Severity.Warning);
+            else if (filaOrigen.Stock < req.Cantidad)
+                Snackbar.Add("No hay stock suficiente en el origen.", Severity.Error);
+            else
+                filaOrigen.Stock -= req.Cantidad;
+
+            if (filaDestino is null)
+            {
+                var baseProd = _productos.FirstOrDefault(p => p.IdProducto == req.IdProducto);
+                if (baseProd is not null)
+                {
+                    _productos.Add(new Producto
+                    {
+                        IdProducto = baseProd.IdProducto,
+                        Codigo = baseProd.Codigo,
+                        Nombre = baseProd.Nombre,
+                        Descripcion = baseProd.Descripcion,
+                        OCategoria = baseProd.OCategoria,
+                        CostoPesos = baseProd.CostoPesos,
+                        VentaPesos = baseProd.VentaPesos,
+                        PrecioCompra = baseProd.PrecioCompra,
+                        PrecioLista = baseProd.PrecioLista,
+                        PrecioVenta = baseProd.PrecioVenta,
+                        Estado = baseProd.Estado,
+                        ProdSerializable = baseProd.ProdSerializable,
+                        ProductoDolar = baseProd.ProductoDolar,
+                        FechaRegistro = baseProd.FechaRegistro,
+                        Stock = req.Cantidad,
+                        NombreLocal = nombreDestino
+                    });
+                }
+            }
+            else
+            {
+                filaDestino.Stock += req.Cantidad;
+            }
+
+            ApplyFilter();
+            Snackbar.Add($"Traspaso realizado: {req.Cantidad} unid. de {nombreOrigen} → {nombreDestino}.", Severity.Success);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al traspasar: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void CancelarCambios()
+    {
+        if (_snapshot is null) return;
+        _productos.Clear();
+        _productos.AddRange(Clonar(_snapshot));
+        ApplyFilter();
+        Snackbar.Add("Cambios cancelados.", Severity.Info);
+        StateHasChanged();
+    }
+
+    /* ===== Utilidades ===== */
+    public record TraspasoRequest(int IdProducto, int SucursalOrigenId, int SucursalDestinoId, int Cantidad);
+
+    private static string MapSucursal(int id) => id switch
+    {
+        1 => "HITECH 1",
+        2 => "HITECH 2",
+        3 => "APPLE STORE 49",
+        4 => "APPLE CAFE",
+        _ => string.Empty
+    };
+
+    private static List<Producto> Clonar(List<Producto> src)
+        => src.Select(p => new Producto
+        {
+            IdProducto       = p.IdProducto,
+            Codigo           = p.Codigo,
+            Nombre           = p.Nombre,
+            Descripcion      = p.Descripcion,
+            OCategoria       = p.OCategoria,
+            CostoPesos       = p.CostoPesos,
+            VentaPesos       = p.VentaPesos,
+            PrecioCompra     = p.PrecioCompra,
+            PrecioLista      = p.PrecioLista,
+            PrecioVenta      = p.PrecioVenta,
+            Estado           = p.Estado,
+            ProdSerializable = p.ProdSerializable,
+            ProductoDolar    = p.ProductoDolar,
+            FechaRegistro    = p.FechaRegistro,
+            Stock            = p.Stock,
+            NombreLocal      = p.NombreLocal
+        }).ToList();
+
+
+        //NAVEGACION CON TECLAS
+
+    // Orden de columnas “navegables” por teclado (usá tus keys)
+    private readonly string[] _colOrder = new[] { "stock", "costo", "usd", "plista", "pventa" };
+
+    // Devuelve el Id del input para una columna y producto
+    private static string CellId(string colKey, int idProducto) => colKey switch
+    {
+        "stock" => $"stock-{idProducto}",
+        "costo" => $"costo-{idProducto}",
+        "usd" => $"usd-{idProducto}",
+        "plista" => $"plista-{idProducto}",
+        "pventa" => $"pventa-{idProducto}",
+        _ => $"cell-{idProducto}"
+    };
+
+    private sealed class EdgeInfo
+    {
+        public bool atStart { get; set; }
+        public bool atEnd { get; set; }
+    }
+
+    private async Task HandleNavKey(KeyboardEventArgs e, int currentId, string colKey)
+    {
+        var list = _filtered;
+        var i = list.FindIndex(p => p.IdProducto == currentId);
+        if (i < 0) return;
+
+        // ↓ / ↑ : misma columna (fila siguiente / anterior)
+        if (e.Key == "ArrowDown" && i < list.Count - 1)
+        {
+            var nextId = list[i + 1].IdProducto;
+            await JS.InvokeVoidAsync("focusAndHighlightCell", CellId(colKey, nextId));
+            return;
+        }
+        if (e.Key == "ArrowUp" && i > 0)
+        {
+            var prevId = list[i - 1].IdProducto;
+            await JS.InvokeVoidAsync("focusAndHighlightCell", CellId(colKey, prevId));
+            return;
+        }
+
+        // ← / → : cambiar de columna solo si el cursor está al inicio/fin del texto
+        if (e.Key == "ArrowLeft" || e.Key == "ArrowRight")
+        {
+            EdgeInfo edge = await JS.InvokeAsync<EdgeInfo>("atTextEdge", CellId(colKey, currentId));
+            bool atStart = edge?.atStart ?? false;
+            bool atEnd = edge?.atEnd ?? false;
+
+            int colIdx = Array.IndexOf(_colOrder, colKey);
+            if (colIdx < 0) return;
+
+            if (e.Key == "ArrowLeft" && atStart && colIdx > 0)
+            {
+                var prevCol = _colOrder[colIdx - 1];
+                await JS.InvokeVoidAsync("focusAndHighlightCell", CellId(prevCol, currentId));
+                return;
+            }
+            else if (e.Key == "ArrowRight" && atEnd && colIdx < _colOrder.Length - 1)
+            {
+                var nextCol = _colOrder[colIdx + 1];
+                await JS.InvokeVoidAsync("focusAndHighlightCell", CellId(nextCol, currentId));
+                return;
+            }
+        }
+
+        // Enter: bajar una fila en la misma columna
+        if (e.Key == "Enter" && i < list.Count - 1)
+        {
+            var nextId = list[i + 1].IdProducto;
+            await JS.InvokeVoidAsync("focusAndHighlightCell", CellId(colKey, nextId));
+        }
+    }
+
+
+
+}

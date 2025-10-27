@@ -26,7 +26,7 @@ namespace Services
             return _ordenTraspasoDL.ObtenerPorIdAsync(id);
         }
 
-        public Task InsertarAsync(OrdenTraspaso orden)
+        public Task<bool> InsertarAsync(OrdenTraspaso orden)
         {
             // acá podés agregar validaciones de negocio si querés
             return _ordenTraspasoDL.InsertarAsync(orden);
