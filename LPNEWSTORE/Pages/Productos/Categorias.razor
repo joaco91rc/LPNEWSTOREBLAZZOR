@@ -1,4 +1,5 @@
 ﻿@page "/categoria"
+@using ClosedXML.Excel
 @using LPNEWSTORE.Utils
 @using MudBlazor
 @using Microsoft.AspNetCore.Identity
@@ -24,7 +25,7 @@
            FormContent="@FormCategoria"
            GridContent="@GridCategoria"
            OnSearchChanged="HandleSearch"
-           OnExport="ExportarCsv"
+           OnExport="ExportarCategoriasXlsx"
            SearchPlaceholder="Buscar  categoría…" />
 
 @code {
@@ -118,7 +119,59 @@
     };
             sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
         }
-        await JS.InvokeVoidAsync("downloadFileFromText", "Categorias.csv", sb.ToString(), "text/csv;charset=utf-8;");
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        var filename = $"Exportacion_Productos_{DateTime.Now:yyyyMMddHHmmss}.csv";
+        using var ms = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(ms);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            filename,
+            streamRef,
+            "text/csv;charset=utf-8");
+        
+    }
+
+    private async Task ExportarCategoriasXlsx()
+    {
+        var fileName = $"Categorias_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Categorias");
+
+        // Encabezados
+        var r = 1; var c = 1;
+        ws.Cell(r, c++).Value = "Descripción";
+        ws.Cell(r, c++).Value = "Estado";
+
+        // Estilos encabezado
+        ws.Range(1, 1, 1, 2).Style.Font.SetBold();
+        ws.Range(1, 1, 1, 2).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+        ws.SheetView.FreezeRows(1);
+
+        // Datos
+        r = 2;
+        foreach (var p in CategoriasFiltradas)
+        {
+            c = 1;
+            ws.Cell(r, c++).Value = p.Descripcion ?? string.Empty;
+            ws.Cell(r, c++).Value = p.Estado ? "Activo" : "Inactivo";
+            r++;
+        }
+
+        // Ajustes
+        ws.Columns().AdjustToContents();
+        ws.RangeUsed().SetAutoFilter();
+
+        // Descargar vía stream (como DoExport)
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var streamRef = new DotNetStreamReference(ms);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            fileName,
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 
     private void Editar(Categoria c)

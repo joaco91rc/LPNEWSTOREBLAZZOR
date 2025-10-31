@@ -59,6 +59,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ29uZmlndXJhY2lvbmVzXFZlbmRlZG9yZXMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Consultas/ConsultaProductos.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ29uc3VsdGFzXENvbnN1bHRhUHJvZHVjdG9zLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Counter.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ291bnRlci5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
@@ -129,10 +133,6 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Ventas/ListadoVentas.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcVmVudGFzXExpc3RhZG9WZW50YXMucmF6b3I=
-build_metadata.AdditionalFiles.CssScope = 
-
-[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Ventas/Venta.razor]
-build_metadata.AdditionalFiles.TargetPath = UGFnZXNcVmVudGFzXFZlbnRhLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Shared/AbmLayout.razor]

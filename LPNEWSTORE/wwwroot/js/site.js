@@ -83,6 +83,21 @@ window.downloadFileFromText = (fileName, content, contentType) => {
     }
 };
 
+window.downloadFromStream = async (fileName, contentStreamReference, contentType) => {
+    const arrayBuffer = await contentStreamReference.arrayBuffer();
+    const blob = new Blob([arrayBuffer], { type: contentType || 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName || "archivo.txt";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+        URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    }, 0);
+};
+
 // wwwroot/js/site.js
 window.focusAndHighlightCell = (inputId) => {
     const run = () => {

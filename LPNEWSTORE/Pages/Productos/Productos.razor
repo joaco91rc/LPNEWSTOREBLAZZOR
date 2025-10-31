@@ -1,4 +1,5 @@
 ﻿@page "/producto"
+@using ClosedXML.Excel
 @using LPNEWSTORE.Utils
 @using MudBlazor
 @using Microsoft.AspNetCore.Identity
@@ -28,7 +29,7 @@
            FormContent="@FormProducto"
            GridContent="@GridProducto" 
            OnSearchChanged="HandleSearch"
-           OnExport="ExportarCsv"
+           OnExport="ExportarProductosXlsx"
            SearchPlaceholder="Buscar producto, código o categoría…"/>
 
 @code {
@@ -159,8 +160,88 @@
     };
             sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
         }
-        await JS.InvokeVoidAsync("downloadFileFromText", "productos.csv", sb.ToString(), "text/csv;charset=utf-8;");
+        var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        var filename = $"Exportacion_Productos_{DateTime.Now:yyyyMMddHHmmss}.csv";
+        using var ms = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(ms);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            filename,
+            streamRef,
+            "text/csv;charset=utf-8");
     }
+
+    private async Task ExportarProductosXlsx()
+    {
+        var fileName = $"Exportacion_Productos_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Productos");
+
+        // Encabezados
+        int r = 1, c = 1;
+        ws.Cell(r, c++).Value = "Código";
+        ws.Cell(r, c++).Value = "Producto";
+        ws.Cell(r, c++).Value = "Categoría";
+        ws.Cell(r, c++).Value = "Stock";
+        ws.Cell(r, c++).Value = "Lista (ARS)";
+        ws.Cell(r, c++).Value = "Efectivo (ARS)";
+        ws.Cell(r, c++).Value = "Venta (USD)";
+        ws.Cell(r, c++).Value = "Costo (ARS)";
+        ws.Cell(r, c++).Value = "Compra (USD)";
+        ws.Cell(r, c++).Value = "Serializable";
+        ws.Cell(r, c++).Value = "Dolarizado";
+
+        var lastCol = c - 1;
+        ws.Range(1, 1, 1, lastCol).Style.Font.SetBold();
+        ws.Range(1, 1, 1, lastCol).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+        ws.SheetView.FreezeRows(1);
+
+        // Datos
+        r = 2;
+        foreach (var p in ProductosFiltrados)
+        {
+            c = 1;
+            ws.Cell(r, c++).Value = p.Codigo ?? string.Empty;
+            ws.Cell(r, c++).Value = p.Nombre ?? string.Empty;
+            ws.Cell(r, c++).Value = p.OCategoria?.Descripcion ?? string.Empty;
+            ws.Cell(r, c++).Value = p.Stock;
+
+            ws.Cell(r, c++).Value = p.PrecioLista;     // ARS
+            ws.Cell(r, c++).Value = p.VentaPesos;      // Efectivo ARS (o el campo que uses)
+            ws.Cell(r, c++).Value = p.PrecioVenta;     // USD (venta)
+            ws.Cell(r, c++).Value = p.CostoPesos;      // ARS (costo)
+            ws.Cell(r, c++).Value = p.PrecioCompra;    // USD (compra)
+
+            ws.Cell(r, c++).Value = p.ProdSerializable ? "Sí" : "No";
+            ws.Cell(r, c++).Value = p.ProductoDolar ? "Sí" : "No";
+            r++;
+        }
+
+        // Formatos numéricos (usando convención es-AR: punto miles, coma decimales)
+        // Columnas: 1=Código, 2=Producto, 3=Categoría, 4=Stock,
+        // 5=Lista(ARS), 6=Efectivo(ARS), 7=Venta(USD), 8=Costo(ARS), 9=Compra(USD)
+                 // Stock (entero)
+        ws.Column(5).Style.NumberFormat.Format = "\"ARS\" #,##0.00";   // Lista
+        ws.Column(6).Style.NumberFormat.Format = "\"ARS\" #,##0.00";   // Efectivo
+        ws.Column(7).Style.NumberFormat.Format = "\"USD\" #,##0.00";   // Venta USD
+        ws.Column(8).Style.NumberFormat.Format = "\"ARS\" #,##0.00";   // Costo ARS
+        ws.Column(9).Style.NumberFormat.Format = "\"USD\" #,##0.00";   // Compra USD
+
+        ws.Columns().AdjustToContents();
+        ws.RangeUsed().SetAutoFilter();
+
+        // Descargar vía stream (SIN base64)
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var streamRef = new DotNetStreamReference(ms);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            fileName,
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
 
     private void Editar(Producto c)
     {

@@ -1,0 +1,324 @@
+﻿@page "/consultaproducto"
+@using System.Globalization
+@using ClosedXML.Excel
+@using Entities
+@using LPNEWSTORE.Utils
+@using MudBlazor
+@using Services
+@inject ProductoService ProductoService
+@inject CotizacionService CotizacionService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<MudStack Spacing="2">
+
+    <!-- Barra superior: buscador + exportar -->
+    <MudPaper Class="pa-3" Outlined="true" Elevation="1">
+        <MudGrid GutterSize="2" AlignItems="Center">
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_filtro"
+                              Placeholder="Filtrar por código, nombre o categoría…"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Immediate="true"
+                              Clearable="true"
+                              Dense="true"
+                              FullWidth="true" />
+            </MudItem>
+
+            <MudItem xs="6" md="3">
+                <MudButton Color="Color.Primary"
+                           Variant="Variant.Filled"
+                           StartIcon="@Icons.Material.Filled.FileDownload"
+                           Disabled="@(!_filtrados?.Any() ?? true)"
+                           OnClick="ExportarCsvAsync">
+                    Exportar
+                </MudButton>
+            </MudItem>
+
+            <MudItem xs="6" md="3" class="text-end">
+                <MudText Typo="Typo.body2">
+                    @if (_cargando)
+                    {
+                        <MudProgressCircular Class="mr-2" Indeterminate="true" Size="Size.Small" />
+                        <span>Cargando…</span>
+                    }
+                    else
+                    {
+                        <span>@(_filtrados.Count()) registro(s)</span>
+                    }
+                </MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <!-- Grilla -->
+    <MudPaper Class="p-0" Outlined="true" Elevation="0">
+        <MudTable Items="_filtrados"
+                  Hover="true"
+                  Dense="true"
+                  FixedHeader="true"
+                  Elevation="0"
+                  Breakpoint="Breakpoint.Sm"
+                  Bordered="false">
+            <HeaderContent>
+                <MudTh style="width:110px;">Código</MudTh>
+                <MudTh>Producto</MudTh>
+                <MudTh style="width:220px;">Categoría</MudTh>
+                <MudTh style="width:90px;" class="text-end">Stock</MudTh>
+                <MudTh style="width:90px;" class="text-end">H1</MudTh>
+                <MudTh style="width:90px;" class="text-end">H2</MudTh>
+                <MudTh style="width:90px;" class="text-end">AS</MudTh>
+                <MudTh style="width:90px;" class="text-end">AC</MudTh>
+                <MudTh style="width:140px;" class="text-end">Lista (ARS)</MudTh>
+                <MudTh style="width:140px;" class="text-end">Efectivo (ARS)</MudTh>
+                <MudTh style="width:140px;" class="text-end">Venta (USD)</MudTh>
+                
+                
+                <MudTh style="width:140px;" class="text-end">Cuotas x3 (ARS)</MudTh>
+                <MudTh style="width:140px;" class="text-end">Cuotas x6 (ARS)</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                
+                <MudTd DataLabel="Código">@context.Codigo</MudTd>
+                <MudTd DataLabel="Producto">@context.Nombre</MudTd>
+                <MudTd DataLabel="Categoría">@context.OCategoria.Descripcion</MudTd>
+                <MudTd DataLabel="Stock"     Class="text-end">@context.StockTotal</MudTd>
+                <MudTd DataLabel="H1"        Class="text-end">@context.StockH1</MudTd>
+                <MudTd DataLabel="H2"        Class="text-end">@context.StockH2</MudTd>
+                <MudTd DataLabel="AS"        Class="text-end">@context.StockAS</MudTd>
+                <MudTd DataLabel="AC"        Class="text-end">@context.StockAC</MudTd>
+                <MudTd DataLabel="Lista (ARS)"     Class="text-end">@Precio(context.PrecioLista)</MudTd>
+                <MudTd DataLabel="Efectivo (ARS)" Class="text-end">@Precio(context.PrecioEfectivoARS)</MudTd>
+                <MudTd DataLabel="Venta (USD)"     Class="text-end">@Precio(context.PrecioVenta)</MudTd>
+                
+                
+                <MudTd DataLabel="Cuotas x3 (ARS)" Class="text-end">@Precio(context.Cuotas3ARS)</MudTd>
+                <MudTd DataLabel="Cuotas x6 (ARS)" Class="text-end">@Precio(context.Cuotas6ARS)</MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="p-4" Typo="Typo.body2">Sin datos para mostrar.</MudText>
+            </NoRecordsContent>
+        </MudTable>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private bool _cargando = true;
+    private string _filtro = string.Empty;
+    private decimal _cotizacionActiva = 0m;
+    
+    private List<Producto> _todos = [];
+    private IEnumerable<Producto> _filtrados => string.IsNullOrWhiteSpace(_filtro)
+        ? _todos
+        : _todos.Where(p =>
+            (p.Codigo?.Contains(_filtro, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (p.Nombre?.Contains(_filtro, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (p.OCategoria?.Descripcion.Contains(_filtro, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _cargando = true;
+
+            // 1) Cotización segura (evitamos div/0)
+            try
+            {
+                var cot = await CotizacionService.CotizacionActiva();
+                _cotizacionActiva = cot?.Importe ?? 0m;
+            }
+            catch { _cotizacionActiva = 0m; }
+            _todos = (await ProductoService.ListarAsync()).ToList();
+
+            // 3) Precalcular en cada producto las 3 variantes
+            foreach (var p in _todos)
+            {
+                // Ajustá el nombre de la propiedad si es "precioLista" en minúscula
+                var pc = PrecioHelper.CalcularDesdeLista(p.PrecioLista);
+
+                p.PrecioEfectivoARS = pc.PrecioEfectivo; // propiedades [NotMapped] en tu partial de Producto
+                p.Cuotas3ARS = pc.Precio3Cuotas;
+                p.Cuotas6ARS = pc.Precio6Cuotas;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    
+
+    private static string Precio(decimal? valor) =>
+        valor is null ? "-" : valor.Value.ToString("#,##0.00", new CultureInfo("es-AR"));
+
+      
+    private async Task ExportarCsvAsync()
+    {
+        try
+        {
+            var filas = _filtrados.ToList();
+            if (!filas.Any())
+            {
+                Snackbar.Add("No hay registros para exportar.", Severity.Info);
+                return;
+            }
+
+            var sb = new System.Text.StringBuilder();
+            // Encabezados
+            sb.AppendLine("Codigo;Nombre;Categoria;Stock;H1;H2;AS;AC;Lista(ARS);Efectivo(ARS);Venta(USD);Cuotas x3(ARS);Cuotas x6(ARS)");
+
+            foreach (var p in filas)
+            {
+                string linea = string.Join(";", new[]
+                {
+                    p.Codigo,
+                    p.Nombre,
+                    p.OCategoria.Descripcion,
+                    p.StockTotal.ToString(),
+                    p.StockH1.ToString(),
+                    p.StockH2.ToString(),
+                    p.StockAS.ToString(),
+                    p.StockAC.ToString(),
+                    p.PrecioLista.ToString(),
+                    p.PrecioEfectivoARS.ToString(),
+                    p.PrecioVenta.ToString(),
+                    
+                    p.Cuotas3ARS.ToString(),
+                    p.Cuotas6ARS.ToString(),
+                });
+                sb.AppendLine(linea);
+            }
+
+            
+            var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+            var filename = $"Exportacion_Productos_{DateTime.Now:yyyyMMddHHmmss}.csv";
+            using var ms = new MemoryStream(bytes);
+            using var streamRef = new DotNetStreamReference(ms);
+            await JS.InvokeVoidAsync("downloadFromStream",
+                filename,
+                streamRef,
+                "text/csv;charset=utf-8");
+            
+            Snackbar.Add("Exportación lista.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al exportar: {ex.Message}", Severity.Error);
+        }
+    }
+
+   
+    private async Task ExportarProductosXlsxAsync()
+    {
+        try
+        {
+            var filas = _filtrados?.ToList() ?? new();
+            if (filas.Count == 0)
+            {
+                Snackbar.Add("No hay registros para exportar.", Severity.Info);
+                return;
+            }
+
+            await Task.Yield(); // ceder antes del trabajo CPU-bound
+
+            // Generar el XLSX fuera del hilo del circuito
+            byte[] bytes = await Task.Run(() =>
+            {
+                using var wb = new XLWorkbook();
+                var ws = wb.Worksheets.Add("Productos");
+
+                // Encabezados
+                int r = 1, c = 1;
+                ws.Cell(r, c++).Value = "Código";
+                ws.Cell(r, c++).Value = "Nombre";
+                ws.Cell(r, c++).Value = "Categoría";
+                ws.Cell(r, c++).Value = "Stock";
+                ws.Cell(r, c++).Value = "H1";
+                ws.Cell(r, c++).Value = "H2";
+                ws.Cell(r, c++).Value = "AS";
+                ws.Cell(r, c++).Value = "AC";
+                ws.Cell(r, c++).Value = "Lista (ARS)";
+                ws.Cell(r, c++).Value = "Efectivo (ARS)";
+                ws.Cell(r, c++).Value = "Venta (USD)";
+                ws.Cell(r, c++).Value = "Cuotas x3 (ARS)";
+                ws.Cell(r, c++).Value = "Cuotas x6 (ARS)";
+
+                int lastCol = c - 1;
+                ws.Range(1, 1, 1, lastCol).Style.Font.SetBold();
+                ws.Range(1, 1, 1, lastCol).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+                ws.SheetView.FreezeRows(1);
+
+                // Formatos (decimales y símbolos entre comillas)
+                ws.Column(4).Style.NumberFormat.Format = "#,##0";            // Stock total
+                ws.Column(5).Style.NumberFormat.Format = "#,##0";            // H1
+                ws.Column(6).Style.NumberFormat.Format = "#,##0";            // H2
+                ws.Column(7).Style.NumberFormat.Format = "#,##0";            // AS
+                ws.Column(8).Style.NumberFormat.Format = "#,##0";            // AC
+                ws.Column(9).Style.NumberFormat.Format = "\"ARS\" #,##0.00"; // Lista
+                ws.Column(10).Style.NumberFormat.Format = "\"ARS\" #,##0.00"; // Efectivo
+                ws.Column(11).Style.NumberFormat.Format = "\"USD\" #,##0.00"; // Venta
+                ws.Column(12).Style.NumberFormat.Format = "\"ARS\" #,##0.00"; // 3 cuotas
+                ws.Column(13).Style.NumberFormat.Format = "\"ARS\" #,##0.00"; // 6 cuotas
+
+                // Datos
+                r = 2;
+                foreach (var p in filas)
+                {
+                    c = 1;
+                    ws.Cell(r, c++).Value = p.Codigo ?? string.Empty;
+                    ws.Cell(r, c++).Value = p.Nombre ?? string.Empty;
+                    ws.Cell(r, c++).Value = p.OCategoria?.Descripcion ?? string.Empty;
+
+                    ws.Cell(r, c++).Value = p.StockTotal;   // int
+                    ws.Cell(r, c++).Value = p.StockH1;      // int
+                    ws.Cell(r, c++).Value = p.StockH2;      // int
+                    ws.Cell(r, c++).Value = p.StockAS;      // int
+                    ws.Cell(r, c++).Value = p.StockAC;      // int
+
+                    ws.Cell(r, c++).Value = p.PrecioLista;        // decimal
+                    ws.Cell(r, c++).Value = p.PrecioEfectivoARS;  // decimal
+                    ws.Cell(r, c++).Value = p.PrecioVenta;        // decimal (USD)
+                    ws.Cell(r, c++).Value = p.Cuotas3ARS;         // decimal
+                    ws.Cell(r, c++).Value = p.Cuotas6ARS;         // decimal
+                    r++;
+                }
+
+                var used = ws.RangeUsed();
+                if (used is not null)
+                {
+                    used.SetAutoFilter();
+                    ws.Columns(1, lastCol).AdjustToContents(1, filas.Count + 1);
+                }
+
+                using var ms = new MemoryStream();
+                wb.SaveAs(ms);
+                return ms.ToArray();
+            });
+
+            var filename = $"Exportacion_Productos_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+            using var msOut = new MemoryStream(bytes);
+            using var streamRef = new DotNetStreamReference(msOut);
+            await JS.InvokeVoidAsync("downloadFromStream",
+                filename,
+                streamRef,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+            Snackbar.Add("Exportación lista.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al exportar: {ex.Message}", Severity.Error);
+        }
+    }
+   
+
+
+    
+    
+}

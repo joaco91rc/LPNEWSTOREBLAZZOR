@@ -1,4 +1,5 @@
 ﻿@page "/clientes"
+@using ClosedXML.Excel
 @using MudBlazor
 @using Microsoft.AspNetCore.Identity
 @using Services
@@ -20,7 +21,7 @@
            FormContent="@FormCliente"
            GridContent="@GridClientes" 
            OnSearchChanged="HandleSearch"
-           OnExport="ExportarCsv"
+           OnExport="ExportarClientesXlsx"
            SearchPlaceholder="Buscar Cliente …" />
 
 
@@ -138,6 +139,87 @@
             sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
         }
         await JS.InvokeVoidAsync("downloadFileFromText", "Clientes.csv", sb.ToString(), "text/csv;charset=utf-8;");
+    }
+
+    private async Task ExportarClientesXlsx()
+    {
+        var fileName = $"Clientes_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        // 1) Materializar primero (evita IQueryables/lazy durante el export)
+        var rows = ClientesFiltrados.Select(p => new
+        {
+            Documento = p.Documento ?? string.Empty,
+            Cliente = p.NombreCompleto ?? string.Empty,
+            Correo = p.Correo ?? string.Empty,
+            Direccion = p.Direccion ?? string.Empty,
+            Ciudad = p.Ciudad ?? string.Empty,
+            Telefono = p.Telefono ?? string.Empty,
+            Estado = p.Estado ? "Activo" : "Inactivo"
+        }).ToList();
+
+        await Task.Yield(); // ceder el hilo del circuito antes del trabajo pesado
+
+        // 2) Generar XLSX fuera del hilo del circuito
+        byte[] bytes = await Task.Run(() =>
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("Clientes");
+
+            // Encabezados
+            int r = 1, c = 1;
+            ws.Cell(r, c++).Value = "Documento";
+            ws.Cell(r, c++).Value = "Cliente";
+            ws.Cell(r, c++).Value = "Correo";
+            ws.Cell(r, c++).Value = "Dirección";
+            ws.Cell(r, c++).Value = "Ciudad";
+            ws.Cell(r, c++).Value = "Teléfono";
+            ws.Cell(r, c++).Value = "Estado";
+
+            int lastCol = c - 1;
+            ws.Range(1, 1, 1, lastCol).Style.Font.SetBold();
+            ws.Range(1, 1, 1, lastCol).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+            ws.SheetView.FreezeRows(1);
+
+            // Forzar columnas como texto para evitar “autocorrecciones” de Excel
+            ws.Column(1).Style.NumberFormat.Format = "@"; // Documento
+            ws.Column(3).Style.NumberFormat.Format = "@"; // Correo
+            ws.Column(6).Style.NumberFormat.Format = "@"; // Teléfono
+
+            // Datos (patrón c = 1; ...)
+            r = 2;
+            foreach (var x in rows)
+            {
+                c = 1;
+                ws.Cell(r, c++).Value = x.Documento;
+                ws.Cell(r, c++).Value = x.Cliente;
+                ws.Cell(r, c++).Value = x.Correo;
+                ws.Cell(r, c++).Value = x.Direccion;
+                ws.Cell(r, c++).Value = x.Ciudad;
+                ws.Cell(r, c++).Value = x.Telefono;
+                ws.Cell(r, c++).Value = x.Estado;
+                r++;
+            }
+
+            // Ajustes
+            var used = ws.RangeUsed();
+            if (used is not null)
+            {
+                used.SetAutoFilter();
+                ws.Columns(1, lastCol).AdjustToContents(1, rows.Count + 1);
+            }
+
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            return ms.ToArray();
+        });
+
+        // 3) Descargar vía stream (SIN base64)
+        using var msOut = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(msOut);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            fileName,
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

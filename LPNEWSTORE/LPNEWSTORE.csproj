@@ -30,7 +30,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Pages\Consultas\" />
     <Folder Include="Pages\Reportes\" />
     <Folder Include="Pages\ServicioTecnico\" />
     <Folder Include="Pages\RMA\" />

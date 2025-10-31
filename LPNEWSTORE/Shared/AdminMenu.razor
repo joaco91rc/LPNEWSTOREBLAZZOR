@@ -1,13 +1,15 @@
 ﻿
-
-
 @using MudBlazor
 
 <MudNavLink Href="/usuarios" Icon="@Icons.Material.Filled.Person" @onclick="@(() => OnNavigationItemClicked.InvokeAsync())">Usuarios</MudNavLink>
 
-<MudNavGroup Title="Productos" Icon="@Icons.Material.Filled.Inventory" >
+<MudNavGroup Title="Productos" Icon="@Icons.Material.Filled.Inventory">
     <MudNavLink Href="/producto" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Producto</MudNavLink>
     <MudNavLink Href="/categoria" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Categorías</MudNavLink>
+
+</MudNavGroup>
+<MudNavGroup Title="Serializacion" Icon="@Icons.Material.Filled.QrCodeScanner">
+    
     <MudNavLink Href="/serializarproducto" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Serializar Producto</MudNavLink>
     <MudNavLink Href="/serializados" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Productos Serializados</MudNavLink>
     <MudNavLink Href="/snvendidos" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">S/N Vendidos</MudNavLink>

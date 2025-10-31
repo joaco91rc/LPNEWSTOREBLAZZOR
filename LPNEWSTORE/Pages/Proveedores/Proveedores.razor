@@ -1,4 +1,5 @@
 ﻿@page "/proveedores"
+@using ClosedXML.Excel
 @using MudBlazor
 @using Microsoft.AspNetCore.Identity
 @using Services
@@ -20,7 +21,7 @@
            FormContent="@FormProveedor"
            GridContent="@GridProveedores"
            OnSearchChanged="HandleSearch"
-           OnExport="ExportarCsv"
+           OnExport="ExportarProveedoresXlsx"
            SearchPlaceholder="Buscar Proveedor …" />
 
 @code {
@@ -80,6 +81,79 @@
         }
         await JS.InvokeVoidAsync("downloadFileFromText", "Proveedores.csv", sb.ToString(), "text/csv;charset=utf-8;");
     }
+
+
+    private async Task ExportarProveedoresXlsx()
+    {
+        var fileName = $"Proveedores_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        // Materializar para evitar IQueryables/lazy en el export
+        var rows = ProveedoresFiltrados.Select(p => new
+        {
+            Documento = p.Documento ?? string.Empty,
+            Razon = p.RazonSocial ?? string.Empty,
+            Correo = p.Correo ?? string.Empty,
+            Telefono = p.Telefono ?? string.Empty,
+            Estado = p.Estado ? "Activo" : "Inactivo"
+        }).ToList();
+
+        await Task.Yield();
+
+        byte[] bytes = await Task.Run(() =>
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("Proveedores");
+
+            int r = 1, c = 1;
+            ws.Cell(r, c++).Value = "CUIT";
+            ws.Cell(r, c++).Value = "Proveedor";
+            ws.Cell(r, c++).Value = "Correo";
+            ws.Cell(r, c++).Value = "Teléfono";
+            ws.Cell(r, c++).Value = "Estado";
+
+            int lastCol = c - 1;
+            ws.Range(1, 1, 1, lastCol).Style.Font.SetBold();
+            ws.Range(1, 1, 1, lastCol).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+            ws.SheetView.FreezeRows(1);
+
+            // 👉 Formatear columnas como texto (sin SetDataType)
+            ws.Column(1).Style.NumberFormat.Format = "@"; // CUIT
+            ws.Column(3).Style.NumberFormat.Format = "@"; // Correo
+            ws.Column(4).Style.NumberFormat.Format = "@"; // Teléfono
+
+            r = 2;
+            foreach (var p in rows)
+            {
+                c = 1;
+                ws.Cell(r, c++).Value = p.Documento;
+                ws.Cell(r, c++).Value = p.Razon;
+                ws.Cell(r, c++).Value = p.Correo;
+                ws.Cell(r, c++).Value = p.Telefono;
+                ws.Cell(r, c++).Value = p.Estado;
+                r++;
+            }
+
+            var used = ws.RangeUsed();
+            if (used is not null)
+            {
+                used.SetAutoFilter();
+                ws.Columns(1, lastCol).AdjustToContents(1, rows.Count + 1);
+            }
+
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            return ms.ToArray();
+        });
+
+        using var msOut = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(msOut);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            fileName,
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

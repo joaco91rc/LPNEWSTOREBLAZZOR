@@ -4,10 +4,46 @@
 <!-- Contenedor con padding y margen -->
 <div class="p-4 m-4">
     <MudGrid GutterSize="3" AlignItems="Start" Class="layout-prod">
-        <MudItem Class="sidebar p-2">
-            <MudPaper Class="p-3" Elevation="1" Style="width:100%;">@FormContent</MudPaper>
+        @if (FormContent != null)
+        {
+            <MudItem Class="sidebar p-2">
+                <MudPaper Class="p-3" Elevation="1" Style="width:100%;">@FormContent</MudPaper>
         </MudItem>
+            <MudItem Class="main p-2">
+                <MudPaper Class="p-3" Elevation="1" Style="width:100%;">
 
+                    <!-- Toolbar -->
+                    <MudPaper Class="pa-3 mb-3" Outlined="true">
+                        <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="2">
+                            <!-- OJO: Value/ValueChanged con string -->
+                            <MudTextField T="string"
+                                          Value="@SearchText"
+                                          ValueChanged="OnSearchInput"
+                                          Placeholder="@SearchPlaceholder"
+                                          Adornment="Adornment.Start"
+                                          AdornmentIcon="@Icons.Material.Filled.Search"
+                                          Immediate="true"
+                                          DebounceInterval="250"
+                                          FullWidth="true" />
+
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Download"
+                                       OnClick="@(async _ => await TriggerExport())">
+                                @ExportButtonText
+                            </MudButton>
+                        </MudStack>
+                    </MudPaper>
+
+                    <CascadingValue Value="SearchText" Name="GridSearch">
+                        @GridContent
+                    </CascadingValue>
+
+                </MudPaper>
+            </MudItem>
+        } else {
+
+            
         <MudItem Class="main p-2">
             <MudPaper Class="p-3" Elevation="1" Style="width:100%;">
 
@@ -40,6 +76,7 @@
 
             </MudPaper>
         </MudItem>
+        }
     </MudGrid>
 </div>
 <style>

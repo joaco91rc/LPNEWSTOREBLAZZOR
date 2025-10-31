@@ -1,9 +1,10 @@
-﻿@* @page "/historicoVentas"
+﻿@page "/historicoVentas"
 @using ClosedXML.Excel
+@using Entities
 @using MudBlazor
 @using Microsoft.AspNetCore.Identity
 @using Services
-@using Entities
+
 @using System.Security.Claims
 @using System.Text
 @using System.Globalization
@@ -23,7 +24,7 @@
 
 @code {
     // Example backing variables in a page that consumes the layout component
-    private List<string> _cols = new() { "Fecha", "Tipo", "Nro. Venta", "Total", "Cliente" };
+    private List<string> _cols = new() { "Fecha", "Tipo", "Nro. Venta", "Total", "Cliente", "Vendedor" };
     List<Venta> _Ventas = new();
     private List<Venta> _VentasFiltradas = new();
     private bool _busy;
@@ -128,16 +129,16 @@
         _VentasFiltradas = key switch
         {
             // Texto llano
-            "nrodocumento" or "nro documento" =>
+            "nrodocumento" or "nro documento" or "Nro. Venta" or "NroDocumento"=>
                 _Ventas.FindAll(c => (c.NroDocumento ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
 
-            "razonsocial" or "razón social" or "proveedor" =>
-                _Ventas.FindAll(c => (c.oProveedor?.RazonSocial ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+            "cliente" or "cliente" or "NombreCliente" =>
+                _Ventas.FindAll(c => (c.NombreCliente ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
 
-            "usuario" or "usuario registro" =>
-                _Ventas.FindAll(c => (c.oUsuario?.NombreCompleto ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+            "Vendedor" or "vendedor" or "NombreVendedor" =>
+                _Ventas.FindAll(c => (c.NombreVendedor ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
 
-            "tipodocumento" or "tipo documento" =>
+            "tipodocumento" or "tipo documento" or "tipo" =>
                 _Ventas.FindAll(c => (c.TipoDocumento ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
 
             // Fecha: intento parse fuerte, si no, fallback a contains de la representación formateada
@@ -152,11 +153,11 @@
             // Monto Total: intento parse decimal fuerte; si no, fallback a contains del formateo es-AR
             "total" or "monto total" =>
                 TryParseDecimalFlexible(text, out var montoBuscado)
-                    ? _Ventas.FindAll(c => Math.Abs(c.montoTotal - montoBuscado) < 0.005m) // ≈ 2 decimales
-                    : _Ventas.FindAll(c => c.montoTotal
+                    ? _Ventas.FindAll(c => Math.Abs(c.MontoTotal - montoBuscado) < 0.005m) // ≈ 2 decimales
+                    : _Ventas.FindAll(c => c.MontoTotal
                                                 .ToString("C", new CultureInfo("es-AR"))
                                                 .Contains(text, StringComparison.OrdinalIgnoreCase)
-                                            || c.montoTotal
+                                            || c.MontoTotal
                                                 .ToString("#,0.##", new CultureInfo("es-AR"))
                                                 .Contains(text, StringComparison.OrdinalIgnoreCase)),
 
@@ -193,10 +194,11 @@
         int r = 1, c = 1;
         ws.Cell(r, c++).Value = "IdVenta";
         ws.Cell(r, c++).Value = "Fecha";
-        ws.Cell(r, c++).Value = "Usuario";
-        ws.Cell(r, c++).Value = "Proveedor";
-        ws.Cell(r, c++).Value = "Documento";
+        ws.Cell(r, c++).Value = "Tipo";
+        ws.Cell(r, c++).Value = "Nro Venta";
         ws.Cell(r, c++).Value = "Total";
+        ws.Cell(r, c++).Value = "Cliente";
+        ws.Cell(r, c++).Value = "Vendedor";
 
         ws.Range(1, 1, 1, 6).Style.Font.SetBold();
         ws.Range(1, 1, 1, 6).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
@@ -208,10 +210,11 @@
             c = 1;
             ws.Cell(r, c++).Value = x.IdVenta;
             ws.Cell(r, c++).Value = x.FechaRegistro;
-            ws.Cell(r, c++).Value = x.oUsuario?.NombreCompleto ?? "";
-            ws.Cell(r, c++).Value = x.oProveedor?.RazonSocial ?? "";
+            ws.Cell(r, c++).Value = x.TipoDocumento ?? "";
             ws.Cell(r, c++).Value = x.NroDocumento ?? "";
-            ws.Cell(r, c++).Value = x.montoTotal;
+            ws.Cell(r, c++).Value = x.MontoTotal;
+            ws.Cell(r, c++).Value = x.NombreCliente ?? "";
+            ws.Cell(r, c++).Value = x.NombreVendedor ?? "";
             r++;
         }
 
@@ -264,7 +267,7 @@
 
 <ReportListLayout TItem="Venta"
                   Items="@_VentasFiltradas"
-                  FilterColumns="@(new[] {  "Fecha Registro", "Tipo Documento", "Nro Documento", "Razón Social", "Usuario", "Monto Total" })"
+                  FilterColumns="@(new[] { "IdVenta" ,"Fecha", "Tipo", "Nro Venta", "Total", "Cliente", "Vendedor" })"
                   OnSearchParameters="DoSearch"
                   OnFilter="DoFilter"
                   OnClearParameters="DoClearSearch"
@@ -286,16 +289,16 @@
                         Title="Nro Documento" />
 
         <PropertyColumn T="Venta" TProperty="decimal"
-                        Property="e => e.montoTotal"
+                        Property="e => e.MontoTotal"
                         Title="Total"
                         Format="C"
                         Culture="@(new System.Globalization.CultureInfo("es-AR"))" />
 
-        <PropertyColumn T="Venta" TProperty="string" Property="e => e.oProveedor.RazonSocial"
+        <PropertyColumn T="Venta" TProperty="string" Property="e => e.NombreCliente"
                         Title="Razón Social" />
 
-        <PropertyColumn T="Venta" TProperty="string" Property="e => e.oUsuario.NombreCompleto"
-                        Title="Usuario" />
+        <PropertyColumn T="Venta" TProperty="string" Property="e => e.NombreVendedor"
+                        Title="Vendedor" />
 
         <TemplateColumn T="Venta" Title="Acciones" Align="DataGridColumnAlign.Center" Width="160px">
             <CellTemplate Context="row">
@@ -312,4 +315,3 @@
 </ReportListLayout>
 
 
- *@

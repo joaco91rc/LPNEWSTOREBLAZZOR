@@ -18,9 +18,7 @@
             <!-- Datos del producto -->
             <MudPaper Class="p-3">
                 <MudGrid Dense="true">
-                    <MudItem xs="12" md="3">
-                        <MudTextField Label="Id Producto" Value="@IdProducto.ToString()" ReadOnly="true" Dense="true" />
-                    </MudItem>
+                    
                     <MudItem xs="12" md="6">
                         <MudTextField Label="Producto" Value="@Nombre" ReadOnly="true" Dense="true" />
                     </MudItem>
@@ -99,12 +97,12 @@
     {
         // Origen (sucursal actual)
         var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-
+        
 
         if (int.TryParse(sucursal, out int idSucursal))
         {
             _sucursalOrigenId = idSucursal;
-
+            _model.IdSucursalDestino = _sucursalOrigenId;
 
         }
          ;

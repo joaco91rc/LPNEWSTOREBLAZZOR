@@ -195,8 +195,6 @@
 
     private async Task DoExport()
     {
-        var esAR = new CultureInfo("es-AR");
-
         // ---------- nombre del archivo con fechas ----------
         string fromPart = DateFrom?.ToString("yyyyMMdd") ?? "inicio";
         string toPart = DateTo?.ToString("yyyyMMdd") ?? "hoy";
@@ -206,7 +204,7 @@
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("ProductoDetalles");
 
-        // Encabezados
+        // Encabezados (¡ojo con el ancho! calculamos el último col dinámico)
         int r = 1, c = 1;
         ws.Cell(r, c++).Value = "Ingreso";
         ws.Cell(r, c++).Value = "Egreso";
@@ -220,10 +218,11 @@
         ws.Cell(r, c++).Value = "Venta";
         ws.Cell(r, c++).Value = "Local";
 
-        ws.Range(1, 1, 1, 6).Style.Font.SetBold();
-        ws.Range(1, 1, 1, 6).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+        int lastCol = c - 1;
+        ws.Range(1, 1, 1, lastCol).Style.Font.SetBold();
+        ws.Range(1, 1, 1, lastCol).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
 
-        // Datos
+        // Datos (alineados a los headers: x.Nombre va en "Nombre", x.NombreProveedor va en "Proveedor")
         r = 2;
         foreach (var x in _ProductoDetallesFiltradas)
         {
@@ -231,7 +230,8 @@
             ws.Cell(r, c++).Value = x.Fecha;
             ws.Cell(r, c++).Value = x.FechaEgreso;
             ws.Cell(r, c++).Value = x.Codigo;
-            ws.Cell(r, c++).Value = x.NombreProveedor;
+            ws.Cell(r, c++).Value = x.Nombre;             // <-- Nombre
+            ws.Cell(r, c++).Value = x.NombreProveedor;    // <-- Proveedor
             ws.Cell(r, c++).Value = x.Marca;
             ws.Cell(r, c++).Value = x.Modelo;
             ws.Cell(r, c++).Value = x.Color;
@@ -242,20 +242,21 @@
         }
 
         // Formatos
-        ws.Column(2).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
-        ws.Column(6).Style.NumberFormat.Format = "$ #.##0,00";
-
+        ws.Column(1).Style.DateFormat.Format = "dd/MM/yyyy HH:mm"; // Ingreso
+        ws.Column(2).Style.DateFormat.Format = "dd/MM/yyyy HH:mm"; // Egreso
         ws.Columns().AdjustToContents();
         ws.RangeUsed().SetAutoFilter();
 
+        // Guardar a stream y descargar vía stream (SIN base64)
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
-        var base64 = Convert.ToBase64String(ms.ToArray());
+        ms.Position = 0;
 
-        await JS.InvokeVoidAsync("downloadFileFromBytes",
+        using var streamRef = new DotNetStreamReference(ms);
+        await JS.InvokeVoidAsync("downloadFromStream",
             fileName,
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            base64);
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 
 

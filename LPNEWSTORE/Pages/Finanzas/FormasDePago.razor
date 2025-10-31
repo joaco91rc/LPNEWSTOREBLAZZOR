@@ -1,4 +1,5 @@
 ﻿@page "/formaspago"
+@using ClosedXML.Excel
 @using LPNEWSTORE.Utils
 @using MudBlazor
 @using Microsoft.AspNetCore.Identity
@@ -24,7 +25,7 @@
            FormContent="@FormFormaPago"
            GridContent="@GridFormaPago"
            OnSearchChanged="HandleSearch"
-           OnExport="ExportarCsv"
+           OnExport="ExportarFormasDePagoXlsx"
            SearchPlaceholder="Buscar Forma de Pago …" />
 
 @code {
@@ -86,6 +87,88 @@
             sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
         }
         await JS.InvokeVoidAsync("downloadFileFromText", "Formas de Pago.csv", sb.ToString(), "text/csv;charset=utf-8;");
+    }
+    private async Task ExportarFormasDePagoXlsx()
+    {
+        var fileName = $"Formas_de_Pago_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        // 1) Materializar (evita lazy/IQueryable durante el export)
+        var rows = FormasDePagoFiltradas.Select(p => new
+        {
+            Descripcion = p.Descripcion ?? string.Empty,
+            Tipo = p.Tipo.ToString() ?? p.Tipo.ToString(), // por si es enum nullable
+            PorcRetencionARS = (decimal?)p.PorcentajeRetencion ?? 0m,
+            PorcRecargoARS = (decimal?)p.PorcentajeRecargo ?? 0m,
+            PorcDescuentoARS = (decimal?)p.PorcentajeDescuento ?? 0m,
+            PorcRecargoUSD = (decimal?)p.PorcentajeRecargoDolar ?? 0m,
+            PorcDescuentoUSD = (decimal?)p.PorcentajeDescuentoDolar ?? 0m,
+            CajaAsociada = p.CajaAsociada.ToString() ?? p.CajaAsociada.ToString()
+        }).ToList();
+
+        await Task.Yield(); // ceder antes del trabajo CPU-bound
+
+        // 2) Generar XLSX fuera del hilo del circuito
+        byte[] bytes = await Task.Run(() =>
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("FormasDePago");
+
+            // Encabezados
+            int r = 1, c = 1;
+            ws.Cell(r, c++).Value = "Forma de Pago";
+            ws.Cell(r, c++).Value = "Tipo";
+            ws.Cell(r, c++).Value = "% Retención ARS";
+            ws.Cell(r, c++).Value = "% Recargo ARS";
+            ws.Cell(r, c++).Value = "% Descuento ARS";
+            ws.Cell(r, c++).Value = "% Recargo USD";
+            ws.Cell(r, c++).Value = "% Descuento USD";
+            ws.Cell(r, c++).Value = "Caja Asociada";
+
+            int lastCol = c - 1;
+            ws.Range(1, 1, 1, lastCol).Style.Font.SetBold();
+            ws.Range(1, 1, 1, lastCol).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+            ws.SheetView.FreezeRows(1);
+
+            // Datos
+            r = 2;
+            foreach (var x in rows)
+            {
+                c = 1;
+                ws.Cell(r, c++).Value = x.Descripcion;
+                ws.Cell(r, c++).Value = x.Tipo;
+                ws.Cell(r, c++).Value = x.PorcRetencionARS; // números
+                ws.Cell(r, c++).Value = x.PorcRecargoARS;
+                ws.Cell(r, c++).Value = x.PorcDescuentoARS;
+                ws.Cell(r, c++).Value = x.PorcRecargoUSD;
+                ws.Cell(r, c++).Value = x.PorcDescuentoUSD;
+                ws.Cell(r, c++).Value = x.CajaAsociada;
+                r++;
+            }
+
+            // 3) Formatos
+            // Columnas de porcentaje: 3..7  -> mostrar 0.00 "%"
+            for (int col = 3; col <= 7; col++)
+                ws.Column(col).Style.NumberFormat.Format = "0.00\"%\"";
+
+            var used = ws.RangeUsed();
+            if (used is not null)
+            {
+                used.SetAutoFilter();
+                ws.Columns(1, lastCol).AdjustToContents(1, rows.Count + 1);
+            }
+
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            return ms.ToArray();
+        });
+
+        // 4) Descargar vía stream (SIN base64)
+        using var msOut = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(msOut);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            fileName,
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 
 

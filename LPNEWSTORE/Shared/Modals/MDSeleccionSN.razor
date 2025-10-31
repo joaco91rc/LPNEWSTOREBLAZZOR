@@ -4,6 +4,7 @@
 @inject ISnackbar Snackbar
 @inject ProductoService ProductoService
 @inject ProductoDetalleService ProductoDetalleService
+@inject NegocioService NegocioService
 
 <MudDialog>
     <DialogContent>
@@ -55,8 +56,7 @@
                           Elevation="0"
                           RowClick="OnRowClick">
                     <HeaderContent>
-                        <MudTh style="width:110px;">IdDetalle</MudTh>
-                        <MudTh style="width:110px;">IdProducto</MudTh>
+                        
                         <MudTh style="width:140px;">Código</MudTh>
                         <MudTh>Nombre</MudTh>
                         <MudTh style="width:140px;">Marca</MudTh>
@@ -67,18 +67,18 @@
                         <MudTh style="width:130px;">Acciones</MudTh>
                     </HeaderContent>
                     <RowTemplate>
-                        <MudTd DataLabel="IdDetalle">@context.IdProductoDetalle</MudTd>
-                        <MudTd DataLabel="IdProducto">@context.IdProducto</MudTd>
+                        
                         <MudTd DataLabel="Código">@context.Codigo</MudTd>
                         <MudTd DataLabel="Nombre">@context.Nombre</MudTd>
                         <MudTd DataLabel="Marca">@context.Marca</MudTd>
                         <MudTd DataLabel="Modelo">@context.Modelo</MudTd>
                         <MudTd DataLabel="Color">@context.Color</MudTd>
                         <MudTd DataLabel="Serial">@context.NumeroSerie</MudTd>
-                        <MudTd DataLabel="Negocio">@context.IdNegocio</MudTd>
+                        <MudTd DataLabel="Negocio">@NombreNegocio(@context.IdNegocio)</MudTd>
                         <MudTd>
-                            <MudButton Size="Size.Small" Color="Color.Primary" OnClick="@(() => Seleccionar(context))">
-                                Seleccionar
+                            <MudButton Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled"
+                                       StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => Seleccionar(context))">
+                                
                             </MudButton>
                         </MudTd>
                     </RowTemplate>
@@ -106,7 +106,9 @@
     private bool _cargando = true;
     private List<ProductoDetalle> _data = new();      // Dataset completo
     private List<ProductoDetalle> _filtrados = new(); // Dataset filtrado
-
+    private Dictionary<int, string> _negociosById = new();
+    private string NombreNegocio(int id)
+     => _negociosById.TryGetValue(id, out var nombre) ? nombre : $"#{id}";
     // Búsqueda
     private string _columnaFiltro = "nombre";
     private string _textoBusqueda = string.Empty;
@@ -122,14 +124,21 @@
         new OpcionCombo{ Valor = "numeroSerie", Texto = "Serial"},
     };
 
+    
     protected override async Task OnInitializedAsync()
     {
         try
         {
             // Carga inicial de grilla (por local si viene IdNegocio)
             if (IdNegocio.HasValue)
+            {
                 _data = (await ProductoDetalleService.ListarProductosConSerialNumberByIDNegocioAsync(IdProducto, IdNegocio.Value))?.ToList() ?? new();
-            else
+                var negocios = await NegocioService.ListarNegocios(); // id, nombre
+                _negociosById = negocios.ToDictionary(n => n.IdNegocio, n => n.Nombre);
+                
+            
+            }
+                else
                 _data = (await ProductoDetalleService.ListarProductosConSerialNumberByIDAsync(IdProducto))?.ToList() ?? new();
 
             // Default: similar a SelectedIndex=1 en WinForms => "nombre"
@@ -146,6 +155,8 @@
             _cargando = false;
         }
     }
+
+
 
     private void AplicarFiltro()
     {

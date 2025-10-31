@@ -1,4 +1,5 @@
 ﻿@page "/monedas"
+@using ClosedXML.Excel
 @using MudBlazor
 @using Microsoft.AspNetCore.Identity
 @using Services
@@ -21,7 +22,7 @@
            FormContent="@FormMoneda"
            GridContent="@GridMonedas"
            OnSearchChanged="HandleSearch"
-           OnExport="ExportarCsv"
+           OnExport="ExportarMonedasXlsx"
            SearchPlaceholder="Buscar Moneda …" />
 
 @code {
@@ -97,6 +98,74 @@
 
     }
 
+    private async Task ExportarMonedasXlsx()
+    {
+        var fileName = $"Cotizaciones_Dolar_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        // 1) Materializar primero (evita IQueryables/lazy durante el export)
+        var rows = MonedasFiltradas.Select(p => new
+        {
+            Simbolo = p.Simbolo,
+            Nombre = p.Nombre,                           // DateTime? ok
+                                    // decimal
+            
+        }).ToList();
+
+        await Task.Yield(); // ceder antes del trabajo CPU-bound
+
+        // 2) Generar XLSX fuera del hilo del circuito
+        byte[] bytes = await Task.Run(() =>
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("Monedas");
+
+            // Encabezados
+            int r = 1, c = 1;
+            ws.Cell(r, c++).Value = "Simbolo";
+            ws.Cell(r, c++).Value = "Nombre";
+            
+            
+
+            int lastCol = c - 1;
+            ws.Range(1, 1, 1, lastCol).Style.Font.SetBold();
+            ws.Range(1, 1, 1, lastCol).Style.Fill
+              .SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+            ws.SheetView.FreezeRows(1);
+
+            // Datos
+            r = 2;
+            foreach (var p in rows)
+            {
+                c = 1;
+                ws.Cell(r, c++).Value = p.Simbolo;
+                ws.Cell(r, c++).Value = p.Nombre;    // si es null, ClosedXML escribe vacío
+                  // decimal
+                
+                r++;
+            }
+
+           
+
+            var used = ws.RangeUsed();
+            if (used is not null)
+            {
+                used.SetAutoFilter();
+                ws.Columns(1, lastCol).AdjustToContents(1, rows.Count + 1);
+            }
+
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            return ms.ToArray();
+        });
+
+        // 3) Descargar vía stream (SIN base64)
+        using var msOut = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(msOut);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            fileName,
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
 
 
     protected override async Task OnInitializedAsync()

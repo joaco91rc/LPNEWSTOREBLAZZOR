@@ -1,4 +1,5 @@
 ﻿@page "/vendedores"
+@using ClosedXML.Excel
 @using MudBlazor
 @using Microsoft.AspNetCore.Identity
 @using Services
@@ -20,7 +21,7 @@
            FormContent="@FormVendedor"
            GridContent="@GridVendedores"
            OnSearchChanged="HandleSearch"
-           OnExport="ExportarCsv"
+           OnExport="ExportarVendedoresXlsx"
            SearchPlaceholder="Buscar Vendedor …" />
 
 @code {
@@ -78,6 +79,72 @@
             sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
         }
         await JS.InvokeVoidAsync("downloadFileFromText", "Vendedores.csv", sb.ToString(), "text/csv;charset=utf-8;");
+    }
+
+    private async Task ExportarVendedoresXlsx()
+    {
+        var fileName = $"Vendedores_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        // 1) Materializar primero (evita IQueryables/lazy durante el export)
+        var rows = VendedoresFiltrados.Select(p => new
+        {
+            DNI = p.DNI ?? string.Empty,
+            Nombre = $"{p.Apellido} {p.Nombre}".Trim(),
+            Estado = p.Estado ? "Activo" : "Inactivo"
+        }).ToList();
+
+        await Task.Yield(); // ceder antes del trabajo CPU-bound
+
+        // 2) Generar XLSX fuera del hilo del circuito
+        byte[] bytes = await Task.Run(() =>
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("Vendedores");
+
+            // Encabezados
+            int r = 1, c = 1;
+            ws.Cell(r, c++).Value = "DNI";
+            ws.Cell(r, c++).Value = "Nombre Completo";
+            ws.Cell(r, c++).Value = "Estado";
+
+            int lastCol = c - 1;
+            ws.Range(1, 1, 1, lastCol).Style.Font.SetBold();
+            ws.Range(1, 1, 1, lastCol).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+            ws.SheetView.FreezeRows(1);
+
+            // Forzar columna DNI como texto
+            ws.Column(1).Style.NumberFormat.Format = "@";
+
+            // Datos
+            r = 2;
+            foreach (var p in rows)
+            {
+                c = 1;
+                ws.Cell(r, c++).Value = p.DNI;     // texto
+                ws.Cell(r, c++).Value = p.Nombre;
+                ws.Cell(r, c++).Value = p.Estado;
+                r++;
+            }
+
+            var used = ws.RangeUsed();
+            if (used is not null)
+            {
+                used.SetAutoFilter();
+                ws.Columns(1, lastCol).AdjustToContents(1, rows.Count + 1);
+            }
+
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            return ms.ToArray();
+        });
+
+        // 3) Descargar vía stream (SIN base64)
+        using var msOut = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(msOut);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            fileName,
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

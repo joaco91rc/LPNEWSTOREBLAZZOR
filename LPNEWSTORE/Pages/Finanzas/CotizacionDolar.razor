@@ -1,4 +1,5 @@
 ﻿@page "/cotizaciondolar"
+@using ClosedXML.Excel
 @using MudBlazor
 @using Microsoft.AspNetCore.Identity
 @using Services
@@ -21,7 +22,7 @@
            FormContent="@FormCotizacion"
            GridContent="@GridCotizaciones"
            OnSearchChanged="HandleSearch"
-           OnExport="ExportarCsv"
+           OnExport="ExportarCotizacionesXlsx"
            SearchPlaceholder="Buscar Forma de Pago …" />
 
 @code {
@@ -77,6 +78,74 @@
             sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
         }
         await JS.InvokeVoidAsync("downloadFileFromText", "Cotizaciones Dolar.csv", sb.ToString(), "text/csv;charset=utf-8;");
+    }
+
+    private async Task ExportarCotizacionesXlsx()
+    {
+        var fileName = $"Cotizaciones_Dolar_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        // 1) Materializar primero (evita IQueryables/lazy durante el export)
+        var rows = CotizacionesFiltradas.Select(p => new
+        {
+            Fecha = p.Fecha,                           // DateTime? ok
+            Importe = p.Importe,                         // decimal
+            Estado = p.Estado ? "Activo" : "No Activo"
+        }).ToList();
+
+        await Task.Yield(); // ceder antes del trabajo CPU-bound
+
+        // 2) Generar XLSX fuera del hilo del circuito
+        byte[] bytes = await Task.Run(() =>
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("Cotizaciones");
+
+            // Encabezados
+            int r = 1, c = 1;
+            ws.Cell(r, c++).Value = "Fecha";
+            ws.Cell(r, c++).Value = "Importe";
+            ws.Cell(r, c++).Value = "Estado";
+
+            int lastCol = c - 1;
+            ws.Range(1, 1, 1, lastCol).Style.Font.SetBold();
+            ws.Range(1, 1, 1, lastCol).Style.Fill
+              .SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+            ws.SheetView.FreezeRows(1);
+
+            // Datos
+            r = 2;
+            foreach (var p in rows)
+            {
+                c = 1;
+                ws.Cell(r, c++).Value = p.Fecha;    // si es null, ClosedXML escribe vacío
+                ws.Cell(r, c++).Value = p.Importe;  // decimal
+                ws.Cell(r, c++).Value = p.Estado;
+                r++;
+            }
+
+            // Formatos
+            ws.Column(1).Style.DateFormat.Format = "dd/MM/yyyy"; // Fecha
+            ws.Column(2).Style.NumberFormat.Format = "#,##0.00"; // Importe
+
+            var used = ws.RangeUsed();
+            if (used is not null)
+            {
+                used.SetAutoFilter();
+                ws.Columns(1, lastCol).AdjustToContents(1, rows.Count + 1);
+            }
+
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            return ms.ToArray();
+        });
+
+        // 3) Descargar vía stream (SIN base64)
+        using var msOut = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(msOut);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            fileName,
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

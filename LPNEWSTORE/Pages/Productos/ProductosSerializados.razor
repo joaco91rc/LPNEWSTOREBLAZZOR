@@ -1,4 +1,5 @@
 ﻿@page "/serializados"
+@using ClosedXML.Excel
 @using LPNEWSTORE.Shared.Modals
 @using LPNEWSTORE.Utils
 @using MudBlazor
@@ -27,7 +28,7 @@
            FormContent="@FormProductoDetalle"
            GridContent="@GridProductoDetalle"
            OnSearchChanged="HandleSearch"
-           OnExport="ExportarCsv"
+           OnExport="ExportarProductosDetalleXlsx"
            SearchPlaceholder="Buscar producto, código o categoría…" />
 
 @code {
@@ -42,30 +43,66 @@
     private string rolUsuarioActual = string.Empty;
     private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
     private DateTime fecha = DateTime.Now;
-    private static string EstadoTexto(bool? estado) => estado == true ? "En Stock" : "Vendido"; 
-
+    private static string EstadoTexto(bool? estado) => estado == true ? "En Stock" : "Vendido";
+    private bool EsAdmin = false;
+    private bool _mostrarHistorialSN;
+    private List<ProductoDetalle> listaProductoDetallesDisponibles = new();
+    private List<ProductoDetalle> listaProductoDetallesHistorico = new();
+    private bool _cargando;
+    private int _itemsVersion;
+    private OrigenDatos _origen = OrigenDatos.Disponibles;
+    private enum OrigenDatos { Disponibles, Historico }
     private IEnumerable<ProductoDetalle> ProductosDetalleFiltrados
+        => string.IsNullOrWhiteSpace(GridSearch)
+           ? listaProductoDetalles
+           : Filtrar(listaProductoDetalles, GridSearch);
+
+    private static IEnumerable<ProductoDetalle> Filtrar(IEnumerable<ProductoDetalle> src, string termRaw)
     {
-        get
+        var term = termRaw.Trim();
+        bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
+
+        return src.Where(p =>
+            Has(p.Codigo) || Has(p.Nombre) || Has(p.Marca) || Has(p.Modelo) ||
+            Has(p.NombreProveedor) || Has(p.Color) || Has(p.NumeroSerie) || Has(p.NombreLocal));
+    }
+
+    private OrigenDatos Origen
+    {
+        get => _origen;
+        set
         {
-            if (string.IsNullOrWhiteSpace(GridSearch))
-                return listaProductoDetalles;
-
-            var term = GridSearch.Trim();
-
-            bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
-
-            return listaProductoDetalles.Where(p =>
-                Has(p.Codigo) ||
-                Has(p.Nombre) ||
-                Has(p.Marca) ||
-                Has(p.Modelo) ||
-                Has(p.NombreProveedor) ||
-                Has(p.Color) ||
-                Has(p.NumeroSerie) ||
-                Has(p.NombreLocal));
+            if (_origen == value) return;
+            _origen = value;
+            var usarHistorico = (value == OrigenDatos.Historico);
+            _ = InvokeAsync(async () => await CambiarOrigenAsync(usarHistorico));
         }
     }
+
+    private async Task CambiarOrigenAsync(bool usarHistorico)
+    {
+        Origen = usarHistorico ? OrigenDatos.Historico : OrigenDatos.Disponibles;
+
+        if (Origen == OrigenDatos.Historico)
+        {
+            if (listaProductoDetallesHistorico.Count == 0)
+            {
+                var hist = await ProductoDetalleService.ListarProductosConSerialNumberAsync();
+                listaProductoDetallesHistorico = hist?.ToList() ?? new();
+            }
+            // Cambiar referencia
+            listaProductoDetalles = new List<ProductoDetalle>(listaProductoDetallesHistorico);
+        }
+        else
+        {
+            listaProductoDetalles = new List<ProductoDetalle>(listaProductoDetallesDisponibles);
+        }
+
+        _itemsVersion++;                    // fuerza reconstrucción del subtree
+        await InvokeAsync(StateHasChanged); // re-render seguro en UI
+    }
+
+
 
 
 
@@ -78,7 +115,11 @@
 
             if (int.TryParse(sucursal, out int idSucursal))
             {
-                listaProductoDetalles = await ProductoDetalleService.ListarProductosConSerialNumberPorLocalDisponiblesAsync(idSucursal);
+                var disponibles = await ProductoDetalleService
+                    .ListarProductosConSerialNumberPorLocalDisponiblesAsync(idSucursal);
+
+                listaProductoDetallesDisponibles = disponibles?.ToList() ?? new List<ProductoDetalle>();
+                listaProductoDetalles = listaProductoDetallesDisponibles; // por defecto muestra disponibles
             }
 
             StateHasChanged();
@@ -94,14 +135,21 @@
     {
 
 
-
+        EsAdmin = false;
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
 
         if (user.Identity != null && user.Identity.IsAuthenticated)
         {
             rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+            if(rolUsuarioActual == "ADMIN")
+            {
+                EsAdmin = true;
+            }
+
         }
+
+        
 
         listaRoles = await rolService.Listar();
         ProductoDetalleActual.Estado = true;
@@ -139,7 +187,74 @@
     };
             sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
         }
-        await JS.InvokeVoidAsync("downloadFileFromText", "productosSerializados.csv", sb.ToString(), "text/csv;charset=utf-8;");
+        var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        var filename = $"Exportacion_Productos_{DateTime.Now:yyyyMMddHHmmss}.csv";
+        using var ms = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(ms);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            filename,
+            streamRef,
+            "text/csv;charset=utf-8");
+    }
+
+    private async Task ExportarProductosDetalleXlsx()
+    {
+        var fileName = $"Exportacion_ProductosDetalle_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("ProductosDetalle");
+
+        // Encabezados
+        int r = 1, c = 1;
+        ws.Cell(r, c++).Value = "Fecha";
+        ws.Cell(r, c++).Value = "Código";
+        ws.Cell(r, c++).Value = "Producto";
+        ws.Cell(r, c++).Value = "Proveedor";
+        ws.Cell(r, c++).Value = "Marca";
+        ws.Cell(r, c++).Value = "Modelo";
+        ws.Cell(r, c++).Value = "Color";
+        ws.Cell(r, c++).Value = "S/N";
+        ws.Cell(r, c++).Value = "Local";
+        ws.Cell(r, c++).Value = "Estado";
+
+        var lastCol = c - 1;
+        ws.Range(1, 1, 1, lastCol).Style.Font.SetBold();
+        ws.Range(1, 1, 1, lastCol).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+        ws.SheetView.FreezeRows(1);
+
+        // Datos
+        r = 2;
+        foreach (var p in ProductosDetalleFiltrados)
+        {
+            c = 1;
+            ws.Cell(r, c++).Value = p.Fecha;                          // DateTime
+            ws.Cell(r, c++).Value = p.Codigo ?? string.Empty;
+            ws.Cell(r, c++).Value = p.Nombre ?? string.Empty;
+            ws.Cell(r, c++).Value = p.NombreProveedor ?? string.Empty;
+            ws.Cell(r, c++).Value = p.Marca ?? string.Empty;
+            ws.Cell(r, c++).Value = p.Modelo ?? string.Empty;
+            ws.Cell(r, c++).Value = p.Color ?? string.Empty;
+            ws.Cell(r, c++).Value = p.NumeroSerie ?? string.Empty;
+            ws.Cell(r, c++).Value = p.NombreLocal ?? string.Empty;
+            ws.Cell(r, c++).Value = p.Estado ? "En Stock" : "Vendido";
+            r++;
+        }
+
+        // Formatos
+        ws.Column(1).Style.DateFormat.Format = "dd/MM/yyyy"; // Fecha
+        ws.Columns().AdjustToContents();
+        ws.RangeUsed().SetAutoFilter();
+
+        // Descargar vía stream (SIN base64)
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var streamRef = new DotNetStreamReference(ms);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            fileName,
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 
     private void Editar(ProductoDetalle c)
@@ -284,10 +399,14 @@
 
         esEdicion = false;
     }
+    
+    RenderFragment FormProductoDetalle => EsAdmin 
+    ?@<div style="padding: 16px;  padding-top : 16px">
 
-    RenderFragment FormProductoDetalle => @<div style="padding: 16px;  padding-top : 16px">
     <MudForm @ref="formProductoDetalle" OnValidSubmit="Registrar">
         <MudStack Spacing="2">
+
+         
 
             <MudTextField Label="Fecha" @bind-Value="ProductoDetalleActual.Fecha"   Required="true" ReadOnly="true" />
             <MudTextField Label="Codigo" @bind-Value="ProductoDetalleActual.Codigo" Required="true" ReadOnly ="true" />
@@ -320,11 +439,33 @@
             </MudStack>
         </MudStack>
     </MudForm>
-</div>;
+    
+</div>: null;   
+
+
 
 
 RenderFragment GridProductoDetalle => @<div style="padding: 16px;  padding-top : 16px">
-    <MudTable Items="ProductosDetalleFiltrados"
+
+@if (EsAdmin)
+{
+        <MudStack Direction="Row" Spacing="1" Class="mb-2">
+            <MudButton Variant="@(Origen == OrigenDatos.Disponibles ? Variant.Filled : Variant.Outlined)"
+                       Color="Color.Primary"
+                       OnClick="async () => await CambiarOrigenAsync(false)">
+               Mostrar S/N Disponibles
+            </MudButton>
+
+            <MudButton Variant="@(Origen == OrigenDatos.Historico ? Variant.Filled : Variant.Outlined)"
+                       Color="Color.Primary"
+                       OnClick="async () => await CambiarOrigenAsync(true)">
+                Mostrar Histórico S/N
+            </MudButton>
+        </MudStack>
+}
+
+    <MudTable @key="_itemsVersion"
+    Items="ProductosDetalleFiltrados"
               Dense="true" Hover="true" Bordered="true" Striped="true"
               Sortable="true" Breakpoint="Breakpoint.Sm"
               RowsPerPageOptions="new int[]{ 5, 10, 20, 30, 40, 50 }"
@@ -350,7 +491,7 @@ RenderFragment GridProductoDetalle => @<div style="padding: 16px;  padding-top :
             <MudTd DataLabel="Código" Class="col-90 nowrap">@context.Codigo</MudTd>
             <MudTd DataLabel="Producto" Class="col-prod ellipsis" title="@context.Nombre">@context.Nombre</MudTd>
             <MudTd DataLabel="Proveedor" Class="col-90 ellipsis" title="@context.NombreProveedor">@context.NombreProveedor</MudTd>
-            <MudTd DataLabel="Marca" Class="col-90 nowrap">@context.Marca</MudTd>
+            <MudTd DataLabel="Marca" Class="col-120 nowrap">@context.Marca</MudTd>
             <MudTd DataLabel="Modelo" Class="col-90 nowrap">@context.Modelo</MudTd>
             <MudTd DataLabel="Color" Class="col-90 nowrap">@context.Color</MudTd>
             <MudTd DataLabel="S/N" Class="col-sn ellipsis" title="@context.NumeroSerie">@context.NumeroSerie</MudTd>
@@ -364,7 +505,8 @@ RenderFragment GridProductoDetalle => @<div style="padding: 16px;  padding-top :
 
         <PagerContent>
             <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
-                           RowsPerPageString="Registros por página" />
+                           RowsPerPageString="Registros por página" 
+                           />
         </PagerContent>
     </MudTable>
 
@@ -394,6 +536,10 @@ RenderFragment GridProductoDetalle => @<div style="padding: 16px;  padding-top :
         .col-90 {
             width: 90px;
         }
+
+    .col-120 {
+        width: 120px;
+    }
 
         /* Acciones un poquito más ancha para dos íconos */
         .col-acciones {
