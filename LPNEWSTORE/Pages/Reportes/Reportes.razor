@@ -1,0 +1,647 @@
+﻿@page "/reportes"
+@using System.Security.Claims
+@using ClosedXML.Excel
+@using Entities
+@using LPNEWSTORE.Shared.Modals
+@using MudBlazor
+@using Services
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NegocioService NegocioService
+@inject VendedorService VendedorService
+@inject ReporteService ReporteService
+
+
+<MudContainer  MaxWidth="MaxWidth.ExtraExtraLarge" Class="mt-6 d-flex justify-center">
+    <MudPaper Class="p-4 report-paper" Elevation="1">
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.h5"
+                     Class="mb-2"
+                     Align="Align.Center"
+                     Color="Color.Secondary">
+                Listado de Reportes
+            </MudText>
+
+            <MudTable Items="_todos"
+                      Dense="true"
+                      Hover="true"
+                      Elevation="0"
+                      Bordered="true"
+                      Striped="true"
+                      Class="report-table"
+            >
+                <HeaderContent>
+                    <MudTh style="width:70%">Reporte</MudTh>
+                    <MudTh style="width:30%; text-align:center;">Acción</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Reporte">
+                        @context.Nombre
+                    </MudTd>
+                    <MudTd DataLabel="Acción" Class="d-flex justify-center">
+                        <MudButton Size="Size.Small"
+                                   Color="Color.Success"
+                                   Variant="Variant.Filled"
+                                   StartIcon="@Icons.Material.Filled.FileDownload"
+                                   Disabled="@_busy"
+                                   OnClick="@(()=>GenerarExcelAsync(context))">
+                        </MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private bool _busy;
+    private List<ReportItem> _todos = new();
+    private List<ReportItem> _visibles = new();
+    private string rolUsuario = "";
+    private List<Negocio> _sucursales = new();
+    private List<Vendedor> _vendedores = new();
+    private int IdSucursal;
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+
+            if (int.TryParse(sucursal, out int idSucursal))
+            {
+                IdSucursal = idSucursal;
+
+
+            }
+
+            StateHasChanged();
+        }
+
+
+
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        _sucursales = await NegocioService.ListarNegocios();
+        _vendedores = await VendedorService.ListarVendedores();
+        // Filtrar por roles del usuario
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+
+
+
+
+            // Obtener rol (asumiendo que hay uno)
+            var roles = user.FindAll(System.Security.Claims.ClaimTypes.Role).Select(r => r.Value);
+            rolUsuario = roles.Any() ? string.Join(", ", roles) : "Sin rol";
+
+            // Configurar catálogo de reportes
+            _todos = new()
+        {
+
+            // new ReportItem
+            // {
+            //     Key = "ventas-margenes",
+            //     Nombre = "Ventas - Márgenes",
+            //     Route = "/reportes/ventas-margenes", // página propia
+
+            // },
+            new ReportItem
+            {
+                Key = "facturacion-producto",
+                Nombre = "Facturación por Producto",
+                RequiresParams = true,
+
+            },
+            new ReportItem
+            {
+                Key = "ventas-por-vendedor",
+                Nombre = "Ventas por Vendedor",
+                RequiresParams = true,
+
+            },
+            new ReportItem
+            {
+                Key = "cantidad-vendida-producto",
+                Nombre = "Top 10 Productos más Vendidos",
+                RequiresParams = true,
+
+            },
+        };
+
+        }
+    }
+
+
+
+    private async Task GenerarExcelAsync(ReportItem report)
+    {
+        try
+        {
+            _busy = true;
+
+            byte[] bytes;
+            string fileName = $"{report.Key}_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
+
+            // 1) Armar parámetros del diálogo según el reporte
+            var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true
+            };
+
+            var parameters = new DialogParameters
+        {
+            { nameof(MDFiltrosReportes.Titulo), report.Nombre },
+
+            // Sucursal sólo en estos reportes
+            { nameof(MDFiltrosReportes.NeedSucursal),
+                report.Key is   "cantidad-vendida-producto" },
+
+                 { nameof(MDFiltrosReportes.NeedSucursales),
+                report.Key is "facturacion-producto"  },
+
+            // Vendedor sólo en este
+            { nameof(MDFiltrosReportes.NeedVendedor),
+                report.Key is "ventas-por-vendedor" },
+
+            // Ejemplo: filtrar por producto sólo en facturación por producto
+            { nameof(MDFiltrosReportes.NeedProducto),
+                report.Key is "cantidad-vendida-producto" },
+
+            { nameof(MDFiltrosReportes.Sucursales), _sucursales },
+            { nameof(MDFiltrosReportes.Vendedores), _vendedores }
+        };
+
+            // 2) Mostrar diálogo y esperar resultado
+            var dialog = DialogService.Show<MDFiltrosReportes>("Filtros del Reporte", parameters, options);
+            var result = await dialog.Result;
+
+            if (result.Canceled)
+                return;
+
+            var prms = (MDFiltrosReportes.ReporteParams)result.Data;
+
+            // Aseguramos fechas “limpias”
+            var desde = (prms.FechaDesde ?? DateTime.Today).Date;
+            var hasta = (prms.FechaHasta ?? DateTime.Today).Date.AddDays(1).AddTicks(-1);
+
+            // 3) Obtener datos + generar Excel con ClosedXML
+            switch (report.Key)
+            {
+                case "facturacion-producto":
+                    {
+                        int cantidadSucursales = prms.IdNegocios.Count();
+                        List<int> listaSucursales = new();
+                        if (cantidadSucursales == 0)
+                        {
+                           listaSucursales.Add(IdSucursal);                            
+                        } 
+
+                        var datos = await ReporteService.CalcularTotalFacturadoPorProductoAsync(
+                            desde,
+                            hasta,
+                            cantidadSucursales > 0 ?    prms.IdNegocios.ToList(): listaSucursales);
+
+                        // Si tus métodos de Excel esperan el objeto de filtros,
+                        // podés pasarle prms directamente:
+                        bytes = CrearExcelFacturacionPorProducto(datos, prms);
+                        break;
+                    }
+
+                case "ventas-por-vendedor":
+                    {
+                        if (!prms.IdVendedor.HasValue)
+                        {
+                            Snackbar.Add("Debe seleccionar un vendedor.", Severity.Warning);
+                            return;
+                        }
+
+                        var datos = await ReporteService.GananciaPorVentasPorVendedorAsync(
+                            desde,
+                            hasta,
+                            IdSucursal,
+                            prms.IdVendedor.Value);
+
+                        bytes = CrearExcelVentasPorVendedor(datos, prms);
+                        break;
+                    }
+
+                case "cantidad-vendida-producto":
+                    {
+                        // Si después querés agregar filtro por sucursal,
+                        // acá lo podés extender.
+                        var datos = await ReporteService.Top10ProductosMasVendidosAsync(prms.NombreProducto,
+                            desde,
+                            hasta,
+                        prms.IdNegocio);
+                        
+                        bytes = CrearExcelTop10(datos, prms.NombreProducto,prms.IdNegocio);
+                        break;
+                    }
+
+                default:
+                    Snackbar.Add("Reporte no implementado.", Severity.Warning);
+                    return;
+            }
+
+            // 4) Descargar archivo
+            await DescargarAsync(fileName, bytes);
+            Snackbar.Add("Excel generado correctamente.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error generando Excel: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+
+
+    private async Task DescargarAsync(string fileName, byte[] data)
+    {
+        const string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+        // Creamos un stream a partir del byte[]
+        await using var stream = new MemoryStream(data);
+
+        // DotNetStreamReference para pasarlo a JS sin base64
+         using var streamRef = new DotNetStreamReference(stream);
+
+        await JS.InvokeVoidAsync(
+            "downloadFromStream",
+            fileName,
+            streamRef,
+            contentType);
+
+        Snackbar.Add("Descarga iniciada.", Severity.Success);
+    }
+
+    // ======== Tipos auxiliares ========
+    private class ReportItem
+    {
+        public string Key { get; set; } = "";
+        public string Nombre { get; set; } = "";
+        public string? Route { get; set; }       // si tiene página propia
+        public bool RequiresParams { get; set; } // no usado en este render (si Route != null navega, sino pide params)
+        public string[] Roles { get; set; } = Array.Empty<string>();
+    }
+
+    private byte[] CrearExcelFacturacionPorProducto(
+    IEnumerable<ReporteVentasPorProducto> lista,
+    MDFiltrosReportes.ReporteParams filtros)
+    {
+        if (lista == null || !lista.Any())
+            return Array.Empty<byte>();   // el que llama decide qué hacer (Snackbar, etc.)
+
+        using var workbook = new XLWorkbook();
+
+        // Agrupar por local
+        var groupedByLocal = lista.GroupBy(x => x.NombreLocal);
+
+        // Fechas del período (ya vienen ajustadas en el diálogo, pero por las dudas)
+        var fechaInicio = (filtros.FechaDesde ?? DateTime.Today).Date;
+        var fechaFin = (filtros.FechaHasta ?? DateTime.Today).Date;
+
+        foreach (var group in groupedByLocal)
+        {
+            var localName = string.IsNullOrWhiteSpace(group.Key)
+                ? "Sin Local"
+                : SanitizeWorksheetName(group.Key);
+
+            // Crear hoja por local
+            var worksheet = workbook.Worksheets.Add(localName);
+
+            // 1) Período (fila 1)
+            worksheet.Cell(1, 1).Value = $"Período: {fechaInicio:dd/MM/yyyy} - {fechaFin:dd/MM/yyyy}";
+            worksheet.Range("A1:D1").Merge();
+            worksheet.Range("A1:D1").Style.Font.Bold = true;
+            worksheet.Range("A1:D1").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            // 2) Encabezados (fila 2)
+            worksheet.Cell(2, 1).Value = "Producto Vendido";
+            worksheet.Cell(2, 2).Value = "Cantidad Vendida";
+            worksheet.Cell(2, 3).Value = "Total Facturado (Pesos)";
+            worksheet.Cell(2, 4).Value = "Total Facturado (Dólares)";
+
+            // Estilo encabezado A2:D2
+            var headerRange = worksheet.Range("A2:D2");
+            headerRange.Style.Fill.BackgroundColor = XLColor.FromArgb(81, 129, 191);
+            headerRange.Style.Font.FontColor = XLColor.White;
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            headerRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+            // 3) Datos (desde fila 3)
+            int row = 3;
+
+            foreach (var item in group)
+            {
+                worksheet.Cell(row, 1).Value = item.NombreProducto;
+                worksheet.Cell(row, 2).Value = item.CantidadVendida;
+                worksheet.Cell(row, 3).Value = item.TotalFacturadoPesos;
+                worksheet.Cell(row, 4).Value = item.TotalFacturadoDolares;
+
+                // Zebra / alternado
+                var dataRowRange = worksheet.Range($"A{row}:D{row}");
+                if (row % 2 == 0)
+                    dataRowRange.Style.Fill.BackgroundColor = XLColor.FromArgb(221, 230, 241);
+                else
+                    dataRowRange.Style.Fill.BackgroundColor = XLColor.FromArgb(253, 254, 255);
+
+                row++;
+            }
+
+            // 4) Formato columnas
+            worksheet.Column(3).Style.NumberFormat.Format = "$ #,##0.00"; // Pesos
+            worksheet.Column(4).Style.NumberFormat.Format = "$ #,##0.00"; // Dólares
+
+            worksheet.Column(1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+            worksheet.Column(2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            worksheet.Column(3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            worksheet.Column(4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            // 5) Bordes en todo el rango de datos (incluyendo encabezado)
+            if (row > 3)
+            {
+                var fullRange = worksheet.Range($"A2:D{row - 1}");
+                fullRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                fullRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            }
+
+            // 6) Ajustar ancho de columnas
+            worksheet.Columns("A:D").AdjustToContents();
+        }
+
+        // Devolver como byte[]
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+    private static string SanitizeWorksheetName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "Hoja";
+
+        // caracteres no válidos en nombres de hojas de Excel: : \ / ? * [ ]
+        var invalids = new[] { ':', '\\', '/', '?', '*', '[', ']' };
+        foreach (var c in invalids)
+            name = name.Replace(c.ToString(), " ");
+
+        // Máximo 31 caracteres
+        if (name.Length > 31)
+            name = name.Substring(0, 31);
+
+        return name.Trim();
+    }
+    
+    private byte[] CrearExcelVentasPorVendedor(
+    IEnumerable<ReporteVenta> lista,
+    MDFiltrosReportes.ReporteParams filtros)
+    {
+        if (lista == null || !lista.Any())
+            return Array.Empty<byte>();
+
+        using var workbook = new XLWorkbook();
+
+        var worksheet = workbook.Worksheets.Add("Ventas por Vendedor");
+
+        // Datos de cabecera (local / vendedor / período) a partir de filtros y primera fila
+        var desde = (filtros.FechaDesde ?? DateTime.Today).Date;
+        var hasta = (filtros.FechaHasta ?? DateTime.Today).Date;
+
+        var primer = lista.FirstOrDefault();
+
+        var nombreLocal = primer?.NombreLocal ?? "N/A";
+        var nombreVend = primer?.Vendedor ?? "N/A";
+
+        // Fila 1: Local + Vendedor
+        worksheet.Cell(1, 1).Value = $"Local: {nombreLocal}    -    Vendedor: {nombreVend}";
+        worksheet.Range("A1:L1").Merge();
+        worksheet.Row(1).Style.Font.Bold = true;
+        worksheet.Row(1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+        // Fila 2: Período
+        worksheet.Cell(2, 1).Value = $"Período: {desde:dd/MM/yyyy} - {hasta:dd/MM/yyyy}";
+        worksheet.Range("A2:L2").Merge();
+        worksheet.Row(2).Style.Font.Bold = true;
+        worksheet.Row(2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+        // Encabezados en fila 3
+        worksheet.Cell(3, 1).Value = "Local";
+        worksheet.Cell(3, 2).Value = "Fecha Registro";
+        worksheet.Cell(3, 3).Value = "Tipo Documento";
+        worksheet.Cell(3, 4).Value = "Número Documento";
+        worksheet.Cell(3, 5).Value = "Productos";
+        worksheet.Cell(3, 6).Value = "Monto Total (Pesos)";
+        worksheet.Cell(3, 7).Value = "Costo Total Productos";
+        worksheet.Cell(3, 8).Value = "Margen Ganancia (Dólares)";
+        worksheet.Cell(3, 9).Value = "Porcentaje Ganancia (%)";
+        worksheet.Cell(3, 10).Value = "Vendedor";
+        worksheet.Cell(3, 11).Value = "Documento Cliente";
+        worksheet.Cell(3, 12).Value = "Nombre Cliente";
+
+        var headerRange = worksheet.Range("A3:L3");
+        headerRange.Style.Fill.BackgroundColor = XLColor.FromArgb(81, 129, 191);
+        headerRange.Style.Font.FontColor = XLColor.White;
+        headerRange.Style.Font.Bold = true;
+        headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        headerRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        // Datos desde fila 4
+        int row = 4;
+
+        foreach (var item in lista)
+        {
+            worksheet.Cell(row, 1).Value = item.NombreLocal;
+            worksheet.Cell(row, 2).Value = item.FechaRegistro;          // DateTime
+            worksheet.Cell(row, 3).Value = item.TipoDocumento;
+            worksheet.Cell(row, 4).Value = item.NroDocumento;
+            worksheet.Cell(row, 5).Value = item.NombreProducto;
+            worksheet.Cell(row, 6).Value = item.MontoTotal;
+            worksheet.Cell(row, 7).Value = item.CostoTotalProductos;
+            worksheet.Cell(row, 8).Value = item.MargenGananciaEnDolares;
+            worksheet.Cell(row, 9).Value = item.PorcentajeMargenGanancia;
+            worksheet.Cell(row, 10).Value = item.Vendedor;
+            worksheet.Cell(row, 11).Value = item.DocumentoCliente;
+            worksheet.Cell(row, 12).Value = item.NombreCliente;
+
+            // Zebra striping A:L
+            var dataRange = worksheet.Range($"A{row}:L{row}");
+            if (row % 2 == 0)
+                dataRange.Style.Fill.BackgroundColor = XLColor.FromArgb(221, 230, 241);
+            else
+                dataRange.Style.Fill.BackgroundColor = XLColor.FromArgb(253, 254, 255);
+
+            row++;
+        }
+
+        // Formatos
+        // Fecha
+        worksheet.Column(2).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
+
+        // Moneda
+        worksheet.Column(6).Style.NumberFormat.Format = "$ #,##0.00"; // Monto Total (Pesos)
+        worksheet.Column(7).Style.NumberFormat.Format = "$ #,##0.00"; // Costo Total
+        worksheet.Column(8).Style.NumberFormat.Format = "US$ #,##0.00"; // Margen en dólares
+
+        // Porcentaje
+        worksheet.Column(9).Style.NumberFormat.Format = "0.00%";
+
+        // Alineación
+        worksheet.Column(1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+        worksheet.Column(2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        worksheet.Column(3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+        worksheet.Column(4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        worksheet.Column(5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+        worksheet.Column(6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        worksheet.Column(7).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        worksheet.Column(8).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        worksheet.Column(9).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        worksheet.Column(10).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+        worksheet.Column(11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+        worksheet.Column(12).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+
+        // Bordes en todo el rango de datos (incluyendo encabezado)
+        if (row > 4)
+        {
+            var fullRange = worksheet.Range($"A3:L{row - 1}");
+            fullRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            fullRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+        }
+
+        // Ajustar ancho de columnas
+        worksheet.Columns("A:L").AdjustToContents();
+
+        // Devolver como byte[]
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    private byte[] CrearExcelTop10(
+    IEnumerable<ReporteTop10> lista,
+    string nombreProducto,
+    int? local)
+    {
+        if (lista == null || !lista.Any())
+            return Array.Empty<byte>();
+
+        using var workbook = new XLWorkbook();
+
+        // Crear una hoja para el reporte
+        var worksheet = workbook.Worksheets.Add("TOP 10 VENDIDOS");
+
+        // Encabezados de columna
+        worksheet.Cell(1, 1).Value = "Id Producto";
+        worksheet.Cell(1, 2).Value = "Producto";
+        worksheet.Cell(1, 3).Value = "Cantidad Vendida";
+        worksheet.Cell(1, 4).Value = "SubTotal";
+        worksheet.Cell(1, 5).Value = "Local";
+
+        // Formato encabezado A1:E1
+        var headerRange = worksheet.Range("A1:E1");
+        headerRange.Style.Fill.BackgroundColor = XLColor.FromArgb(81, 129, 191);
+        headerRange.Style.Font.FontColor = XLColor.White;
+        headerRange.Style.Font.Bold = true;
+        headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        headerRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        // Nombre local según id
+        string nombreLocal = local switch
+        {
+            1 => "HITECH 1",
+            2 => "HITECH 2",
+            3 => "APPLE STORE 49",
+            4 => "APPLE CAFE",
+            _ => "Todos los Locales"
+        };
+
+        // Datos desde fila 2
+        int row = 2;
+
+        foreach (var item in lista)
+        {
+            worksheet.Cell(row, 1).Value = item.IdProducto;
+            worksheet.Cell(row, 2).Value = item.NombreProducto;
+            worksheet.Cell(row, 3).Value = item.CantidadVendida;
+            worksheet.Cell(row, 4).Value = item.TotalFacturado;
+            worksheet.Cell(row, 5).Value = nombreLocal;
+
+            // Formato alternado (zebra)
+            var dataRow = worksheet.Range($"A{row}:E{row}");
+            if (row % 2 == 0)
+                dataRow.Style.Fill.BackgroundColor = XLColor.FromArgb(221, 230, 241);
+            else
+                dataRow.Style.Fill.BackgroundColor = XLColor.FromArgb(253, 254, 255);
+
+            row++;
+        }
+
+        // Formato numérico para SubTotal
+        worksheet.Column(4).Style.NumberFormat.Format = "$ #,##0.00";
+
+        // Alineaciones básicas
+        worksheet.Column(1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        worksheet.Column(2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+        worksheet.Column(3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        worksheet.Column(4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        worksheet.Column(5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+
+        // Bordes en todo el rango de datos (incluyendo encabezado)
+        if (row > 2)
+        {
+            var fullRange = worksheet.Range($"A1:E{row - 1}");
+            fullRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            fullRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+        }
+
+        // Ajustar columnas
+        worksheet.Columns("A:E").AdjustToContents();
+
+        // Devolver como byte[]
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+}
+<style>
+    /* Paper más acotado y centrado (el container ya ayuda) */
+    .report-paper {
+        width: 100%;
+        max-width: 600px; /* ajustá a gusto: 600, 700, etc. */
+    }
+
+    /* Borde exterior con color Primary del tema */
+    .report-table .mud-table-container {
+        border: 2px solid var(--mud-palette-primary);
+        border-radius: 8px;
+    }
+
+    /* Opcional: sacar un poco el borde gris por defecto del Bordered */
+    .report-table .mud-table {
+        border: none;
+    }
+
+
+
+</style>

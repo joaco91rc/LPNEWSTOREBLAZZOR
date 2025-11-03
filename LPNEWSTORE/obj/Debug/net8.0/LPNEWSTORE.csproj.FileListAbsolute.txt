@@ -1,12 +1,3 @@
-C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.csproj.AssemblyReference.cache
-C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\rpswa.dswa.cache.json
-C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.AssemblyInfoInputs.cache
-C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.AssemblyInfo.cs
-C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.csproj.CoreCompileInputs.cache
-C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.MvcApplicationPartsAssemblyInfo.cache
-C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.RazorAssemblyInfo.cache
-C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.RazorAssemblyInfo.cs
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\bin\Debug\net8.0\appsettings.Development.json
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\bin\Debug\net8.0\appsettings.json
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\bin\Debug\net8.0\LPNEWSTORE.staticwebassets.runtime.json
@@ -167,6 +158,16 @@ C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\bin\Debug\net8.0\Se
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\bin\Debug\net8.0\Entities.pdb
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\bin\Debug\net8.0\Services.pdb
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\bin\Debug\net8.0\DataLayer.pdb
+C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.csproj.AssemblyReference.cache
+C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\rpswa.dswa.cache.json
+C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.AssemblyInfoInputs.cache
+C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.AssemblyInfo.cs
+C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.csproj.CoreCompileInputs.cache
+C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.RazorAssemblyInfo.cache
+C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.RazorAssemblyInfo.cs
+C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.sourcelink.json
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\rjimswa.dswa.cache.json
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\rjsmrazor.dswa.cache.json
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\rjsmcshtml.dswa.cache.json
@@ -186,4 +187,3 @@ C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\re
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.pdb
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.genruntimeconfig.cache
 C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\ref\LPNEWSTORE.dll
-C:\Users\jaalvarez\Documents\Joaco\LPNEWSTORE_WEB\LPNEWSTORE\obj\Debug\net8.0\LPNEWSTORE.sourcelink.json

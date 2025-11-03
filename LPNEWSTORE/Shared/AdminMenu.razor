@@ -28,13 +28,15 @@
 
 <MudNavLink Href="/proveedores" Icon="@Icons.Material.Filled.LocalShipping" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Proveedores</MudNavLink>
 
-<MudNavGroup Title="Reportes" Icon="@Icons.Material.Filled.BarChart" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">
+
+<MudNavLink Href="/reportes" Icon="@Icons.Material.Filled.BarChart" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Reportes</MudNavLink>
+@* <MudNavGroup Title="Reportes" Icon="@Icons.Material.Filled.BarChart" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">
     <MudNavLink Href="/rcompras" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Reporte Compras</MudNavLink>
     <MudNavLink Href="/rventasmargenes" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Ventas - Márgenes</MudNavLink>
     <MudNavLink Href="/rfacturacionproducto" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Facturación por Producto</MudNavLink>
     <MudNavLink Href="/rventasvendedor" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Ventas por Vendedor</MudNavLink>
 </MudNavGroup>
-
+ *@
 <VendedorMenu OnNavigationItemClicked="@OnNavigationItemClicked" />
 
 

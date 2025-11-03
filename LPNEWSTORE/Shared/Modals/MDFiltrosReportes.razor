@@ -1,0 +1,187 @@
+﻿@using ClosedXML.Excel
+@using MudBlazor
+@using System.ComponentModel.DataAnnotations
+@using Entities   
+@using Microsoft.AspNetCore.Components
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+
+            <!-- Título -->
+            <MudText Typo="Typo.h6" Class="mb-2">@Titulo</MudText>
+
+            <!-- Rango de fechas -->
+            <MudGrid GutterSize="2">
+                <MudItem xs="12" md="6">
+                    <MudDatePicker Label="Fecha desde"
+                                   @bind-Date="_model.FechaDesde"
+                                   DateFormat="dd/MM/yyyy"
+                                   Dense="true"
+                                   Clearable="false"
+                                   Required="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudDatePicker Label="Fecha hasta"
+                                   @bind-Date="_model.FechaHasta"
+                                   DateFormat="dd/MM/yyyy"
+                                   Dense="true"
+                                   Clearable="false"
+                                   Required="true" />
+                </MudItem>
+            </MudGrid>
+
+          
+            @if (NeedVendedor)
+            {
+                <MudSelect T="int?" Label="Vendedor"
+                           @bind-Value="_model.IdVendedor"
+                           Dense="true"
+                           Clearable="true"
+                           FullWidth="true">
+                    <MudSelectItem Value="@((int?)null)">Todos</MudSelectItem>
+
+                    @if (Vendedores != null)
+                    {
+                        @foreach (var v in Vendedores)
+                        {
+                            <MudSelectItem Value="@((int?)v.IdVendedor)">
+                                @($"{v.Nombre} {v.Apellido}")
+                            </MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            }
+
+            @if (NeedSucursal)
+            {
+                <MudSelect T="int?" Label="Local / Sucursal"
+                           @bind-Value="_model.IdNegocio"
+                           Dense="true"
+                           Clearable="true"
+                           FullWidth="true">
+                    <MudSelectItem Value="@((int?)null)">Todos</MudSelectItem>
+
+                    @if (Sucursales != null)
+                    {
+                        @foreach (var s in Sucursales)
+                        {
+                            <MudSelectItem Value="@((int?)s.IdNegocio)">
+                                @s.Nombre
+                            </MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            }
+
+            @if (NeedSucursales)
+{
+    <!-- NUEVO: selección múltiple -->
+    <MudSelect T="int" Label="Locales / Sucursales"
+               MultiSelection="true"
+               @bind-SelectedValues="_model.IdNegocios"
+               Dense="true"
+               FullWidth="true">
+
+        @if (Sucursales != null)
+        {
+            @foreach (var s in Sucursales)
+            {
+                <MudSelectItem Value="@s.IdNegocio">
+                    @s.Nombre
+                </MudSelectItem>
+            }
+        }
+    </MudSelect>
+                <MudText Typo="Typo.caption" Class="mt-1">
+                    Si no seleccionás ninguna sucursal, se interpretan todas.
+                </MudText>
+            }
+
+            @if (NeedProducto)
+            {
+                <MudTextField @bind-Value="_model.NombreProducto"
+                              Label="Nombre producto (contiene)"
+                              Dense="true"
+                              Clearable="true"
+                              FullWidth="true" />
+            }
+
+        </MudStack>
+
+       
+    </DialogContent>
+
+    <DialogActions>
+        <MudSpacer />
+        <MudButton Color="Color.Default"
+                   Variant="Variant.Text"
+                   OnClick="@Cancelar">
+            Cancelar
+        </MudButton>
+
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   OnClick="@Aceptar">
+            Aceptar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    // Parámetros que te vienen desde la página que abre el diálogo
+    [Parameter] public string Titulo { get; set; } = "Parámetros del reporte";
+    [Parameter] public bool NeedSucursales { get; set; }
+    [Parameter] public bool NeedSucursal { get; set; }          // Mostrar combo de locales
+    [Parameter] public bool NeedVendedor { get; set; }          // Mostrar combo de vendedores
+    [Parameter] public bool NeedProducto { get; set; }          // Mostrar textbox de producto
+
+    [Parameter] public IEnumerable<Negocio>? Sucursales { get; set; }   // lista de locales
+    [Parameter] public IEnumerable<Vendedor>? Vendedores { get; set; }  // lista de vendedores
+
+    [CascadingParameter] 
+    public IMudDialogInstance MudDialog { get; set; } = default!;
+
+    public HashSet<int> IdNegocios { get; set; } = new();
+    // Modelo interno que luego devolvemos
+    private ReporteParams _model = new()
+    {
+        FechaDesde = DateTime.Today,
+        FechaHasta = DateTime.Today
+    };
+
+    private void Cancelar()
+        => MudDialog.Cancel();
+
+    private void Aceptar()
+    {
+        var desde = (_model.FechaDesde ?? DateTime.Today).Date;
+        var hasta = (_model.FechaHasta ?? DateTime.Today).Date.AddDays(1).AddTicks(-1);
+
+        _model.FechaDesde = desde;
+        _model.FechaHasta = hasta;
+
+        if (_model.IdVendedor == 0) _model.IdVendedor = null;
+        if (_model.IdNegocio == 0) _model.IdNegocio = null;
+        if (_model.IdNegocios.Count() == 0) _model.IdNegocios = new List<int>();
+        if (string.IsNullOrWhiteSpace(_model.NombreProducto))
+            _model.NombreProducto = null;
+
+        MudDialog.Close(DialogResult.Ok(_model));
+    }
+
+    // DTO que viaja de/desde el diálogo
+    public class ReporteParams
+    {
+        public DateTime? FechaDesde { get; set; }
+        public DateTime? FechaHasta { get; set; }
+        public int? IdVendedor { get; set; }
+        public int? IdNegocio { get; set; }
+        public IEnumerable<int> IdNegocios { get; set; } = new List<int>();
+        public string? NombreProducto { get; set; }
+    }
+
+    
+
+}
