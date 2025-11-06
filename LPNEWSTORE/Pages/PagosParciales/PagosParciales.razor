@@ -1,0 +1,436 @@
+﻿@page "/pagoparcial"
+@using ClosedXML.Excel
+@using MudBlazor
+@using Microsoft.AspNetCore.Identity
+@using Services
+@using Entities
+@using System.Security.Claims
+@using System.Text
+
+@inject PagoParcialService PagoParcialService
+@inject RolService rolService
+
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SesionNegocioService SesionNegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+<AbmLayout TEntity="PagoParcial"
+           FormContent="@FormPagoParcial"
+           GridContent="@GridPagoParciales"
+           OnSearchChanged="HandleSearch"
+           OnExport="ExportarPagoParcialesXlsx"
+           SearchPlaceholder="Buscar PagoParcial …" />
+
+@code {
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
+    List<PagoParcial> listaPagoParciales = new();
+    PagoParcial PagoParcialActual = new();
+    private List<Rol> listaRoles = new();
+    private int idRolSeleccionado = 0;
+    private string claseThead = "mi-th";
+    private MudForm? formPagoParcial;
+    private bool esEdicion = false;
+    private string rolUsuarioActual = string.Empty;
+    private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+
+    private IEnumerable<PagoParcial> PagoParcialesFiltrados
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(GridSearch))
+                return listaPagoParciales;
+
+            var term = GridSearch.Trim();
+
+            bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
+
+            return listaPagoParciales.Where(p =>
+                Has(p.FechaRegistro.ToString("dd/mm/yyyy")) ||
+                Has(p.NombreCliente) ||
+                Has(p.ProductoReservado) ||
+                Has(p.FormaPago) ||
+                Has(p.Monto.ToString()) ||
+                Has(p.Moneda) ||
+                Has(p.NumeroVenta) ||
+                Has(p.Vendedor) ||
+                Has(p.Estado ? "Activo" : "Inactivo") ||
+                Has(p.NombreLocal) 
+            );
+        }
+    }
+
+    private Task HandleSearch(string value)
+    {
+        GridSearch = value;
+        // StateHasChanged(); // opcional, normalmente no hace falta
+        return Task.CompletedTask;
+    }
+
+    private async Task ExportarCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Fecha;Cliente;Producto Reservado;FormaPago;Monto;Moneda;Venta;Vendedor;Estado;Local");
+        foreach (var p in PagoParcialesFiltrados)
+        {
+            string[] cols = {
+                p.FechaRegistro.ToString("dd/mm/yyyy"),
+                p.NombreCliente,
+                p.ProductoReservado,
+                p.FormaPago,
+                p.Monto.ToString(),
+                p.Moneda,
+                p.NumeroVenta,
+                p.Vendedor,
+                p.Estado?"Activo":"Inactivo",
+                p.NombreLocal
+    };
+            sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
+        }
+        await JS.InvokeVoidAsync("downloadFileFromText", "PagoParciales.csv", sb.ToString(), "text/csv;charset=utf-8;");
+    }
+
+
+    private async Task ExportarPagoParcialesXlsx()
+    {
+        var fileName = $"PagoParciales_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        // Materializar para evitar IQueryables/lazy en el export
+        var rows = PagoParcialesFiltrados.Select(p => new
+        {
+            FechaRegistro=  p.FechaRegistro.ToString(),
+            NombreCliente =p.NombreCliente,
+            ProductoReservado =p.ProductoReservado,
+            FormaPago = p.FormaPago,
+            Monto = p.Monto.ToString(),
+            Moneda= p.Moneda,
+            NumeroVenta= p.NumeroVenta,
+            Vendedor= p.Vendedor,
+            Estado= p.Estado ? "Activo" : "Inactivo",
+            NombreLocal=  p.NombreLocal
+        }).ToList();
+
+        await Task.Yield();
+
+        byte[] bytes = await Task.Run(() =>
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("PagoParciales");
+
+            int r = 1, c = 1;
+            ws.Cell(r, c++).Value = "Fecha";
+            ws.Cell(r, c++).Value = "Cliente";
+            ws.Cell(r, c++).Value = "Producto Reservado";
+            ws.Cell(r, c++).Value = "Forma de pago";
+            ws.Cell(r, c++).Value = "Monto";
+            ws.Cell(r, c++).Value = "Moneda";
+            ws.Cell(r, c++).Value = "Venta";
+            ws.Cell(r, c++).Value = "Vendedor";
+            ws.Cell(r, c++).Value = "Estado";
+            ws.Cell(r, c++).Value = "Local";
+
+            int lastCol = c - 1;
+            ws.Range(1, 1, 1, lastCol).Style.Font.SetBold();
+            ws.Range(1, 1, 1, lastCol).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+            ws.SheetView.FreezeRows(1);
+
+            // 👉 Formatear columnas como texto (sin SetDataType)
+            ws.Column(1).Style.NumberFormat.Format = "@"; // CUIT
+            ws.Column(3).Style.NumberFormat.Format = "@"; // Correo
+            ws.Column(4).Style.NumberFormat.Format = "@"; // Teléfono
+
+            r = 2;
+            foreach (var p in rows)
+            {
+                c = 1;
+                ws.Cell(r, c++).Value = p.FechaRegistro;
+                ws.Cell(r, c++).Value = p.NombreCliente;
+                ws.Cell(r, c++).Value = p.ProductoReservado;
+                ws.Cell(r, c++).Value = p.FormaPago;
+                ws.Cell(r, c++).Value = p.Monto;
+                ws.Cell(r, c++).Value = p.Moneda;
+                ws.Cell(r, c++).Value = p.NumeroVenta;
+                ws.Cell(r, c++).Value = p.Vendedor;
+                ws.Cell(r, c++).Value = p.Estado;
+                ws.Cell(r, c++).Value = p.NombreLocal;
+                r++;
+            }
+
+            var used = ws.RangeUsed();
+            if (used is not null)
+            {
+                used.SetAutoFilter();
+                ws.Columns(1, lastCol).AdjustToContents(1, rows.Count + 1);
+            }
+
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            return ms.ToArray();
+        });
+
+        using var msOut = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(msOut);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            fileName,
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+
+            if (int.TryParse(sucursal, out int idSucursal))
+            {
+                listaPagoParciales = await PagoParcialService.Listar();
+            }
+
+            StateHasChanged();
+        }
+
+
+
+    }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+        }
+
+        listaRoles = await rolService.Listar();
+        PagoParcialActual.Estado = true;
+
+
+    }
+
+    private void Editar(PagoParcial c)
+    {
+        PagoParcialActual = new PagoParcial
+        {
+            IdPagoParcial = c.IdPagoParcial,
+            FechaRegistro = DateTime.Now,
+            NombreCliente = c.NombreCliente,
+            ProductoReservado = c.ProductoReservado,
+            FormaPago = c.FormaPago,
+            Monto = c.Monto,
+            Moneda = c.Moneda,
+            NumeroVenta = c.NumeroVenta,
+            Vendedor = c.Vendedor,
+            Estado = c.Estado,
+            NombreLocal = c.NombreLocal,
+
+        };
+
+
+        esEdicion = true;
+    }
+
+    private async Task Registrar()
+    {
+        if (formPagoParcial is null)
+            return;
+
+        await formPagoParcial.Validate();
+
+        if (!formPagoParcial.IsValid)
+        {
+            Snackbar.Add("Por favor completá todos los campos requeridos.", Severity.Error);
+            return;
+        }
+
+        string mensaje = string.Empty;
+        bool resultado = false;
+
+        if (esEdicion)
+        {
+            var (exito, msg) = await PagoParcialService.Modificar(PagoParcialActual);
+            resultado = exito;
+            mensaje = msg;
+        }
+        else
+        {
+            var (idGenerado, msg) = await PagoParcialService.Registrar(PagoParcialActual);
+            resultado = idGenerado > 0;
+
+            mensaje = msg;
+        }
+
+        if (resultado)
+        {
+            Snackbar.Add(mensaje, Severity.Success);
+            PagoParcialActual = new PagoParcial();
+            esEdicion = false;
+            listaPagoParciales = await PagoParcialService.Listar();
+            await formPagoParcial.ResetAsync(); // resetea el form
+            PagoParcialActual.Estado = true;
+        }
+        else
+        {
+
+            Snackbar.Add(mensaje, Severity.Error);
+        }
+    }
+
+
+
+
+    private async Task Eliminar(PagoParcial c)
+    {
+        bool? confirmado = await DialogService.ShowMessageBox(
+            title: "Eliminar PagoParcial",
+            markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar al PagoParcial {c.IdPagoParcial}?</b>",
+            yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
+        );
+
+        if (confirmado == true)
+        {
+            var (exito, mensaje) = await PagoParcialService.Eliminar(c.IdPagoParcial);
+
+            if (exito)
+            {
+                Snackbar.Add(mensaje, Severity.Success);
+                listaPagoParciales = await PagoParcialService.Listar();
+            }
+            else
+            {
+                Snackbar.Add(mensaje, Severity.Error);
+            }
+        }
+    }
+
+
+    private void CancelarEdicion()
+    {
+        PagoParcialActual = new PagoParcial();
+        PagoParcialActual.Estado = true;
+
+        esEdicion = false;
+    }
+
+    RenderFragment FormPagoParcial => @<div style="padding: 16px; padding-top:16px">
+    <MudForm @ref="formPagoParcial" OnValidSubmit="Registrar">
+        <MudStack Spacing="2">
+            <MudTextField Label="Fecha" @bind-Value="PagoParcialActual.FechaRegistro" Format="dd/mm/yyyy" Required="true" />
+            <MudTextField Label="Cliente" @bind-Value="PagoParcialActual.NombreCliente" Required="true" />
+            <MudTextField Label="Producto Reservado" @bind-Value="PagoParcialActual.ProductoReservado" Required="true" />
+            <MudTextField Label="Forma de Pago" @bind-Value="PagoParcialActual.FormaPago" />
+            <MudTextField Label="Monto" @bind-Value="PagoParcialActual.Monto" />
+            <MudTextField Label="Moneda" @bind-Value="PagoParcialActual.Moneda" />
+            <MudTextField Label="Venta" @bind-Value="PagoParcialActual.NumeroVenta" />
+            <MudTextField Label="Vendedor" @bind-Value="PagoParcialActual.Vendedor" />
+
+
+            <MudSelect T="bool" Label="Estado" @bind-Value="PagoParcialActual.Estado" Required="true">
+                <MudSelectItem Value="true">Activo</MudSelectItem>
+                <MudSelectItem Value="false">No Activo</MudSelectItem>
+            </MudSelect>
+            <MudTextField Label="Local" @bind-Value="PagoParcialActual.NombreLocal" />
+            <MudStack Direction="Row" Spacing="2">
+                <MudButton OnClick="Registrar" Variant="Variant.Filled" Color="Color.Primary">
+                    @(esEdicion ? "Actualizar" : "Guardar")
+                </MudButton>
+                @if (esEdicion)
+                                {
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CancelarEdicion">
+                    Cancelar
+                </MudButton>
+                                }
+            </MudStack>
+        </MudStack>
+    </MudForm>
+</div>;
+
+
+    RenderFragment GridPagoParciales => @<div style="padding: 16px; padding-top:16px">
+    <MudTable Items="PagoParcialesFiltrados"
+              Dense="true"
+              Hover="true"
+              Bordered="true"
+              Striped="true"
+              Sortable="true"
+              Breakpoint="Breakpoint.Sm"
+              RowsPerPageOptions="new int[]{ 5, 10, 20,30,40,50 }"
+              PagerAlwaysVisible="true"
+              Elevation="1"
+              Class="mt-2">
+        <HeaderContent>
+            <MudTh>
+                <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.FechaRegistro.Date)">Fecha</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.NombreCliente)">Cliente</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.ProductoReservado)">Producto Reservado</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.FormaPago)">Forma de Pago</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.Monto)">Monto</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.Moneda)">Moneda</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.NumeroVenta)">Venta</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.Vendedor)">Vendedor</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.Estado)">Estado</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.NombreLocal)">Local</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                Acciones
+            </MudTh>
+
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Fecha">@context.FechaRegistro.ToShortDateString()</MudTd>
+            <MudTd DataLabel="Cliente">@context.NombreCliente</MudTd>
+            <MudTd DataLabel="Porducto Reservado">@context.ProductoReservado</MudTd>
+            <MudTd DataLabel="Forma de Pago">@context.FormaPago</MudTd>
+            <MudTd DataLabel="Monto">@context.Monto</MudTd>
+            <MudTd DataLabel="Moneda">@context.Moneda</MudTd>
+            <MudTd DataLabel="Venta">@context.NumeroVenta</MudTd>
+            <MudTd DataLabel="Vendedor">@context.Vendedor</MudTd>
+
+            <MudTd DataLabel="Estado">@((context.Estado) ? "Activo" : "No Activo")</MudTd>
+            <MudTd DataLabel="Local">@context.NombreLocal</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Success" Size="Size.Small" OnClick="() => Editar(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => Eliminar(context)" Class="ms-2" />
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
+                           RowsPerPageString="Registros por página">
+            </MudTablePager>
+        </PagerContent>
+    </MudTable>
+</div>;
+
+}
+
+

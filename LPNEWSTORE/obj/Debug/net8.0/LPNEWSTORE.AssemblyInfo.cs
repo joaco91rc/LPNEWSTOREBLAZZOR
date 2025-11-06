@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("LPNEWSTORE")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a30423cac530de5c69eb5673e3c31ad139056b7a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+68d590f39713072f417c16a669b24b175edd4e09")]
 [assembly: System.Reflection.AssemblyProductAttribute("LPNEWSTORE")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LPNEWSTORE")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
