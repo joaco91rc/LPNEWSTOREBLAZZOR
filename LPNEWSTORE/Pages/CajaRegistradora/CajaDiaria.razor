@@ -1,0 +1,465 @@
+﻿@page "/cajadiaria"
+@using ClosedXML.Excel
+@using MudBlazor
+@using Microsoft.AspNetCore.Identity
+@using Services
+@using Entities
+@using System.Security.Claims
+@using System.Text
+
+@inject CajaRegistradoraService CajaRegistradoraService
+@inject TransaccionCajaService TransaccionCajaService
+@inject RolService rolService
+
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SesionNegocioService SesionNegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+<AbmLayout TEntity="TransaccionCaja"
+           FormContent="@FormTransaccion"
+           GridContent="@GridTransacciones"
+           OnSearchChanged="HandleSearch"
+           OnExport="ExportarCajaRegistradoraesXlsx"
+           SearchPlaceholder="Buscar CajaRegistradora …" />
+
+@code {
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
+    List<TransaccionCaja> Transacciones = new();
+    TransaccionCaja TransaccionCajaActual = new();
+    CajaRegistradora CajaRegistradoraAct = new();
+    private List<Rol> listaRoles = new();
+    private int idRolSeleccionado = 0;
+    private string claseThead = "mi-th";
+    private MudForm? formTransaccion;
+    private bool esEdicion = false;
+    private string rolUsuarioActual = string.Empty;
+    private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+
+    private IEnumerable<TransaccionCaja> TransaccionesFiltradas
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(GridSearch))
+                return Transacciones;
+
+            var term = GridSearch.Trim();
+
+            bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
+
+            return Transacciones.Where(p =>
+                Has(p.DocAsociado) ||
+                Has(p.TipoTransaccion) ||
+                Has(p.Concepto) ||
+                Has(p.CajaAsociada) ||
+                Has(p.Concepto) ||
+                Has(p.FormaPago) ||
+                Has(p.UsuarioTransaccion) 
+            );
+        }
+    }
+
+    private Task HandleSearch(string value)
+    {
+        GridSearch = value;
+        // StateHasChanged(); // opcional, normalmente no hace falta
+        return Task.CompletedTask;
+    }
+
+    private async Task ExportarCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Fecha - Hora;Concepto;Movimiento;Monto;Forma de Pago;Caja Asociada;Detalle;Vendedor");
+        foreach (var p in TransaccionesFiltradas)
+        {
+            string[] cols = {
+                p.Hora,
+                p.Concepto,
+                p.TipoTransaccion,
+                p.Monto.ToString(),
+                p.FormaPago,
+                p.CajaAsociada,
+                p.DocAsociado,
+                p.UsuarioTransaccion
+
+
+    };
+            sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
+        }
+        await JS.InvokeVoidAsync("downloadFileFromText", "CajaRegistradoraes.csv", sb.ToString(), "text/csv;charset=utf-8;");
+    }
+
+    private async Task ExportarCajaRegistradoraesXlsx()
+    {
+        var fileName = $"CajaRegistradoraes_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        // 1) Materializar primero (evita IQueryables/lazy durante el export)
+        var rows = TransaccionesFiltradas.Select(p => new
+        {
+            Hora = p.Hora ?? string.Empty,
+            Concepto = p.Concepto,
+            Movimiento = p.TipoTransaccion,
+            Monto = p.Monto,
+            FormaPago = p.FormaPago,
+            CajaAsociada = p.CajaAsociada,
+            Detalle = p.DocAsociado,
+            Vendedor = p.UsuarioTransaccion
+        }).ToList();
+
+        await Task.Yield(); // ceder antes del trabajo CPU-bound
+
+        // 2) Generar XLSX fuera del hilo del circuito
+        byte[] bytes = await Task.Run(() =>
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("CajaRegistradoraes");
+
+            // Encabezados
+            int r = 1, c = 1;
+            ws.Cell(r, c++).Value = "Fecha - Hora";
+            ws.Cell(r, c++).Value = "Concepto";
+            ws.Cell(r, c++).Value = "Movimiento";
+            ws.Cell(r, c++).Value = "Monto";
+            ws.Cell(r, c++).Value = "Forma de Pago";
+            ws.Cell(r, c++).Value = "Caja Asociada";
+            ws.Cell(r, c++).Value = "Detalle";
+            ws.Cell(r, c++).Value = "Vendedor";
+
+
+            int lastCol = c - 1;
+            ws.Range(1, 1, 1, lastCol).Style.Font.SetBold();
+            ws.Range(1, 1, 1, lastCol).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+            ws.SheetView.FreezeRows(1);
+
+            // Forzar columna DNI como texto
+            ws.Column(1).Style.NumberFormat.Format = "@";
+
+            // Datos
+            r = 2;
+            foreach (var p in rows)
+            {
+                c = 1;
+                ws.Cell(r, c++).Value = p.Hora;     // texto
+                ws.Cell(r, c++).Value = p.Concepto;
+                ws.Cell(r, c++).Value = p.Movimiento;
+                ws.Cell(r, c++).Value = p.Monto;
+                ws.Cell(r, c++).Value = p.FormaPago;
+                ws.Cell(r, c++).Value = p.CajaAsociada;
+                ws.Cell(r, c++).Value = p.Detalle;
+                ws.Cell(r, c++).Value = p.Vendedor;
+                r++;
+            }
+
+            var used = ws.RangeUsed();
+            if (used is not null)
+            {
+                used.SetAutoFilter();
+                ws.Columns(1, lastCol).AdjustToContents(1, rows.Count + 1);
+            }
+
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            return ms.ToArray();
+        });
+
+        // 3) Descargar vía stream (SIN base64)
+        using var msOut = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(msOut);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            fileName,
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+
+            if (int.TryParse(sucursal, out int idSucursal))
+            {
+
+            }
+
+            StateHasChanged();
+        }
+
+
+
+    }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+        }
+        var cajaAbierta = await CajaRegistradoraService.ListarAsync(sucursalSeleccionada);
+        if (cajaAbierta != null && cajaAbierta.Any())
+        {
+            CajaRegistradoraAct = cajaAbierta.First();
+            Transacciones = await TransaccionCajaService.ListarAsync(CajaRegistradoraAct.IdCajaRegistradora, sucursalSeleccionada);
+
+        }
+        listaRoles = await rolService.Listar();
+
+
+
+    }
+
+    private void Editar(TransaccionCaja c)
+    {
+        TransaccionCajaActual = new TransaccionCaja
+        {
+            IdCajaRegistradora = c.IdCajaRegistradora,
+            IdTransaccion = c.IdTransaccion,
+            Hora = c.Hora,
+            TipoTransaccion = c.TipoTransaccion,
+            Monto = c.Monto,
+            Concepto = c.Concepto,
+            FormaPago = c.FormaPago,
+            CajaAsociada = c.CajaAsociada,
+            DocAsociado = c.DocAsociado,
+            UsuarioTransaccion = c.UsuarioTransaccion,
+            IdCompra = c.IdCompra,
+            IdVenta = c.IdVenta,
+             IdPagoParcial = c.IdPagoParcial,
+            IdNegocio = c.IdNegocio,
+        };
+
+
+        esEdicion = true;
+    }
+
+    private async Task Registrar()
+    {
+        if (formTransaccion is null)
+            return;
+
+        await formTransaccion.Validate();
+
+        if (!formTransaccion.IsValid)
+        {
+            Snackbar.Add("Por favor completá todos los campos requeridos.", Severity.Error);
+            return;
+        }
+
+        string mensaje = string.Empty;
+        bool resultado = false;
+
+        if (esEdicion)
+        {
+            var (exito, msg) = await TransaccionCajaService.EditarMovimientoAsync(TransaccionCajaActual);
+            resultado = exito;
+            mensaje = msg;
+        }
+        else
+        {
+            var (idGenerado, msg) = await TransaccionCajaService.RegistrarMovimientoAsync(TransaccionCajaActual);
+            resultado = idGenerado > 0;
+
+            mensaje = msg;
+        }
+
+        if (resultado)
+        {
+            Snackbar.Add(mensaje, Severity.Success);
+            TransaccionCajaActual = new TransaccionCaja();
+            esEdicion = false;
+            Transacciones = await TransaccionCajaService.ListarAsync(CajaRegistradoraAct.IdCajaRegistradora, sucursalSeleccionada);
+            await formTransaccion.ResetAsync(); // resetea el form
+
+        }
+        else
+        {
+
+            Snackbar.Add(mensaje, Severity.Error);
+        }
+    }
+
+
+
+
+    private async Task Eliminar(TransaccionCaja c)
+    {
+        bool? confirmado = await DialogService.ShowMessageBox(
+            title: "Eliminar CajaRegistradora",
+            markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar al la Transaccion {c.DocAsociado}?</b>",
+            yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
+        );
+        // ver que borrar si tiene venta compra o pago parcial asociado
+        if (confirmado == true)
+        {
+            if (c.IdCompra.HasValue)
+            {
+                var (exito, mensaje) = await TransaccionCajaService.EliminarMovimientoCajaYCompraAsync(c.IdTransaccion);
+                if (exito)
+                {
+                    Snackbar.Add(mensaje, Severity.Success);
+                    Transacciones = await TransaccionCajaService.ListarAsync(CajaRegistradoraAct.IdCajaRegistradora, sucursalSeleccionada);
+                }
+                else
+                {
+                    Snackbar.Add(mensaje, Severity.Error);
+                }
+            } else if (c.IdVenta.HasValue)
+            {
+                var (exito, mensaje) = await TransaccionCajaService.EliminarMovimientoCajaYVentaAsync(c.IdTransaccion);
+                if (exito)
+                {
+                    Snackbar.Add(mensaje, Severity.Success);
+                    Transacciones = await TransaccionCajaService.ListarAsync(CajaRegistradoraAct.IdCajaRegistradora, sucursalSeleccionada);
+                }
+                else
+                {
+                    Snackbar.Add(mensaje, Severity.Error);
+                }
+            } else if (c.IdPagoParcial.HasValue)
+            {
+                var (exito, mensaje) = await TransaccionCajaService.EliminarMovimientoCajaYPagoParcialAsync(c.IdTransaccion);
+                if (exito)
+                {
+                    Snackbar.Add(mensaje, Severity.Success);
+                    Transacciones = await TransaccionCajaService.ListarAsync(CajaRegistradoraAct.IdCajaRegistradora, sucursalSeleccionada);
+                }
+                else
+                {
+                    Snackbar.Add(mensaje, Severity.Error);
+                }
+            } else {
+            var (exito, mensaje) = await TransaccionCajaService.EliminarMovimientoAsync(c.IdTransaccion);
+                if (exito)
+                {
+                    Snackbar.Add(mensaje, Severity.Success);
+                    Transacciones = await TransaccionCajaService.ListarAsync(CajaRegistradoraAct.IdCajaRegistradora, sucursalSeleccionada);
+                }
+                else
+                {
+                    Snackbar.Add(mensaje, Severity.Error);
+                }
+            }
+            
+        }
+    }
+
+
+    private void CancelarEdicion()
+    {
+        TransaccionCajaActual = new TransaccionCaja();
+        
+
+        esEdicion = false;
+    }
+
+    RenderFragment FormTransaccion => @<div style="padding: 16px; padding-top:16px">
+    <MudForm @ref="formTransaccion" OnValidSubmit="Registrar">
+        <MudStack Spacing="2">
+            <MudTextField Label="DNI" @bind-Value="TransaccionCajaActual.Hora" Required="true" />
+            <MudTextField Label="Nombre" @bind-Value="TransaccionCajaActual.Concepto" Required="true" />
+            <MudTextField Label="Apellido" @bind-Value="TransaccionCajaActual.TipoTransaccion" Required="true" />
+            <MudTextField Label="Sueldo Base" @bind-Value="TransaccionCajaActual.Monto" />
+            <MudTextField Label="Sueldo Comision" @bind-Value="TransaccionCajaActual.FormaPago" />
+            <MudTextField Label="Sueldo Comision" @bind-Value="TransaccionCajaActual.CajaAsociada" />
+            <MudTextField Label="Sueldo Comision" @bind-Value="TransaccionCajaActual.DocAsociado" />
+            <MudTextField Label="Sueldo Comision" @bind-Value="TransaccionCajaActual.UsuarioTransaccion" />
+
+
+            
+
+            <MudStack Direction="Row" Spacing="2">
+                <MudButton OnClick="Registrar" Variant="Variant.Filled" Color="Color.Primary">
+                    @(esEdicion ? "Actualizar" : "Guardar")
+                </MudButton>
+                @if (esEdicion)
+                                {
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CancelarEdicion">
+                    Cancelar
+                </MudButton>
+                                }
+            </MudStack>
+        </MudStack>
+    </MudForm>
+</div>;
+
+
+    RenderFragment GridTransacciones => @<div style="padding: 16px; padding-top:16px">
+    <MudTable Items="TransaccionesFiltradas"
+              Dense="true"
+              Hover="true"
+              Bordered="true"
+              Striped="true"
+              Sortable="true"
+              Breakpoint="Breakpoint.Sm"
+              RowsPerPageOptions="new int[]{ 5, 10, 20,30,40,50 }"
+              PagerAlwaysVisible="true"
+              Elevation="1"
+              Class="mt-2">
+        <HeaderContent>
+            <MudTh>
+                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.Hora)">Fecha - Hora</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.Concepto)">Concepto</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.TipoTransaccion)">Movimiento</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.Monto)">Monto</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.FormaPago)">Forma de Pago</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.CajaAsociada)">Caja Asociada</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.DocAsociado)">Detalle</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.UsuarioTransaccion)">Vendedor</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                Acciones
+            </MudTh>
+
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Fecha - Hora">@context.Hora</MudTd>
+            <MudTd DataLabel="Concepto">@context.Concepto</MudTd>
+            <MudTd DataLabel="Movimiento">@context.TipoTransaccion</MudTd>
+            <MudTd DataLabel="Monto">@context.Monto</MudTd>
+            <MudTd DataLabel="Forma de Pago">@context.FormaPago</MudTd>
+            <MudTd DataLabel="Caja Asociada">@context.CajaAsociada</MudTd>
+            <MudTd DataLabel="Detalle">@context.DocAsociado</MudTd>
+            <MudTd DataLabel="Vendedor">@context.UsuarioTransaccion</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Success" Size="Size.Small" OnClick="() => Editar(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => Eliminar(context)" Class="ms-2" />
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
+                           RowsPerPageString="Registros por página">
+            </MudTablePager>
+        </PagerContent>
+    </MudTable>
+</div>;
+
+}
+
+

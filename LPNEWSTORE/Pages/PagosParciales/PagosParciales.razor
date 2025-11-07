@@ -1,5 +1,6 @@
 ﻿@page "/pagoparcial"
 @using ClosedXML.Excel
+@using LPNEWSTORE.Shared.Modals
 @using MudBlazor
 @using Microsoft.AspNetCore.Identity
 @using Services
@@ -8,6 +9,8 @@
 @using System.Text
 
 @inject PagoParcialService PagoParcialService
+@inject VendedorService VendedoresService
+@inject MonedaService MonedasService
 @inject RolService rolService
 
 @inject IJSRuntime JS
@@ -27,6 +30,8 @@
 @code {
     [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
     List<PagoParcial> listaPagoParciales = new();
+    List<Vendedor> listaVendedores = new();
+    List<Moneda> listaMonedas = new();
     PagoParcial PagoParcialActual = new();
     private List<Rol> listaRoles = new();
     private int idRolSeleccionado = 0;
@@ -54,7 +59,7 @@
                 Has(p.FormaPago) ||
                 Has(p.Monto.ToString()) ||
                 Has(p.Moneda) ||
-                Has(p.NumeroVenta) ||
+
                 Has(p.Vendedor) ||
                 Has(p.Estado ? "Activo" : "Inactivo") ||
                 Has(p.NombreLocal) 
@@ -72,7 +77,7 @@
     private async Task ExportarCsv()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Fecha;Cliente;Producto Reservado;FormaPago;Monto;Moneda;Venta;Vendedor;Estado;Local");
+        sb.AppendLine("Fecha;Cliente;Producto Reservado;FormaPago;Monto;Moneda;Vendedor;Estado;Local");
         foreach (var p in PagoParcialesFiltrados)
         {
             string[] cols = {
@@ -82,7 +87,7 @@
                 p.FormaPago,
                 p.Monto.ToString(),
                 p.Moneda,
-                p.NumeroVenta,
+
                 p.Vendedor,
                 p.Estado?"Activo":"Inactivo",
                 p.NombreLocal
@@ -126,7 +131,7 @@
             ws.Cell(r, c++).Value = "Forma de pago";
             ws.Cell(r, c++).Value = "Monto";
             ws.Cell(r, c++).Value = "Moneda";
-            ws.Cell(r, c++).Value = "Venta";
+
             ws.Cell(r, c++).Value = "Vendedor";
             ws.Cell(r, c++).Value = "Estado";
             ws.Cell(r, c++).Value = "Local";
@@ -151,7 +156,7 @@
                 ws.Cell(r, c++).Value = p.FormaPago;
                 ws.Cell(r, c++).Value = p.Monto;
                 ws.Cell(r, c++).Value = p.Moneda;
-                ws.Cell(r, c++).Value = p.NumeroVenta;
+
                 ws.Cell(r, c++).Value = p.Vendedor;
                 ws.Cell(r, c++).Value = p.Estado;
                 ws.Cell(r, c++).Value = p.NombreLocal;
@@ -215,7 +220,11 @@
         }
 
         listaRoles = await rolService.Listar();
+        listaVendedores = await VendedoresService.ListarVendedores();
+        listaMonedas = await MonedasService.ListarMonedas();
         PagoParcialActual.Estado = true;
+        PagoParcialActual.Moneda = listaMonedas[0].Nombre;
+        PagoParcialActual.FechaRegistro = DateTime.Now.Date;
 
 
     }
@@ -235,6 +244,9 @@
             Vendedor = c.Vendedor,
             Estado = c.Estado,
             NombreLocal = c.NombreLocal,
+            IdCliente = c.IdCliente,
+            IdNegocio =c.IdNegocio,
+            IdVenta = c.IdVenta
 
         };
 
@@ -280,6 +292,8 @@
             listaPagoParciales = await PagoParcialService.Listar();
             await formPagoParcial.ResetAsync(); // resetea el form
             PagoParcialActual.Estado = true;
+            PagoParcialActual.Moneda = listaMonedas[0].Nombre;
+            PagoParcialActual.FechaRegistro = DateTime.Now.Date;
         }
         else
         {
@@ -315,6 +329,20 @@
         }
     }
 
+    private async Task AbrirSeleccionCliente()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = DialogService.Show<MDCliente>("Seleccionar cliente", options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is Cliente cliente)
+        {
+            PagoParcialActual.NombreCliente = cliente.NombreCompleto;
+            PagoParcialActual.IdCliente = cliente.IdCliente;
+            // Si tenés IdCliente, también lo podés guardar acá
+            // PagoParcialActual.IdCliente = cliente.IdCliente;
+        }
+    }
 
     private void CancelarEdicion()
     {
@@ -327,21 +355,68 @@
     RenderFragment FormPagoParcial => @<div style="padding: 16px; padding-top:16px">
     <MudForm @ref="formPagoParcial" OnValidSubmit="Registrar">
         <MudStack Spacing="2">
-            <MudTextField Label="Fecha" @bind-Value="PagoParcialActual.FechaRegistro" Format="dd/mm/yyyy" Required="true" />
-            <MudTextField Label="Cliente" @bind-Value="PagoParcialActual.NombreCliente" Required="true" />
-            <MudTextField Label="Producto Reservado" @bind-Value="PagoParcialActual.ProductoReservado" Required="true" />
-            <MudTextField Label="Forma de Pago" @bind-Value="PagoParcialActual.FormaPago" />
-            <MudTextField Label="Monto" @bind-Value="PagoParcialActual.Monto" />
-            <MudTextField Label="Moneda" @bind-Value="PagoParcialActual.Moneda" />
-            <MudTextField Label="Venta" @bind-Value="PagoParcialActual.NumeroVenta" />
-            <MudTextField Label="Vendedor" @bind-Value="PagoParcialActual.Vendedor" />
+            <MudSelect T="string"
+                       Label="Vendedor"
+                       @bind-Value="PagoParcialActual.Vendedor"
+                       Required="true">
+                @foreach (var vendedor in listaVendedores)
+                                {
+                                var nombreCompleto = $"{vendedor.Nombre} {vendedor.Apellido}";
+                    <MudSelectItem Value="@nombreCompleto">@nombreCompleto</MudSelectItem>
+                                }
+            </MudSelect>
+
+            <MudTextField Label="Fecha"
+                          @bind-Value="PagoParcialActual.FechaRegistro"
+                          Format="dd/MM/yyyy"
+                          Required="true" 
+                          ReadOnly ="true"/>
+
+            <div class="d-flex align-end">
+                <MudTextField Label="Cliente"
+                              @bind-Value="PagoParcialActual.NombreCliente"
+                              Required="true"
+                              ReadOnly="true"
+                              Class="flex-grow-1 me-2" />
+
+                <MudIconButton Icon="@Icons.Material.Filled.Search"
+                               Color="Color.Primary"
+                               Size="Size.Medium"
+                               OnClick="AbrirSeleccionCliente"
+                               aria-label="Buscar cliente" />
+            </div>
+
+            <MudTextField Label="Producto Reservado"
+                          @bind-Value="PagoParcialActual.ProductoReservado"
+                          Required="true" />
+
+            <MudTextField Label="Forma de Pago"
+                          @bind-Value="PagoParcialActual.FormaPago" />
+            <MudSelect T="string"
+                       Label="Moneda"
+                       @bind-Value="PagoParcialActual.Moneda"
+                       Required="true">
+                @foreach (var moneda in listaMonedas)
+                {
+
+                    <MudSelectItem Value="@moneda.Nombre">@moneda.Nombre</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudTextField Label="Monto"
+                          @bind-Value="PagoParcialActual.Monto" />
+
+           
+
+           
+
 
 
             <MudSelect T="bool" Label="Estado" @bind-Value="PagoParcialActual.Estado" Required="true">
                 <MudSelectItem Value="true">Activo</MudSelectItem>
                 <MudSelectItem Value="false">No Activo</MudSelectItem>
             </MudSelect>
-            <MudTextField Label="Local" @bind-Value="PagoParcialActual.NombreLocal" />
+            
             <MudStack Direction="Row" Spacing="2">
                 <MudButton OnClick="Registrar" Variant="Variant.Filled" Color="Color.Primary">
                     @(esEdicion ? "Actualizar" : "Guardar")
@@ -370,8 +445,9 @@
               PagerAlwaysVisible="true"
               Elevation="1"
               Class="mt-2">
+
         <HeaderContent>
-            <MudTh>
+            <MudTh Style="width:80px">
                 <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.FechaRegistro.Date)">Fecha</MudTableSortLabel>
             </MudTh>
             <MudTh>
@@ -383,52 +459,61 @@
             <MudTh>
                 <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.FormaPago)">Forma de Pago</MudTableSortLabel>
             </MudTh>
-            <MudTh>
+            <MudTh Style="width:90px">
                 <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.Monto)">Monto</MudTableSortLabel>
             </MudTh>
             <MudTh>
                 <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.Moneda)">Moneda</MudTableSortLabel>
             </MudTh>
             <MudTh>
-                <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.NumeroVenta)">Venta</MudTableSortLabel>
-            </MudTh>
-            <MudTh>
                 <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.Vendedor)">Vendedor</MudTableSortLabel>
             </MudTh>
-            <MudTh>
+            <MudTh Style="width:80px">
                 <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.Estado)">Estado</MudTableSortLabel>
             </MudTh>
             <MudTh>
                 <MudTableSortLabel T="PagoParcial" SortBy="@(c => c.NombreLocal)">Local</MudTableSortLabel>
             </MudTh>
-            <MudTh>
+            <MudTh Style="width:110px;">
                 Acciones
             </MudTh>
-
         </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="Fecha">@context.FechaRegistro.ToShortDateString()</MudTd>
-            <MudTd DataLabel="Cliente">@context.NombreCliente</MudTd>
-            <MudTd DataLabel="Porducto Reservado">@context.ProductoReservado</MudTd>
-            <MudTd DataLabel="Forma de Pago">@context.FormaPago</MudTd>
-            <MudTd DataLabel="Monto">@context.Monto</MudTd>
-            <MudTd DataLabel="Moneda">@context.Moneda</MudTd>
-            <MudTd DataLabel="Venta">@context.NumeroVenta</MudTd>
-            <MudTd DataLabel="Vendedor">@context.Vendedor</MudTd>
 
-            <MudTd DataLabel="Estado">@((context.Estado) ? "Activo" : "No Activo")</MudTd>
+        <RowTemplate>
+            <MudTd DataLabel="Fecha" Style="width:80px">@context.FechaRegistro.ToShortDateString()</MudTd>
+            <MudTd DataLabel="Cliente">@context.NombreCliente</MudTd>
+            <MudTd DataLabel="Producto Reservado">@context.ProductoReservado</MudTd>
+            <MudTd DataLabel="Forma de Pago">@context.FormaPago</MudTd>
+            <MudTd DataLabel="Monto" Style="width:90px; text-align:right;">
+                @context.Monto
+            </MudTd>
+            <MudTd DataLabel="Moneda">@context.Moneda</MudTd>
+            <MudTd DataLabel="Vendedor">@context.Vendedor</MudTd>
+            <MudTd DataLabel="Estado" Style="width:80px">
+                @((context.Estado) ? "Activo" : "No Activo")
+            </MudTd>
             <MudTd DataLabel="Local">@context.NombreLocal</MudTd>
-            <MudTd>
-                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Success" Size="Size.Small" OnClick="() => Editar(context)" />
-                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => Eliminar(context)" Class="ms-2" />
+
+            <MudTd DataLabel="Acciones"
+                   Style="width:110px; white-space:nowrap; text-align:center;">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                               Color="Color.Success"
+                               Size="Size.Small"
+                               OnClick="() => Editar(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                               Color="Color.Error"
+                               Size="Size.Small"
+                               Class="ms-2"
+                               OnClick="() => Eliminar(context)" />
             </MudTd>
         </RowTemplate>
+
         <PagerContent>
             <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
-                           RowsPerPageString="Registros por página">
-            </MudTablePager>
+                           RowsPerPageString="Registros por página" />
         </PagerContent>
     </MudTable>
+
 </div>;
 
 }

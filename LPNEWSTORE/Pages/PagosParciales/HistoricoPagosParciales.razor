@@ -1,0 +1,393 @@
+﻿@page "/historicopagosparciales"
+@using ClosedXML.Excel
+@using MudBlazor
+@using Microsoft.AspNetCore.Identity
+@using Services
+@using Entities
+@using System.Security.Claims
+@using System.Text
+@using System.Globalization
+@using ClosedXML
+@inject PagoParcialService PagoParcialService
+@inject RolService rolService
+@inject NavigationManager Nav;
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SesionNegocioService SesionNegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+
+
+
+@code {
+    // Example backing variables in a page that consumes the layout component
+    private List<string> _cols = new() { "Fecha", "Cliente",  "Producto Reservado", "Forma de Pago", "Moneda", "Monto", "Venta", "Vendedor", "Local" };
+    List<PagoParcial> _PagoParciales = new();
+    private List<PagoParcial> _PagoParcialesFiltradas = new();
+    private bool _busy;
+    private int? _idSucursal;
+    private DateTime? DateFrom { get; set; }
+    private DateTime? DateTo { get; set; }
+
+    private List<PagoParcial> _PagoParcialesTodos = new();
+    private List<PagoParcial> _PagoParcialesActivos = new();
+    private List<PagoParcial> _PagoParcialesUtilizados = new();
+
+
+
+
+
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+        if (int.TryParse(sucursal, out var idSucursal))
+        {
+            _idSucursal = idSucursal;
+            var desde = DateTime.Now.AddDays(-15);
+            var hasta = DateTime.Now;
+            _PagoParciales = await PagoParcialService.ListarPorLocal(idSucursal);
+            _PagoParcialesFiltradas = new List<PagoParcial>(_PagoParciales);
+            StateHasChanged();
+        }
+    }
+
+    private async Task CargarTodos()
+    {
+        _PagoParcialesTodos = await PagoParcialService.Listar();
+        _PagoParcialesFiltradas = _PagoParcialesTodos;
+        StateHasChanged();
+    }
+
+    private async Task CargarActivos()
+    {
+        _PagoParcialesActivos = await PagoParcialService.ListarActivos(_idSucursal.Value);
+        _PagoParcialesFiltradas = _PagoParcialesActivos;
+        StateHasChanged();
+    }
+
+    private async Task CargarUtilizados()
+    {
+        _PagoParcialesUtilizados = await PagoParcialService.ListarInactivos(_idSucursal.Value);
+        _PagoParcialesFiltradas = _PagoParcialesUtilizados;
+        StateHasChanged();
+    }
+
+    private async Task DoSearch((DateTime? from, DateTime? to) args)
+    {
+        _busy = true;
+        try
+        {
+            if (_idSucursal is null)
+                return; // o mostrás un mensaje
+
+            var fechaInicio = args.from ?? DateFrom ?? DateTime.Now.AddDays(-15);
+            var fechaFin = args.to ?? DateTo ?? DateTime.Now;
+
+            _PagoParciales = await PagoParcialService.ListarPagosParcialesEntreFechasPorLocalAsync(_idSucursal.Value, fechaInicio, fechaFin);
+
+            DateFrom = fechaInicio;
+            DateTo = fechaFin;
+            _PagoParcialesFiltradas = _PagoParciales;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+
+    private async Task DoClearSearch()
+    {
+        DateFrom = null;
+        DateTo = null;
+        _PagoParciales = await PagoParcialService.ListarPorLocal(_idSucursal.Value);
+        _PagoParcialesFiltradas = _PagoParciales;
+
+    }
+
+
+    private Task DoFilter((string? col, string? text) f)
+    {
+        var col = f.col?.Trim();
+        var text = f.text?.Trim();
+
+        if (string.IsNullOrWhiteSpace(col) || string.IsNullOrWhiteSpace(text))
+        {
+            _PagoParcialesFiltradas = new List<PagoParcial>(_PagoParciales);
+            return Task.CompletedTask;
+        }
+
+        var key = col!.ToLowerInvariant();
+        var filtro = text!.ToLowerInvariant();
+
+        // Helpers locales
+        static bool TryParseFecha(string input, out DateTime fecha)
+        {
+            var formatos = new[]
+            {
+            "dd/MM/yyyy HH:mm",
+            "dd/MM/yyyy",
+            "d/M/yyyy HH:mm",
+            "d/M/yyyy"
+        };
+            var esAR = new CultureInfo("es-AR");
+            return DateTime.TryParseExact(input, formatos, esAR, DateTimeStyles.None, out fecha)
+                   || DateTime.TryParse(input, esAR, DateTimeStyles.AllowWhiteSpaces, out fecha)
+                   || DateTime.TryParse(input, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out fecha);
+        }
+
+        static bool TryParseDecimalFlexible(string input, out decimal value)
+        {
+            var esAR = new CultureInfo("es-AR");
+            // Primero intentamos con es-AR (1.234,56), luego Invariant (1,234.56 o 1234.56)
+            return decimal.TryParse(input, NumberStyles.Number | NumberStyles.AllowCurrencySymbol, esAR, out value)
+                   || decimal.TryParse(input, NumberStyles.Number | NumberStyles.AllowCurrencySymbol, CultureInfo.InvariantCulture, out value);
+        }
+
+        _PagoParcialesFiltradas = key switch
+        {
+            // Texto llano
+            "producto" or "producto reservado" =>
+                _PagoParciales.FindAll(c => (c.ProductoReservado ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+            "nombre" or "nombre Cliente" or "cliente" =>
+                _PagoParciales.FindAll(c => (c.NombreCliente ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            "forma de pago" or "forma pago"  =>
+                _PagoParciales.FindAll(c => (c.FormaPago ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            "venta" or "numero venta" =>
+                _PagoParciales.FindAll(c => (c.NumeroVenta ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            "moneda"  =>
+                _PagoParciales.FindAll(c => (c.Moneda ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+            "vendedor"  =>
+                _PagoParciales.FindAll(c => (c.Vendedor ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+             "local" =>
+            _PagoParciales.FindAll(c => (c.NombreLocal ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+           
+
+            // Fecha: intento parse fuerte, si no, fallback a contains de la representación formateada
+            "fecha" or "fecha registro" =>
+                TryParseFecha(text, out var fechaBuscada)
+                    ? _PagoParciales.FindAll(c => c.FechaRegistro.Date == fechaBuscada.Date)
+                    : _PagoParciales.FindAll(c => c.FechaRegistro.ToString("dd/MM/yyyy HH:mm", new CultureInfo("es-AR"))
+                                               .Contains(text, StringComparison.OrdinalIgnoreCase)
+                                            || c.FechaRegistro.ToString("dd/MM/yyyy", new CultureInfo("es-AR"))
+                                               .Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+
+
+
+
+            _ => new List<PagoParcial>(_PagoParciales)
+        };
+
+        return Task.CompletedTask;
+    }
+
+
+    private Task DoClearFilter()
+    {
+        _PagoParcialesFiltradas = new List<PagoParcial>(_PagoParciales);
+        return Task.CompletedTask;
+    }
+
+
+
+
+    private async Task DoExport()
+    {
+        // ---------- nombre del archivo con fechas ----------
+        string fromPart = DateFrom?.ToString("yyyyMMdd") ?? "inicio";
+        string toPart = DateTo?.ToString("yyyyMMdd") ?? "hoy";
+        var fileName = $"Historico PagoParcials desde {fromPart} hasta {toPart}.xlsx";
+        // ---------------------------------------------------
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("PagoParcials");
+
+        // Encabezados (¡ojo con el ancho! calculamos el último col dinámico)
+        int r = 1, c = 1;
+        ws.Cell(r, c++).Value = "Fecha";
+        ws.Cell(r, c++).Value = "Cliente";
+        ws.Cell(r, c++).Value = "Producto Reservado";
+        ws.Cell(r, c++).Value = "Forma de Pago";
+        ws.Cell(r, c++).Value = "Moneda";
+        ws.Cell(r, c++).Value = "Monto";
+        ws.Cell(r, c++).Value = "Venta";
+        ws.Cell(r, c++).Value = "Vendedor";        
+        ws.Cell(r, c++).Value = "Local";
+
+        int lastCol = c - 1;
+        ws.Range(1, 1, 1, lastCol).Style.Font.SetBold();
+        ws.Range(1, 1, 1, lastCol).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+
+        // Datos (alineados a los headers: x.Nombre va en "Nombre", x.NombreProveedor va en "Proveedor")
+        r = 2;
+        foreach (var x in _PagoParcialesFiltradas)
+        {
+            c = 1;
+            ws.Cell(r, c++).Value = x.FechaRegistro;
+            ws.Cell(r, c++).Value = x.NombreCliente;
+            ws.Cell(r, c++).Value = x.ProductoReservado;
+            ws.Cell(r, c++).Value = x.FormaPago;             
+            ws.Cell(r, c++).Value = x.Moneda;    
+            ws.Cell(r, c++).Value = x.Monto;
+            ws.Cell(r, c++).Value = x.NumeroVenta;
+            ws.Cell(r, c++).Value = x.Vendedor;
+            ws.Cell(r, c++).Value = x.NombreLocal;
+            r++;
+        }
+
+        // Formatos
+        ws.Column(1).Style.DateFormat.Format = "dd/MM/yyyy HH:mm"; // Ingreso
+        
+        ws.Columns().AdjustToContents();
+        ws.RangeUsed().SetAutoFilter();
+
+        // Guardar a stream y descargar vía stream (SIN base64)
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var streamRef = new DotNetStreamReference(ms);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            fileName,
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+
+}
+
+<style>
+    /* separa el contenido de la navbar */
+    .mt-navbar-gap {
+        margin-top: 20px;
+    }
+
+    @@media (min-width: 960px) {
+        .mt-navbar-gap {
+            margin-top: 28px;
+        }
+    }
+
+    /* fuerza que las dos cards de arriba tengan la misma altura */
+    .equal-col {
+        display: flex;
+    }
+
+    .equal-card {
+        flex: 1;
+    }
+</style>
+
+<!-- Título centrado con espacio antes de la navbar -->
+<MudText Typo="Typo.h6" Align="Align.Center" Color="Color.Secondary" Class="mt-navbar-gap mb-3">
+    Historico Pagos Parciales
+</MudText>
+
+<ReportListLayout TItem="PagoParcial"
+                  Items="@_PagoParcialesFiltradas"
+                  FilterColumns="@(new[] {  "Fecha", "Cliente", "Producto Reservado", "Forma de Pago", "Moneda", "Monto", "Venta","Vendedor","Local" })"
+                  OnSearchParameters="DoSearch"
+                  OnFilter="DoFilter"
+                  OnClearParameters="DoClearSearch"
+                  OnClearFilter="DoClearFilter"
+                  OnExport="DoExport"
+                  ShowSourceButtons="true"
+                  SourceButton1Text="Mostrar Todos los Pagos Parciales"
+                  SourceButton2Text="Pagos Parciales Activos"
+                  SourceButton3Text="Pagos Parciales Utilizados"
+                  OnSourceButton1Click="CargarTodos"
+                  OnSourceButton2Click="CargarActivos"
+                  OnSourceButton3Click="CargarUtilizados">
+
+    <Columns>
+        <!-- Más chicas -->
+        <PropertyColumn T="PagoParcial" TProperty="DateTime"
+                        Property="e => e.FechaRegistro"
+                        Title="Fecha" Format="dd/MM/yyyy"
+                        Width="60px"
+                        CellClass="col-fecha"
+                        HeaderClass="col-fecha" />
+
+        
+
+        <PropertyColumn T="PagoParcial" TProperty="string"
+                        Property="e => e.NombreCliente"
+                        Title="Cliente"
+                        Width="80px" />
+
+        <!-- Más ancha -->
+        <PropertyColumn T="PagoParcial" TProperty="string"
+                        Property="e => e.ProductoReservado"
+                        CellClass="nowrap-ellipsis"
+                        HeaderClass="nowrap-ellipsis"
+                        Title="Producto Reservado"
+                        Width="850px" />
+
+        <PropertyColumn T="PagoParcial" TProperty="string"
+                        Property="e => e.FormaPago"
+                        Title="Forma de Pago"
+                        Width="120px" />
+
+        <PropertyColumn T="PagoParcial" TProperty="string"
+                        Property="e => e.Moneda"
+                        Title="Moneda"
+                        Width="110px" />
+
+        <PropertyColumn T="PagoParcial" TProperty="decimal"
+                        Property="e => e.Monto"
+                        Title="Monto"
+                        Width="110px" />
+
+        <PropertyColumn T="PagoParcial" TProperty="string"
+                        Property="e => e.NumeroVenta"
+                        Title="Venta"
+                        Width="110px" />
+
+        <PropertyColumn T="PagoParcial" TProperty="string"
+                        Property="e => e.Vendedor"
+                        Title="Vendedor"
+                        Width="200px" />
+
+
+        <!-- Más chica -->
+        <PropertyColumn T="PagoParcial" TProperty="string"
+                        Property="e => e.NombreLocal"
+                        Title="Local"
+                        Width="90px" />
+    </Columns>
+</ReportListLayout>
+
+<style>
+
+    .nowrap-ellipsis {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis; /* opcional */
+    }
+
+    .col-fecha {
+        width: 110px !important;
+        min-width: 110px !important;
+        max-width: 110px !important;
+        padding-left: 2px !important;
+        padding-right: 2px !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis; /* si querés “…” */
+        box-sizing: border-box;
+    }
+
+</style>
+
+

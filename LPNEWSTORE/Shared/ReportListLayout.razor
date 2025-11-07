@@ -127,9 +127,42 @@
                         <MudIconButton Icon="@Icons.Material.Filled.CleaningServices" Color="Color.Default" Disabled="@IsBusy" OnClick="ClearFilter" />
                         <MudIconButton Icon="@Icons.Material.Filled.FilePresent" Color="Color.Success" Disabled="@IsBusy" OnClick="() => OnExport.InvokeAsync(null)" />
                     </MudItem>
+                    @if (ShowSourceButtons)
+                    {
+                        <MudItem xs="12"
+                                 Class="d-flex justify-start gap-3"
+                                 Style="padding:0 30px 8px 30px;">
+                            <MudButton Size="Size.Small"
+                                       Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       Disabled="@IsBusy"
+                                       OnClick="@(() => OnSourceButton1Click.InvokeAsync())">
+                                @SourceButton1Text
+                            </MudButton>
+
+                            <MudButton Size="Size.Small"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       Disabled="@IsBusy"
+                                       OnClick="@(() => OnSourceButton2Click.InvokeAsync())">
+                                @SourceButton2Text
+                            </MudButton>
+
+                            <MudButton Size="Size.Small"
+                                       Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       Disabled="@IsBusy"
+                                       OnClick="@(() => OnSourceButton3Click.InvokeAsync())">
+                                @SourceButton3Text
+                            </MudButton>
+                        </MudItem>
+                    }
                 </MudGrid>
+               
             </MudPaper>
         </MudItem>
+
+        
 
         <!-- Bottom: DataGrid -->
         <MudItem xs="12" Class="p-2">
@@ -176,6 +209,16 @@
     [Parameter] public EventCallback<(string? column, string? text)> OnFilter { get; set; }
     [Parameter] public EventCallback OnClearFilter { get; set; }
     [Parameter] public EventCallback OnExport { get; set; }
+
+    [Parameter] public bool ShowSourceButtons { get; set; } = false;
+
+    [Parameter] public string SourceButton1Text { get; set; } = "Origen 1";
+    [Parameter] public string SourceButton2Text { get; set; } = "Origen 2";
+    [Parameter] public string SourceButton3Text { get; set; } = "Origen 3";
+
+    [Parameter] public EventCallback OnSourceButton1Click { get; set; }
+    [Parameter] public EventCallback OnSourceButton2Click { get; set; }
+    [Parameter] public EventCallback OnSourceButton3Click { get; set; }
 
     private Task TriggerFilter() => OnFilter.InvokeAsync((SelectedColumn, FilterText));
 

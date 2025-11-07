@@ -35,6 +35,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ2FqYVJlZ2lzdHJhZG9yYVxBcGVydHVyYUNhamEucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/CajaRegistradora/CajaDiaria.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ2FqYVJlZ2lzdHJhZG9yYVxDYWphRGlhcmlhLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/CajaRegistradora/DetalleCaja.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ2FqYVJlZ2lzdHJhZG9yYVxEZXRhbGxlQ2FqYS5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
@@ -89,6 +93,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Index.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSW5kZXgucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/PagosParciales/HistoricoPagosParciales.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUGFnb3NQYXJjaWFsZXNcSGlzdG9yaWNvUGFnb3NQYXJjaWFsZXMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/PagosParciales/PagosParciales.razor]
