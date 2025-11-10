@@ -3,6 +3,10 @@
 @using MudBlazor
 @using Services
 @inject IModalLauncher Modal
+@inject CajaRegistradoraService CajaRegistradoraService
+@inject SesionNegocioService SesionNegocioService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
 
 
 
@@ -32,9 +36,9 @@
 
         <MudNavGroup Title="Caja Registradora" Icon="@Icons.Material.Filled.AccountBalanceWallet">
     <MudNavLink OnClick="@(async _ => await Modal.OpenAperturaCajaAsync())" >Apertura Caja</MudNavLink>
-    <MudNavLink Href="/cajadiaria" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Caja Diaria</MudNavLink>
+    <MudNavLink OnClick="OnCajaDiariaClicked">Caja Diaria</MudNavLink>
     <MudNavLink Href="/detallecaja" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Consultar Caja por Fecha</MudNavLink>
-    <MudNavLink Href="/conceptos" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Conceptos</MudNavLink>
+    <MudNavLink Href="/concepto" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Conceptos</MudNavLink>
         </MudNavGroup>
 
         <MudNavLink Href="/rma" Icon="@Icons.Material.Filled.AssignmentReturn">RMA</MudNavLink>
@@ -57,6 +61,27 @@
 @code {
     [Parameter]
     public EventCallback OnNavigationItemClicked { get; set; }
+    private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+    private async Task OnCajaDiariaClicked(MouseEventArgs args)
+    {
+        // Traer cajas de la sucursal actual
+        var cajas = await CajaRegistradoraService.ListarAsync(sucursalSeleccionada);
+
+        var cajaAbierta = cajas?.FirstOrDefault(c => c.Estado); // o c.estado según tu entidad
+
+        if (cajaAbierta is null)
+        {
+            Snackbar.Add("No hay cajas abiertas. Por favor abra una caja para poder ver la Caja Diaria.",
+                Severity.Warning);
+            return;
+        }
+
+        // Cerrar el menú / drawer si usás ese callback
+        await OnNavigationItemClicked.InvokeAsync();
+
+        // Navegar recién ahora
+        Navigation.NavigateTo("/cajadiaria");
+    }
 
 }
 

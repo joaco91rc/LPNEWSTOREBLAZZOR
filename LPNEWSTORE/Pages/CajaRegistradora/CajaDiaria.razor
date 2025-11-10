@@ -8,9 +8,12 @@
 @using System.Text
 
 @inject CajaRegistradoraService CajaRegistradoraService
+@inject NavigationManager Navigation
 @inject TransaccionCajaService TransaccionCajaService
 @inject RolService rolService
-
+@inject FormaPagoService FormaPagoService
+@inject ConceptoService ConceptoService
+@inject VendedorService VendedorService
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject SesionNegocioService SesionNegocioService
@@ -37,6 +40,148 @@
     private bool esEdicion = false;
     private string rolUsuarioActual = string.Empty;
     private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+    private List<FormaPago> _formasPago = new();
+    private List<Concepto> _conceptos = new();
+    private List<Vendedor> _vendedores = new();
+    public class TotalesCaja
+    {
+        public decimal Total { get; set; }
+        public decimal TotalMP { get; set; }
+        public decimal TotalUSS { get; set; }
+        public decimal TotalGalicia { get; set; }
+
+    }
+    private TotalesCaja TotalesActuales { get; set; } = new();
+    // Saldos apertura (desde la caja)
+    decimal SaldoAperturaEfectivo => CajaRegistradoraAct?.SaldoInicio ?? 0m;
+    decimal SaldoAperturaMP => CajaRegistradoraAct?.SaldoInicioMP ?? 0m;
+    decimal SaldoAperturaDolares => CajaRegistradoraAct?.SaldoInicioUSS ?? 0m;
+    decimal SaldoAperturaGalicia => CajaRegistradoraAct?.SaldoInicioGalicia ?? 0m;
+
+
+
+
+
+    private TotalesCaja CalcularTotales(CajaRegistradora objCajaRegistradora)
+    {
+        decimal total = 0;
+        decimal totalMP = 0;
+        decimal totalUSS = 0;
+        decimal totalGalicia = 0;
+
+        // Usamos la lista que se muestra en la grilla (ya filtrada)
+        if (Transacciones is not null && Transacciones.Count > 0)
+        {
+            foreach (var t in TransaccionesFiltradas)
+            {
+                var cajaAsociada = (t.CajaAsociada ?? string.Empty).Trim().ToUpperInvariant();
+                decimal monto = t.Monto;
+
+                if (cajaAsociada == "EFECTIVO")
+                {
+                    total += monto;
+                }
+                else if (cajaAsociada == "DOLARES" || cajaAsociada == "DÓLARES")
+                {
+                    totalUSS += monto;
+                }
+                else if (cajaAsociada == "MERCADO PAGO")
+                {
+                    totalMP += monto;
+                }
+                else if (cajaAsociada == "GALICIA")
+                {
+                    totalGalicia += monto;
+                }
+            }
+        }
+
+        // Tomamos los saldos de apertura desde la caja registradora actual
+        var saldoInicioEfectivo = objCajaRegistradora?.SaldoInicio ?? 0m;
+        var saldoInicioMP = objCajaRegistradora?.SaldoInicioMP ?? 0m;
+        var saldoInicioUSS = objCajaRegistradora?.SaldoInicioUSS ?? 0m;
+        var saldoInicioGalicia = objCajaRegistradora?.SaldoInicioGalicia ?? 0m;
+
+        TotalesCaja totales = new TotalesCaja
+        {
+            Total = total + saldoInicioEfectivo,
+            TotalMP = totalMP + saldoInicioMP,
+            TotalUSS = totalUSS + saldoInicioUSS,
+            TotalGalicia = totalGalicia + saldoInicioGalicia
+        };
+
+        return totales;
+    }
+
+
+
+    private void RecalcularTotales()
+    {
+        TotalesActuales = CalcularTotales(CajaRegistradoraAct);
+    }
+
+    private string SimboloMoneda
+    {
+        get
+        {
+            var caja = TransaccionCajaActual?.CajaAsociada ?? string.Empty;
+
+            // Podés ajustar los textos según cómo los guardes ("Dolares", "Dólares", etc.)
+            if (caja.Equals("Dolares", StringComparison.OrdinalIgnoreCase) ||
+                caja.Equals("Dólares", StringComparison.OrdinalIgnoreCase) ||
+                caja.Equals("DOLARES", StringComparison.OrdinalIgnoreCase))
+            {
+                return "U$S";
+            }
+
+            return "$";
+        }
+    }
+
+    // Botón cerrar caja
+    private async Task CerrarCajaAsync()
+    {
+
+
+        if (CajaRegistradoraAct is null)
+        {
+            // No hay caja para cerrar
+            Snackbar.Add("No hay ninguna caja para cerrar.", Severity.Warning);
+            return;
+        }
+
+
+
+
+
+
+            CajaRegistradoraAct.FechaCierre = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            CajaRegistradoraAct.Saldo = TotalesActuales.Total;
+            CajaRegistradoraAct.SaldoMP = TotalesActuales.TotalMP;
+            CajaRegistradoraAct.SaldoUSS = TotalesActuales.TotalUSS;
+            CajaRegistradoraAct.SaldoGalicia = TotalesActuales.TotalGalicia;
+        
+
+        var (resultado, mensaje) =
+            await CajaRegistradoraService.CerrarCajaAsync(CajaRegistradoraAct, sucursalSeleccionada);
+
+        if (resultado)
+        {
+            Snackbar.Add($"Caja registradora de la fecha {CajaRegistradoraAct.FechaApertura} cerrada.", Severity.Success);
+
+            // Dejamos la pantalla en estado “sin caja”
+            CajaRegistradoraAct = null;
+            Transacciones = new();
+            
+            TotalesActuales = new TotalesCaja();
+            Navigation.NavigateTo("/");
+        }
+        else
+        {
+            Snackbar.Add(mensaje, Severity.Error);
+        }
+    }
+
 
     private IEnumerable<TransaccionCaja> TransaccionesFiltradas
     {
@@ -196,30 +341,46 @@
 
     protected override async Task OnInitializedAsync()
     {
-
-
-
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
 
-
+        _formasPago  = await FormaPagoService.ListarFormasDePago();
+        _conceptos   = await ConceptoService.ListarAsync(sucursalSeleccionada);
+        _vendedores  = await VendedorService.ListarVendedores();
+        listaRoles   = await rolService.Listar();
 
         if (user.Identity != null && user.Identity.IsAuthenticated)
         {
-            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+            rolUsuarioActual = user.Claims
+                                   .FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value
+                                   ?? string.Empty;
         }
-        var cajaAbierta = await CajaRegistradoraService.ListarAsync(sucursalSeleccionada);
-        if (cajaAbierta != null && cajaAbierta.Any())
+
+        // Obtener caja abierta
+        var cajasAbiertas = await CajaRegistradoraService.ListarAsync(sucursalSeleccionada);
+
+        if (cajasAbiertas != null && cajasAbiertas.Any())
         {
-            CajaRegistradoraAct = cajaAbierta.First();
-            Transacciones = await TransaccionCajaService.ListarAsync(CajaRegistradoraAct.IdCajaRegistradora, sucursalSeleccionada);
+            CajaRegistradoraAct = cajasAbiertas.First();
 
+            // Traer transacciones de esa caja
+            Transacciones = await TransaccionCajaService
+                .ListarAsync(CajaRegistradoraAct.IdCajaRegistradora, sucursalSeleccionada);
+
+
+
+            // Calcular totales en base a la caja + transacciones filtradas
+            TotalesActuales = CalcularTotales(CajaRegistradoraAct);
         }
-        listaRoles = await rolService.Listar();
+        else
+        {
+            CajaRegistradoraAct     = null;
+            Transacciones           = new List<TransaccionCaja>();
 
-
-
+            TotalesActuales         = new TotalesCaja(); // todo en 0
+        }
     }
+
 
     private void Editar(TransaccionCaja c)
     {
@@ -269,6 +430,9 @@
         }
         else
         {
+            TransaccionCajaActual.Hora = DateTime.Now.ToString();
+            TransaccionCajaActual.IdNegocio = sucursalSeleccionada;
+            TransaccionCajaActual.IdCajaRegistradora = CajaRegistradoraAct.IdCajaRegistradora;
             var (idGenerado, msg) = await TransaccionCajaService.RegistrarMovimientoAsync(TransaccionCajaActual);
             resultado = idGenerado > 0;
 
@@ -281,6 +445,7 @@
             TransaccionCajaActual = new TransaccionCaja();
             esEdicion = false;
             Transacciones = await TransaccionCajaService.ListarAsync(CajaRegistradoraAct.IdCajaRegistradora, sucursalSeleccionada);
+            RecalcularTotales();
             await formTransaccion.ResetAsync(); // resetea el form
 
         }
@@ -291,7 +456,37 @@
         }
     }
 
+    private string FormatearMonto(TransaccionCaja t)
+    {
+        // Si la caja asociada es "Dolares" → símbolo dólares, sino pesos
+        var simbolo = string.Equals(t.CajaAsociada, "Dolares", StringComparison.OrdinalIgnoreCase)
+            ? "US$"
+            : "$";
 
+        // N2 → separador de miles + 2 decimales según cultura actual (AR: 1.234,56)
+        return $"{simbolo} {t.Monto:N2}";
+    }
+
+
+    private void OnFormaPagoChanged(string nuevaFormaPago)
+    {
+        // Actualizar la propiedad FormaPago de la transacción
+        TransaccionCajaActual.FormaPago = nuevaFormaPago;
+
+        // Buscar la forma de pago seleccionada en la lista
+        var fp = _formasPago.FirstOrDefault(x => x.Descripcion == nuevaFormaPago);
+
+        if (fp is not null)
+        {
+            // Copiar la CajaAsociada desde la forma de pago
+            TransaccionCajaActual.CajaAsociada = fp.CajaAsociada.ToString(); // o el nombre que tenga el campo
+            StateHasChanged();
+        }
+        else
+        {
+            TransaccionCajaActual.CajaAsociada = string.Empty;
+        }
+    }
 
 
     private async Task Eliminar(TransaccionCaja c)
@@ -368,14 +563,75 @@
     RenderFragment FormTransaccion => @<div style="padding: 16px; padding-top:16px">
     <MudForm @ref="formTransaccion" OnValidSubmit="Registrar">
         <MudStack Spacing="2">
-            <MudTextField Label="DNI" @bind-Value="TransaccionCajaActual.Hora" Required="true" />
-            <MudTextField Label="Nombre" @bind-Value="TransaccionCajaActual.Concepto" Required="true" />
-            <MudTextField Label="Apellido" @bind-Value="TransaccionCajaActual.TipoTransaccion" Required="true" />
-            <MudTextField Label="Sueldo Base" @bind-Value="TransaccionCajaActual.Monto" />
-            <MudTextField Label="Sueldo Comision" @bind-Value="TransaccionCajaActual.FormaPago" />
-            <MudTextField Label="Sueldo Comision" @bind-Value="TransaccionCajaActual.CajaAsociada" />
-            <MudTextField Label="Sueldo Comision" @bind-Value="TransaccionCajaActual.DocAsociado" />
-            <MudTextField Label="Sueldo Comision" @bind-Value="TransaccionCajaActual.UsuarioTransaccion" />
+            
+            <MudSelect T="string"
+                       Label="Concepto"
+                       @bind-Value="TransaccionCajaActual.Concepto"
+                       Required="true"
+                       Dense="true"
+                       FullWidth="true">
+                @foreach (var c in _conceptos)
+                                {
+                <MudSelectItem Value="@c.Descripcion">@c.Descripcion</MudSelectItem>
+                                }
+            </MudSelect>
+
+            <MudSelect T="string"
+                       Label="Movimiento"
+                       @bind-Value="TransaccionCajaActual.TipoTransaccion"
+                       Required="true"
+                       Dense="true"
+                       FullWidth="true">
+                <MudSelectItem T="string" Value="@("Entrada")">Entrada</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Salida")">Salida</MudSelectItem>
+            </MudSelect>
+
+            
+
+
+            <MudSelect T="string"
+                       Label="Forma de Pago"
+                       Value="@TransaccionCajaActual.FormaPago"
+                       ValueChanged="OnFormaPagoChanged"
+                       ValueExpression="@(() => TransaccionCajaActual.FormaPago)"
+                       Dense="true"
+                       Required="true"
+                       FullWidth="true">
+                @foreach (var fp in _formasPago)
+                                {
+                <MudSelectItem T="string" Value="@fp.Descripcion">
+                    @fp.Descripcion
+                </MudSelectItem>
+                                }
+            </MudSelect>
+
+
+            <MudTextField Label="Caja Asociada" Required="true"  ReadOnly = "true" @bind-Value="TransaccionCajaActual.CajaAsociada" />
+
+            <MudNumericField T="decimal"
+                             Label="Monto"
+                             @bind-Value="TransaccionCajaActual.Monto"
+                             Required="true"
+                             Dense="true"
+                             FullWidth="true"
+                             Adornment="Adornment.Start"
+                             AdornmentText="@SimboloMoneda"
+                             Format="N2" />
+
+
+            <MudTextField Label="Detalle" Required="true" @bind-Value="TransaccionCajaActual.DocAsociado" />
+            
+            <MudSelect T="string"
+                       Label="Vendedor"
+                       @bind-Value="TransaccionCajaActual.UsuarioTransaccion"
+                       Dense="true"
+                       Required="true"
+                       FullWidth="true">
+                @foreach (var v in _vendedores)
+                                {
+                <MudSelectItem T="string" Value="@($"{v.Nombre} {v.Apellido}")">@v.Nombre @v.Apellido</MudSelectItem>
+                                }
+            </MudSelect>
 
 
             
@@ -397,6 +653,98 @@
 
 
     RenderFragment GridTransacciones => @<div style="padding: 16px; padding-top:16px">
+    <!-- RECUADRO DE SUBTOTALES -->
+    <MudPaper Class="mt-3 p-3" Elevation="1">
+        <MudGrid GutterSize="2" AlignItems="Center">
+
+            <!-- Fila 1: Efectivo -->
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.body2">Saldo Apertura Caja  $:</MudText>
+                <MudTextField Value="@SaldoAperturaEfectivo.ToString("N2")"
+                              ReadOnly="true"
+                              Dense="true"
+                              Class="ml-2"
+                              Style="max-width:120px;" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.body2" Color="Color.Success">Saldo Efectivo:</MudText>
+                <MudTextField Value="@TotalesActuales.Total.ToString("N2")"
+                              ReadOnly="true"
+                              Dense="true"
+                              Class="ml-2"
+                              Style="max-width:120px;" />
+            </MudItem>
+
+            <!-- Fila 2: Mercado Pago -->
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.body2">Saldo Apertura Caja MP:</MudText>
+                <MudTextField Value="@SaldoAperturaMP.ToString("N2")"
+                              ReadOnly="true"
+                              Dense="true"
+                              Class="ml-2"
+                              Style="max-width:120px;" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.body2" Color="Color.Success">Saldo Mercado Pago:</MudText>
+                <MudTextField Value="@TotalesActuales.TotalMP.ToString("N2")"
+                              ReadOnly="true"
+                              Dense="true"
+                              Class="ml-2"
+                              Style="max-width:120px;" />
+            </MudItem>
+
+            <!-- Fila 3: Dólares -->
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.body2">Saldo Apertura Caja US$:</MudText>
+                <MudTextField Value="@SaldoAperturaDolares.ToString("N2")"
+                              ReadOnly="true"
+                              Dense="true"
+                              Class="ml-2"
+                              Style="max-width:120px;" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.body2" Color="Color.Success">Saldo Dolares:</MudText>
+                <MudTextField Value="@TotalesActuales.TotalUSS.ToString("N2")"
+                              ReadOnly="true"
+                              Dense="true"
+                              Class="ml-2"
+                              Style="max-width:120px;" />
+            </MudItem>
+
+            <!-- Fila 4: Galicia -->
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.body2">Saldo Apertura Caja Galicia:</MudText>
+                <MudTextField Value="@SaldoAperturaGalicia.ToString("N2")"
+                              ReadOnly="true"
+                              Dense="true"
+                              Class="ml-2"
+                              Style="max-width:120px;" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.body2" Color="Color.Success">Saldo Galicia:</MudText>
+                <MudTextField Value="@TotalesActuales.TotalGalicia.ToString("N2")"
+                              ReadOnly="true"
+                              Dense="true"
+                              Class="ml-2"
+                              Style="max-width:120px;" />
+            </MudItem>
+
+            <!-- Fila 5: espacio + botón Cerrar Caja -->
+            <MudItem xs="12" md="6">
+                @* vacío para mantener la grilla de 2 columnas *@
+            </MudItem>
+            <MudItem xs="12" md="6" Class="d-flex justify-end mt-4">
+                <MudButton Color="Color.Error"
+                           Variant="Variant.Filled"
+                           StartIcon="@Icons.Material.Filled.CheckBox"
+                           OnClick="CerrarCajaAsync">
+                    Cerrar Caja
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+
     <MudTable Items="TransaccionesFiltradas"
               Dense="true"
               Hover="true"
@@ -409,55 +757,106 @@
               Elevation="1"
               Class="mt-2">
         <HeaderContent>
-            <MudTh>
+            <!-- Fecha - Hora: más ancha -->
+            <MudTh Style="width: 180px;">
                 <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.Hora)">Fecha - Hora</MudTableSortLabel>
             </MudTh>
-            <MudTh>
+
+            <!-- Concepto: más angosta -->
+            <MudTh Style="width: 130px;">
                 <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.Concepto)">Concepto</MudTableSortLabel>
             </MudTh>
-            <MudTh>
+
+            <!-- Movimiento: más angosta -->
+            <MudTh Style="width: 110px;">
                 <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.TipoTransaccion)">Movimiento</MudTableSortLabel>
             </MudTh>
-            <MudTh>
+
+            <!-- Monto: tamaño normal -->
+            <MudTh Style="width: 140px; text-align:right;">
                 <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.Monto)">Monto</MudTableSortLabel>
             </MudTh>
+
+            <!-- Forma de pago -->
             <MudTh>
                 <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.FormaPago)">Forma de Pago</MudTableSortLabel>
             </MudTh>
-            <MudTh>
+
+            <!-- Caja asociada: más angosta -->
+            <MudTh Style="width: 130px;">
                 <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.CajaAsociada)">Caja Asociada</MudTableSortLabel>
             </MudTh>
+
+            <!-- Detalle -->
             <MudTh>
                 <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.DocAsociado)">Detalle</MudTableSortLabel>
             </MudTh>
+
+            <!-- Vendedor -->
             <MudTh>
                 <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.UsuarioTransaccion)">Vendedor</MudTableSortLabel>
             </MudTh>
-            <MudTh>
+
+            <!-- Acciones: más ancha -->
+            <MudTh Style="width: 150px; text-align:center;">
                 Acciones
             </MudTh>
-
         </HeaderContent>
+
         <RowTemplate>
-            <MudTd DataLabel="Fecha - Hora">@context.Hora</MudTd>
-            <MudTd DataLabel="Concepto">@context.Concepto</MudTd>
-            <MudTd DataLabel="Movimiento">@context.TipoTransaccion</MudTd>
-            <MudTd DataLabel="Monto">@context.Monto</MudTd>
-            <MudTd DataLabel="Forma de Pago">@context.FormaPago</MudTd>
-            <MudTd DataLabel="Caja Asociada">@context.CajaAsociada</MudTd>
-            <MudTd DataLabel="Detalle">@context.DocAsociado</MudTd>
-            <MudTd DataLabel="Vendedor">@context.UsuarioTransaccion</MudTd>
-            <MudTd>
-                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Success" Size="Size.Small" OnClick="() => Editar(context)" />
-                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => Eliminar(context)" Class="ms-2" />
+            <MudTd DataLabel="Fecha - Hora" Style="width: 180px;">@context.Hora</MudTd>
+
+            <MudTd DataLabel="Concepto" Style="width: 130px;">
+                @context.Concepto
+            </MudTd>
+
+            <MudTd DataLabel="Movimiento" Style="width: 110px;">
+                @context.TipoTransaccion
+            </MudTd>
+
+            <!-- Monto formateado con moneda -->
+            <MudTd DataLabel="Monto" Style="width: 140px; text-align:right;">
+                @FormatearMonto(context)
+            </MudTd>
+
+            <MudTd DataLabel="Forma de Pago">
+                @context.FormaPago
+            </MudTd>
+
+            <MudTd DataLabel="Caja Asociada" Style="width: 130px;">
+                @context.CajaAsociada
+            </MudTd>
+
+            <MudTd DataLabel="Detalle">
+                @context.DocAsociado
+            </MudTd>
+
+            <MudTd DataLabel="Vendedor">
+                @context.UsuarioTransaccion
+            </MudTd>
+
+            <MudTd Style="width: 150px; text-align:center;">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                               Color="Color.Success"
+                               Size="Size.Small"
+                               OnClick="() => Editar(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                               Color="Color.Error"
+                               Size="Size.Small"
+                               OnClick="() => Eliminar(context)"
+                               Class="ms-2" />
             </MudTd>
         </RowTemplate>
+
         <PagerContent>
             <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
                            RowsPerPageString="Registros por página">
             </MudTablePager>
         </PagerContent>
     </MudTable>
+
+   
+
 </div>;
 
 }

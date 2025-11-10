@@ -1,4 +1,4 @@
-﻿@page "/categoria"
+﻿@page "/concepto"
 @using ClosedXML.Excel
 @using LPNEWSTORE.Utils
 @using MudBlazor
@@ -11,7 +11,7 @@
 
 
 
-@inject CategoriaService CategoriaService
+@inject ConceptoService ConceptoService
 @inject RolService rolService
 
 @inject IJSRuntime JS
@@ -21,38 +21,38 @@
 @inject ISnackbar Snackbar
 
 
-<AbmLayout TEntity="Categoria"
-           FormContent="@FormCategoria"
-           GridContent="@GridCategoria"
+<AbmLayout TEntity="Concepto"
+           FormContent="@FormConcepto"
+           GridContent="@GridConcepto"
            OnSearchChanged="HandleSearch"
-           OnExport="ExportarCategoriasXlsx"
+           OnExport="ExportarConceptosXlsx"
            SearchPlaceholder="Buscar  categoría…" />
 
 @code {
     [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
-    List<Categoria> listaCategorias = new();
-    Categoria CategoriaActual = new();
+    List<Concepto> listaConceptos = new();
+    Concepto ConceptoActual = new();
     private List<Rol> listaRoles = new();
     private int idRolSeleccionado = 0;
     private string claseThead = "mi-th";
-    private MudForm? formCategoria;
+    private MudForm? formConcepto;
     private bool esEdicion = false;
     private string rolUsuarioActual = string.Empty;
     private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
     private DateTime fecha = DateTime.Now;
 
-    private IEnumerable<Categoria> CategoriasFiltradas
+    private IEnumerable<Concepto> ConceptosFiltradas
     {
         get
         {
             if (string.IsNullOrWhiteSpace(GridSearch))
-                return listaCategorias;
+                return listaConceptos;
 
             var term = GridSearch.Trim();
 
             bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
 
-            return listaCategorias.Where(p =>
+            return listaConceptos.Where(p =>
                 Has(p.Descripcion));
         }
     }
@@ -67,7 +67,7 @@
 
             if (int.TryParse(sucursal, out int idSucursal))
             {
-                listaCategorias = await CategoriaService.ListarCategorias();
+                listaConceptos = await ConceptoService.ListarAsync(sucursalSeleccionada);
             }
 
             StateHasChanged();
@@ -93,7 +93,7 @@
         }
 
         listaRoles = await rolService.Listar();
-        CategoriaActual.Estado = true;
+        ConceptoActual.Estado = true;
 
 
 
@@ -109,13 +109,14 @@
     private async Task ExportarCsv()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Descripcion;Estado");
-        foreach (var p in CategoriasFiltradas)
+        sb.AppendLine("Descripcion;Tipo;Estado");
+        foreach (var p in ConceptosFiltradas)
         {
             string[] cols = {
                 p.Descripcion,
+                p.Tipo,
                 p.Estado?"Activo":"Inactivo"
-                
+
     };
             sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
         }
@@ -128,19 +129,20 @@
             filename,
             streamRef,
             "text/csv;charset=utf-8");
-        
+
     }
 
-    private async Task ExportarCategoriasXlsx()
+    private async Task ExportarConceptosXlsx()
     {
-        var fileName = $"Categorias_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+        var fileName = $"Conceptos_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
 
         using var wb = new XLWorkbook();
-        var ws = wb.Worksheets.Add("Categorias");
+        var ws = wb.Worksheets.Add("Conceptos");
 
         // Encabezados
         var r = 1; var c = 1;
         ws.Cell(r, c++).Value = "Descripción";
+        ws.Cell(r, c++).Value = "Tipo";
         ws.Cell(r, c++).Value = "Estado";
 
         // Estilos encabezado
@@ -150,10 +152,11 @@
 
         // Datos
         r = 2;
-        foreach (var p in CategoriasFiltradas)
+        foreach (var p in ConceptosFiltradas)
         {
             c = 1;
             ws.Cell(r, c++).Value = p.Descripcion ?? string.Empty;
+            ws.Cell(r, c++).Value = p.Tipo ?? string.Empty;
             ws.Cell(r, c++).Value = p.Estado ? "Activo" : "Inactivo";
             r++;
         }
@@ -174,12 +177,14 @@
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 
-    private void Editar(Categoria c)
+    private void Editar(Concepto c)
     {
-        CategoriaActual = new Categoria
+        ConceptoActual = new Concepto
         {
-            IdCategoria = c.IdCategoria,
+            FechaRegistro = c.FechaRegistro,
+            IdConcepto = c.IdConcepto,
             Descripcion = c.Descripcion,
+            Tipo = c.Tipo,
             Estado = c.Estado,
 
 
@@ -192,12 +197,12 @@
 
     private async Task Registrar()
     {
-        if (formCategoria is null)
+        if (formConcepto is null)
             return;
 
-        await formCategoria.Validate();
+        await formConcepto.Validate();
 
-        if (!formCategoria.IsValid)
+        if (!formConcepto.IsValid)
         {
             Snackbar.Add("Por favor completá todos los campos requeridos.", Severity.Error);
             return;
@@ -208,13 +213,14 @@
 
         if (esEdicion)
         {
-            var (exito, msg) = await CategoriaService.EditarCategoria(CategoriaActual);
+            var (exito, msg) = await ConceptoService.EditarAsync(ConceptoActual);
             resultado = exito;
             mensaje = msg;
         }
         else
         {
-            var (idGenerado, msg) = await CategoriaService.RegistrarCategoria(CategoriaActual);
+            ConceptoActual.FechaRegistro = DateTime.Now.Date;
+            var (idGenerado, msg) = await ConceptoService.RegistrarAsync(ConceptoActual);
             resultado = idGenerado > 0;
 
             mensaje = msg;
@@ -223,11 +229,11 @@
         if (resultado)
         {
             Snackbar.Add(mensaje, Severity.Success);
-            CategoriaActual = new Categoria();
-            CategoriaActual.Estado = true;
+            ConceptoActual = new Concepto();
+            ConceptoActual.Estado = true;
             esEdicion = false;
-            listaCategorias = await CategoriaService.ListarCategorias();
-            await formCategoria.ResetAsync(); // resetea el form
+            listaConceptos = await ConceptoService.ListarAsync(sucursalSeleccionada);
+            await formConcepto.ResetAsync(); // resetea el form
 
         }
         else
@@ -238,22 +244,22 @@
     }
 
 
-    private async Task Eliminar(Categoria c)
+    private async Task Eliminar(Concepto c)
     {
         bool? confirmado = await DialogService.ShowMessageBox(
-            title: "Eliminar Categoria",
-            markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar la categoria {c.Descripcion}?</b>",
+            title: "Eliminar Concepto",
+            markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar la Concepto {c.Descripcion}?</b>",
             yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
         );
 
         if (confirmado == true)
         {
-            var (exito, mensaje) = await CategoriaService.EliminarCategoria(c);
+            var (exito, mensaje) = await ConceptoService.EliminarAsync(c);
 
             if (exito)
             {
                 Snackbar.Add(mensaje, Severity.Success);
-                listaCategorias = await CategoriaService.ListarCategorias();
+                listaConceptos = await ConceptoService.ListarAsync(sucursalSeleccionada);
             }
             else
             {
@@ -267,20 +273,30 @@
 
     private void CancelarEdicion()
     {
-        CategoriaActual = new Categoria();
-        CategoriaActual.Estado = true;
+        ConceptoActual = new Concepto();
+        ConceptoActual.Estado = true;
 
         esEdicion = false;
     }
 
-    RenderFragment FormCategoria => @<div style="padding: 16px;  padding-top : 16px">
-    <MudForm @ref="formCategoria" OnValidSubmit="Registrar">
+    RenderFragment FormConcepto => @<div style="padding: 16px;  padding-top : 16px">
+    <MudForm @ref="formConcepto" OnValidSubmit="Registrar">
         <MudStack Spacing="2">
 
 
-            <MudTextField Label="Descripción" @bind-Value="CategoriaActual.Descripcion" Required="true" />
+            <MudTextField Label="Descripción" @bind-Value="ConceptoActual.Descripcion" Required="true" />
 
-            <MudSelect T="bool" Label="Estado" @bind-Value="CategoriaActual.Estado" Required="true">
+            <MudSelect T="string"
+                       Label="Movimiento"
+                       @bind-Value="ConceptoActual.Tipo"
+                       Required="true"
+                       Dense="true"
+                       FullWidth="true">
+                <MudSelectItem T="string" Value="@("Entrada")">Entrada</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Salida")">Salida</MudSelectItem>
+            </MudSelect>
+
+            <MudSelect T="bool" Label="Estado" @bind-Value="ConceptoActual.Estado" Required="true">
                 <MudSelectItem Value="true">Activo</MudSelectItem>
                 <MudSelectItem Value="false">No Activo</MudSelectItem>
             </MudSelect>
@@ -304,8 +320,8 @@
 </div>;
 
 
-RenderFragment GridCategoria => @<div style="padding: 16px;  padding-top : 16px">
-    <MudTable Items="CategoriasFiltradas"
+RenderFragment GridConcepto => @<div style="padding: 16px;  padding-top : 16px">
+    <MudTable Items="ConceptosFiltradas"
               Dense="true"
               Hover="true"
               Bordered="true"
@@ -318,12 +334,15 @@ RenderFragment GridCategoria => @<div style="padding: 16px;  padding-top : 16px"
               Class="mt-2">
         <HeaderContent>
             <MudTh>
-                <MudTableSortLabel T="Categoria" SortBy="@(c => c.Descripcion)">Descripción</MudTableSortLabel>
+                <MudTableSortLabel T="Concepto" SortBy="@(c => c.Descripcion)">Descripción</MudTableSortLabel>
             </MudTh>
             <MudTh>
-                <MudTableSortLabel T="Categoria" SortBy="@(c => c.Estado)">Tipo</MudTableSortLabel>
+                <MudTableSortLabel T="Concepto" SortBy="@(c => c.Tipo)">Tipo</MudTableSortLabel>
             </MudTh>
-           
+            <MudTh>
+                <MudTableSortLabel T="Concepto" SortBy="@(c => c.Estado)">Estado</MudTableSortLabel>
+            </MudTh>
+
 
 
             <MudTh>Acciones</MudTh>
@@ -333,8 +352,9 @@ RenderFragment GridCategoria => @<div style="padding: 16px;  padding-top : 16px"
         </HeaderContent>
         <RowTemplate>
             <MudTd DataLabel="Descripción">@context.Descripcion</MudTd>
+            <MudTd DataLabel="Tipo">@context.Tipo</MudTd>
             <MudTd DataLabel="Estado">@((context.Estado) ? "Activo" : "No Activo")</MudTd>
-            
+
 
             <MudTd>
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Success" Size="Size.Small" OnClick="() => Editar(context)" />
