@@ -32,6 +32,104 @@
 @if (mostrarContenido)
 {
     <PageTitle>Inicio</PageTitle>
-    <h1>Bienvenido al Sistema</h1>
+
+    <div class="page-bg">
+        <img src="/images/fondoInicio.png" alt="Fondo" />
+        <div class="page-bg-overlay"></div>
+    </div>
+
+    <div class="page-foreground">
+        
+    </div>
 }
 
+
+
+
+<style>
+    .hero-bg {
+        position: relative;
+        min-height: 60vh; /* ajustá a gusto (60–100vh) */
+        background-image: url('/images/fondoInicioLight.png'); /* ⬅️ poné tu imagen en wwwroot/img */
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        border-radius: 12px; /* opcional */
+        overflow: hidden; /* por si hay radios */
+        box-shadow: 0 10px 30px rgba(0,0,0,.15); /* opcional */
+    }
+
+    .hero-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem 1rem;
+        background: linear-gradient( to bottom, rgba(0,0,0,.35), rgba(0,0,0,.35) ); /* oscurece un poco la imagen */
+    }
+
+    .hero-title {
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 3rem);
+        color: #fff;
+        text-shadow: 0 3px 12px rgba(0,0,0,.6);
+        letter-spacing: .5px;
+        font-weight: 700;
+    }
+    /* fondo a pantalla completa */
+   /* Fondo a pantalla completa sin recorte */
+.page-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: #0b0b0b;        /* color de relleno si sobran bordes */
+  overflow: hidden;
+}
+
+.page-bg > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;        
+  object-position: center;     /* centrada */
+}
+
+/* Overlay opcional para contraste del texto */
+.page-bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25));
+}
+
+/* Contenido encima del fondo */
+.page-foreground {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Título */
+.hero-title {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3rem);
+  color: #fff;
+  text-shadow: 0 3px 12px rgba(0,0,0,.6);
+}
+
+/* Si MudBlazor pinta un fondo, lo hacemos transparente */
+.mud-main-content { background-color: transparent !important; }
+
+
+    /* Por si preferís tema claro/oscuro distinto */
+    @@media (prefers-color-scheme: light) {
+        .hero-overlay
+
+    {
+        background: linear-gradient(to bottom, rgba(0,0,0,.25), rgba(0,0,0,.25));
+    }
+
+    }
+</style>

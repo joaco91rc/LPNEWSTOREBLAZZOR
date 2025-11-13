@@ -16,6 +16,8 @@ wwwroot\css\open-iconic\README.md
 wwwroot\css\site.css
 wwwroot\favicon.png
 wwwroot\images\applestore49-logo.png
+wwwroot\images\fondoInicio.png
+wwwroot\images\fondoInicioLight.png
 wwwroot\images\hitech-logo.png
 wwwroot\images\LOGO_LOGIN.png
 wwwroot\images\logo-apple-cafe.jpeg

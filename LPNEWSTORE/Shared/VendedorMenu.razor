@@ -35,7 +35,7 @@
         </MudNavGroup>
 
         <MudNavGroup Title="Caja Registradora" Icon="@Icons.Material.Filled.AccountBalanceWallet">
-    <MudNavLink OnClick="@(async _ => await Modal.OpenAperturaCajaAsync())" >Apertura Caja</MudNavLink>
+    <MudNavLink OnClick="OnAperturaCajaClicked">Apertura Caja</MudNavLink>
     <MudNavLink OnClick="OnCajaDiariaClicked">Caja Diaria</MudNavLink>
     <MudNavLink Href="/detallecaja" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Consultar Caja por Fecha</MudNavLink>
     <MudNavLink Href="/concepto" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Conceptos</MudNavLink>
@@ -62,6 +62,40 @@
     [Parameter]
     public EventCallback OnNavigationItemClicked { get; set; }
     private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+    private bool _checkingApertura;
+
+    private async Task OnAperturaCajaClicked(MouseEventArgs _)
+    {
+        if (_checkingApertura) return;
+        _checkingApertura = true;
+
+        try
+        {
+            // Traer cajas de la sucursal actual (ajustá el id según tu contexto)
+            var cajas = await CajaRegistradoraService.ListarAsync(sucursalSeleccionada);
+            var hayCajaAbierta = cajas?.Any(c => c.Estado) == true;
+
+            if (hayCajaAbierta)
+            {
+                Snackbar.Add("Ya existe una caja abierta. No es necesario abrir otra.", Severity.Info);
+                return;
+            }
+
+            // (opcional) cerrar el drawer/menú si usás ese callback
+            await OnNavigationItemClicked.InvokeAsync();
+
+            // Abrir el modal de Apertura de Caja
+            await Modal.OpenAperturaCajaAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"No se pudo verificar/abrir la caja: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _checkingApertura = false;
+        }
+    }
     private async Task OnCajaDiariaClicked(MouseEventArgs args)
     {
         // Traer cajas de la sucursal actual

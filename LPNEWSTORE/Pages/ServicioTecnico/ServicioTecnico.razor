@@ -1,0 +1,622 @@
+﻿@page "/serviciotecnico"
+@using ClosedXML.Excel
+@using LPNEWSTORE.Shared.Modals
+@using LPNEWSTORE.Utils
+@using MudBlazor
+@using Microsoft.AspNetCore.Identity
+@using Services
+@using Entities
+@using System.Security.Claims
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+
+
+@inject ProductoService ProductoService
+@inject ServicioTecnicoService ServTecnicoService
+@inject RolService rolService
+
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SesionNegocioService SesionNegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+<AbmLayout TEntity="ServTecnico"
+           FormContent="@FormServTecnico"
+           GridContent="@GridServTecnico"
+           OnSearchChanged="HandleSearch"
+           OnExport="ExportarServTecnicosXlsx"
+           SearchPlaceholder="Buscar  Producto RMA…" />
+
+@code {
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
+    List<ServTecnico> listaServTecnico = new();
+    ServTecnico ServTecnicoActual = new();
+    private List<Rol> listaRoles = new();
+    private int idRolSeleccionado = 0;
+    private string claseThead = "mi-th";
+    private MudForm? formServTecnico;
+    private bool esEdicion = false;
+    private string rolUsuarioActual = string.Empty;
+    private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+    private DateTime fecha = DateTime.Now;
+
+    private IEnumerable<ServTecnico> ServTecnicosFiltradas
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(GridSearch))
+                return listaServTecnico;
+
+            var term = GridSearch.Trim();
+
+            bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
+
+            return listaServTecnico.Where(p =>
+                Has(p.Producto));
+        }
+    }
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+
+            if (int.TryParse(sucursal, out int idSucursal))
+            {
+                listaServTecnico = await ServTecnicoService.ListarAsync(sucursalSeleccionada);
+            }
+
+            StateHasChanged();
+        }
+
+
+
+    }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+        }
+
+        listaRoles = await rolService.Listar();
+
+
+
+
+    }
+
+    private Task HandleSearch(string value)
+    {
+        GridSearch = value;
+        // StateHasChanged(); // opcional, normalmente no hace falta
+        return Task.CompletedTask;
+    }
+
+    private async Task ExportarCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Cliente;producto;Descripcion Problema;Estado");
+        foreach (var p in ServTecnicosFiltradas)
+        {
+            string[] cols = {
+                p.NombreCliente,
+                p.Producto,
+                p.DescripcionProblema,
+                p.EstadoServicio,
+
+
+    };
+            sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        var filename = $"Exportacion_Servicios_Tecnicos{DateTime.Now:yyyyMMddHHmmss}.csv";
+        using var ms = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(ms);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            filename,
+            streamRef,
+            "text/csv;charset=utf-8");
+
+    }
+
+    private async Task ExportarServTecnicosXlsx()
+    {
+        var fileName = $"ServTecnicos_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("ServTecnicos");
+
+        // Encabezados
+        var r = 1; var c = 1;
+        ws.Cell(r, c++).Value = "Cliente";
+        ws.Cell(r, c++).Value = "Producto";
+        ws.Cell(r, c++).Value = "Descripcion Problema";
+        ws.Cell(r, c++).Value = "Estado";
+
+
+        // Estilos encabezado
+        ws.Range(1, 1, 1, 2).Style.Font.SetBold();
+        ws.Range(1, 1, 1, 2).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+        ws.SheetView.FreezeRows(1);
+
+        // Datos
+        r = 2;
+        foreach (var p in ServTecnicosFiltradas)
+        {
+            c = 1;
+            ws.Cell(r, c++).Value = p.NombreCliente ?? string.Empty;
+            ws.Cell(r, c++).Value = p.Producto;
+            ws.Cell(r, c++).Value = p.DescripcionProblema ?? string.Empty;
+            ws.Cell(r, c++).Value = p.EstadoServicio;
+
+            r++;
+        }
+
+        // Ajustes
+        ws.Columns().AdjustToContents();
+        ws.RangeUsed().SetAutoFilter();
+
+        // Descargar vía stream (como DoExport)
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var streamRef = new DotNetStreamReference(ms);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            fileName,
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    private void Editar(ServTecnico c)
+    {
+        ServTecnicoActual = new ServTecnico
+        {
+            IdServicio = c.IdServicio,
+            IdCliente = c.IdCliente,
+            Producto = c.Producto,
+            FechaRecepcion = c.FechaRecepcion,
+            FechaEntregaEstimada = c.FechaEntregaEstimada,
+            FechaEntregaReal = c.FechaEntregaReal,
+            DescripcionProblema = c.DescripcionProblema,
+            DescripcionReparacion = c.DescripcionReparacion,
+            EstadoServicio = c.EstadoServicio,
+            CostoReal = c.CostoReal,
+            Observaciones = c.Observaciones,
+            FechaRegistro = c.FechaRegistro,
+            IdNegocio = c.IdNegocio,
+            TipoEquipo = c.TipoEquipo,
+            Marca = c.Marca,
+            Modelo = c.Modelo,
+            SerialNumber = c.SerialNumber,
+            AccesoriosEntregados = c.AccesoriosEntregados,
+            TasaDiagnostico = c.TasaDiagnostico
+
+
+
+
+        };
+
+
+        esEdicion = true;
+    }
+
+    private async Task Registrar()
+    {
+        if (formServTecnico is null)
+            return;
+
+        await formServTecnico.Validate();
+
+        if (!formServTecnico.IsValid)
+        {
+            Snackbar.Add("Por favor completá todos los campos requeridos.", Severity.Error);
+            return;
+        }
+
+        string mensaje = string.Empty;
+        bool resultado = false;
+        string mensajeStock = string.Empty;
+        bool exitoStock = false;
+
+        if (esEdicion)
+        {
+            var (exito, msg) = await ServTecnicoService.ModificarServicioTecnicoAsync(ServTecnicoActual);
+            resultado = exito;
+            mensaje = msg;
+
+
+        }
+        else
+        {
+            var (resu ,msg, idGenerado) = await ServTecnicoService.InsertarServicioTecnicoAsync(ServTecnicoActual);
+            resultado = idGenerado > 0;
+
+            mensaje = msg;
+
+
+        }
+
+        if (resultado)
+        {
+            Snackbar.Add($"{mensaje ?? ""} {mensajeStock ?? ""}", exitoStock ? Severity.Success : Severity.Error);
+
+            ServTecnicoActual = new ServTecnico();
+
+            esEdicion = false;
+            listaServTecnico = await ServTecnicoService.ListarAsync(sucursalSeleccionada);
+            await formServTecnico.ResetAsync(); // resetea el form
+
+        }
+        else
+        {
+
+            Snackbar.Add(mensaje, Severity.Error);
+        }
+    }
+
+
+    private async Task CobrarServicio(ServTecnico c)
+    {
+        // bool? confirmado = await DialogService.ShowMessageBox(
+        //     title: "Eliminar ServTecnico",
+        //     markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar el ServTecnico {c.IdServicio}?</b>",
+        //     yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
+        // );
+
+        // if (confirmado == true)
+        // {
+        //     var (exito, mensaje) = await ServTecnicoService.eli(c.IdServTecnico);
+
+        //     if (exito)
+        //     {
+        //         Snackbar.Add(mensaje, Severity.Success);
+        //         listaServTecnico = await ServTecnicoService.Listar();
+        //     }
+        //     else
+        //     {
+        //         Snackbar.Add(mensaje, Severity.Error);
+        //     }
+        // }
+    }
+
+
+    private async Task AgregarReparacion(ServTecnico c)
+    {
+        // bool? confirmado = await DialogService.ShowMessageBox(
+        //     title: "Eliminar ServTecnico",
+        //     markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar el ServTecnico {c.IdServicio}?</b>",
+        //     yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
+        // );
+
+        // if (confirmado == true)
+        // {
+        //     var (exito, mensaje) = await ServTecnicoService.eli(c.IdServTecnico);
+
+        //     if (exito)
+        //     {
+        //         Snackbar.Add(mensaje, Severity.Success);
+        //         listaServTecnico = await ServTecnicoService.Listar();
+        //     }
+        //     else
+        //     {
+        //         Snackbar.Add(mensaje, Severity.Error);
+        //     }
+        // }
+    }
+
+    private async Task ConsultarReparaciones(ServTecnico c)
+    {
+        // bool? confirmado = await DialogService.ShowMessageBox(
+        //     title: "Eliminar ServTecnico",
+        //     markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar el ServTecnico {c.IdServicio}?</b>",
+        //     yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
+        // );
+
+        // if (confirmado == true)
+        // {
+        //     var (exito, mensaje) = await ServTecnicoService.eli(c.IdServTecnico);
+
+        //     if (exito)
+        //     {
+        //         Snackbar.Add(mensaje, Severity.Success);
+        //         listaServTecnico = await ServTecnicoService.Listar();
+        //     }
+        //     else
+        //     {
+        //         Snackbar.Add(mensaje, Severity.Error);
+        //     }
+        // }
+    }
+
+    private async Task CambiarEstado(ServTecnico c)
+    {
+        // bool? confirmado = await DialogService.ShowMessageBox(
+        //     title: "Eliminar ServTecnico",
+        //     markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar el ServTecnico {c.IdServicio}?</b>",
+        //     yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
+        // );
+
+        // if (confirmado == true)
+        // {
+        //     var (exito, mensaje) = await ServTecnicoService.eli(c.IdServTecnico);
+
+        //     if (exito)
+        //     {
+        //         Snackbar.Add(mensaje, Severity.Success);
+        //         listaServTecnico = await ServTecnicoService.Listar();
+        //     }
+        //     else
+        //     {
+        //         Snackbar.Add(mensaje, Severity.Error);
+        //     }
+        // }
+    }
+
+    private async Task AbrirMDCliente()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = DialogService.Show<MDCliente>("Seleccionar Cliente", options: options);
+        var result = await dialog.Result;
+        if (!result.Canceled && result.Data is Cliente cli)
+        {
+            // Ajustá según tu modelo
+            ServTecnicoActual.IdCliente = cli.IdCliente;
+            ServTecnicoActual.NombreCliente = cli.NombreCompleto; // o la descripción que devuelva el modal
+            ServTecnicoActual.TelefonoCliente = cli.Telefono;
+            StateHasChanged();
+        }
+    }
+
+
+
+
+    private void CancelarEdicion()
+    {
+        ServTecnicoActual = new ServTecnico();
+        
+
+        esEdicion = false;
+    }
+
+    RenderFragment FormServTecnico => @<div style="padding: 16px;  padding-top : 16px">
+    <MudForm @ref="formServTecnico" OnValidSubmit="Registrar">
+        <MudStack Spacing="2">
+
+
+            <!-- GroupBox: Datos Cliente -->
+            <div class="groupbox">
+                <span class="groupbox__legend">Datos Cliente</span>
+
+                <MudGrid GutterSize="2">
+                    <MudItem xs="12" md="6">
+                        <div @ondblclick="AbrirMDCliente">
+                            <MudTextField Label="Cliente"
+                                          @bind-Value="ServTecnicoActual.NombreCliente"
+                                          ReadOnly="true"
+                                          Required="true"
+                                          Placeholder="Doble clic para buscar…"
+                                          HelperText="Hacé doble clic para abrir el buscador"
+                                          Adornment="Adornment.End"
+                                          AdornmentIcon="@Icons.Material.Filled.Search"
+                                          AdornmentColor="Color.Primary" />
+                        </div>
+                    </MudItem>
+
+                    <MudItem xs="12" md="3">
+                        <MudTextField Label="DNI"
+                                      @bind-Value="ServTecnicoActual.DniCliente"
+                                      Required="true"
+                                      ReadOnly="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="3">
+                        <MudTextField Label="Teléfono"
+                                      @bind-Value="ServTecnicoActual.TelefonoCliente"
+                                      Required="true"
+                                      ReadOnly="true" />
+                    </MudItem>
+                </MudGrid>
+            </div>
+
+            <!-- GroupBox: Equipo a Reparar -->
+            <div class="groupbox">
+                <span class="groupbox__legend">Equipo a Reparar</span>
+
+                <MudGrid GutterSize="2">
+                    <MudItem xs="12" md="6">
+                        <MudTextField Label="Equipo"
+                                      @bind-Value="ServTecnicoActual.Producto"
+                                      Required="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="6">
+                        <MudTextField Label="Tipo Equipo"
+                                      @bind-Value="ServTecnicoActual.TipoEquipo"
+                                      Required="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudTextField Label="Marca"
+                                      @bind-Value="ServTecnicoActual.Marca"
+                                      Required="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudTextField Label="Modelo"
+                                      @bind-Value="ServTecnicoActual.Modelo"
+                                      Required="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudTextField Label="S/N"
+                                      @bind-Value="ServTecnicoActual.SerialNumber"
+                                      Required="true" />
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudTextField Label="Accesorios Entregados"
+                                      @bind-Value="ServTecnicoActual.AccesoriosEntregados"
+                                      Required="true" />
+                    </MudItem>
+                </MudGrid>
+            </div>
+
+            <!-- GroupBox: Detalles -->
+            <div class="groupbox">
+                <span class="groupbox__legend">Detalles</span>
+
+                <MudGrid GutterSize="2">
+                    <MudItem xs="12">
+                        <MudTextField Label="Descripción del Problema"
+                                      @bind-Value="ServTecnicoActual.DescripcionProblema"
+                                      Required="true"
+                                      Lines="3"
+                                      TextArea="true" />
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudTextField Label="Observaciones"
+                                      @bind-Value="ServTecnicoActual.Observaciones"
+                                      Required="true"
+                                      Lines="3"
+                                      TextArea="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudNumericField T="decimal"
+                                         Label="Tasa Diagnóstico"
+                                         @bind-Value="ServTecnicoActual.TasaDiagnostico"
+                                         Required="true"
+                                         Adornment="Adornment.Start"
+                                         AdornmentText="$" />
+                    </MudItem>
+                </MudGrid>
+            </div>
+
+
+
+
+
+
+            <MudStack Direction="Row" Spacing="2">
+                <MudButton OnClick="Registrar" Variant="Variant.Filled" Color="Color.Primary">
+                    @(esEdicion ? "Actualizar" : "Guardar")
+                </MudButton>
+                @if (esEdicion)
+                                {
+
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CancelarEdicion">
+                    Cancelar
+                </MudButton>
+                                }
+            </MudStack>
+        </MudStack>
+    </MudForm>
+</div>;
+
+
+RenderFragment GridServTecnico => @<div style="padding: 16px;  padding-top : 16px">
+    <MudTable Items="ServTecnicosFiltradas"
+              Dense="true"
+              Hover="true"
+              Bordered="true"
+              Striped="true"
+              Sortable="true"
+              Breakpoint="Breakpoint.Sm"
+              RowsPerPageOptions="new int[]{ 5, 10, 20,30,40,50 }"
+              PagerAlwaysVisible="true"
+              Elevation="1"
+              Class="mt-2">
+        <HeaderContent>
+            <MudTh>
+                <MudTableSortLabel T="ServTecnico" SortBy="@(c => c.NombreCliente)">Cliente</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="ServTecnico" SortBy="@(c => c.Producto)">Equipo</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="ServTecnico" SortBy="@(c => c.DescripcionProblema)">Descripcion Problema</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="ServTecnico" SortBy="@(c => c.EstadoServicio)">Estado</MudTableSortLabel>
+            </MudTh>
+           
+
+
+
+            <MudTh>Acciones</MudTh>
+
+
+
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Cliente">@context.NombreCliente</MudTd>
+            <MudTd DataLabel="Producto">@context.Producto</MudTd>
+            <MudTd DataLabel="Descripcion Problema">@context.DescripcionProblema</MudTd>
+            <MudTd DataLabel="Estado">@context.EstadoServicio</MudTd>
+            
+
+
+
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit"  Color ="Color.Primary" Size="Size.Small" OnClick="() => Editar(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Sync" Color="Color.Secondary" Size="Size.Small" OnClick="() => CambiarEstado(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Success" Size="Size.Small" OnClick="() => AgregarReparacion(context)" Class="ms-2" />
+                <MudIconButton Icon="@Icons.Material.Filled.List" Color="Color.Info" Size="Size.Small" OnClick="() => ConsultarReparaciones(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.AttachMoney" Color="Color.Success" Size="Size.Small" OnClick="() => CobrarServicio(context)" Class="ms-2" />
+
+            </MudTd>
+        </RowTemplate>
+
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
+                           RowsPerPageString="Registros por página">
+            </MudTablePager>
+        </PagerContent>
+    </MudTable>
+
+</div>;
+
+}
+
+
+<style>
+    /* Estilo general tipo "GroupBox" */
+    .groupbox {
+        position: relative;
+        border: 1px solid var(--mud-palette-primary);
+        border-radius: 12px;
+        padding: 18px 16px 12px;
+        margin-bottom: 16px;
+        background: var(--mud-palette-surface);
+    }
+
+        .groupbox__legend {
+            position: absolute;
+            top: -12px;
+            left: 16px;
+            padding: 0 8px;
+            background: var(--mud-palette-surface);
+            color: var(--mud-palette-primary);
+            font-weight: 600;
+            font-size: .95rem;
+        }
+    </style>
+

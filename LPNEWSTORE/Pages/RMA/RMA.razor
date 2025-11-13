@@ -1,0 +1,453 @@
+﻿@page "/rma"
+@using ClosedXML.Excel
+@using LPNEWSTORE.Shared.Modals
+@using LPNEWSTORE.Utils
+@using MudBlazor
+@using Microsoft.AspNetCore.Identity
+@using Services
+@using Entities
+@using System.Security.Claims
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+
+
+@inject ProductoService ProductoService
+@inject ProductoRMAService ProductoRMAService
+@inject RolService rolService
+
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SesionNegocioService SesionNegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+<AbmLayout TEntity="ProductoRMA"
+           FormContent="@FormProductoRMA"
+           GridContent="@GridProductoRMA"
+           OnSearchChanged="HandleSearch"
+           OnExport="ExportarProductoRMAsXlsx"
+           SearchPlaceholder="Buscar  Producto RMA…" />
+
+@code {
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
+    List<ProductoRMA> listaProductoRMA = new();
+    ProductoRMA ProductoRMAActual = new();
+    private List<Rol> listaRoles = new();
+    private int idRolSeleccionado = 0;
+    private string claseThead = "mi-th";
+    private MudForm? formProductoRMA;
+    private bool esEdicion = false;
+    private string rolUsuarioActual = string.Empty;
+    private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+    private DateTime fecha = DateTime.Now;
+
+    private IEnumerable<ProductoRMA> ProductoRMAsFiltradas
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(GridSearch))
+                return listaProductoRMA;
+
+            var term = GridSearch.Trim();
+
+            bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
+
+            return listaProductoRMA.Where(p =>
+                Has(p.DescripcionProductoRMA));
+        }
+    }
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+
+
+            if (int.TryParse(sucursal, out int idSucursal))
+            {
+                listaProductoRMA = await ProductoRMAService.Listar();
+            }
+
+            StateHasChanged();
+        }
+
+
+
+    }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+        }
+
+        listaRoles = await rolService.Listar();
+
+
+
+
+    }
+
+    private Task HandleSearch(string value)
+    {
+        GridSearch = value;
+        // StateHasChanged(); // opcional, normalmente no hace falta
+        return Task.CompletedTask;
+    }
+
+    private async Task ExportarCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Producto RMA;Cantidad;Estado;Fecha Ingreso;Fecha Egreso");
+        foreach (var p in ProductoRMAsFiltradas)
+        {
+            string[] cols = {
+                p.DescripcionProductoRMA,
+                p.Cantidad.ToString(),
+                p.Estado,
+                p.FechaIngreso.ToString(),
+                p.FechaEgreso.ToString()
+
+    };
+            sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        var filename = $"Exportacion_Productos_RMA{DateTime.Now:yyyyMMddHHmmss}.csv";
+        using var ms = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(ms);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            filename,
+            streamRef,
+            "text/csv;charset=utf-8");
+
+    }
+
+    private async Task ExportarProductoRMAsXlsx()
+    {
+        var fileName = $"ProductoRMAs_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("ProductoRMAs");
+
+        // Encabezados
+        var r = 1; var c = 1;
+        ws.Cell(r, c++).Value = "Producto RMA";
+        ws.Cell(r, c++).Value = "Cantidad";
+        ws.Cell(r, c++).Value = "Estado";
+        ws.Cell(r, c++).Value = "Fecha Ingreso";
+        ws.Cell(r, c++).Value = "Fecha Egreso";
+
+        // Estilos encabezado
+        ws.Range(1, 1, 1, 2).Style.Font.SetBold();
+        ws.Range(1, 1, 1, 2).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+        ws.SheetView.FreezeRows(1);
+
+        // Datos
+        r = 2;
+        foreach (var p in ProductoRMAsFiltradas)
+        {
+            c = 1;
+            ws.Cell(r, c++).Value = p.DescripcionProductoRMA ?? string.Empty;
+            ws.Cell(r, c++).Value = p.Cantidad;
+            ws.Cell(r, c++).Value = p.Estado ?? string.Empty;
+            ws.Cell(r, c++).Value = p.FechaIngreso;
+            ws.Cell(r, c++).Value = p.FechaEgreso;
+            r++;
+        }
+
+        // Ajustes
+        ws.Columns().AdjustToContents();
+        ws.RangeUsed().SetAutoFilter();
+
+        // Descargar vía stream (como DoExport)
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var streamRef = new DotNetStreamReference(ms);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            fileName,
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    private void Editar(ProductoRMA c)
+    {
+        ProductoRMAActual = new ProductoRMA
+        {
+            IdProductoRMA = c.IdProductoRMA,
+            DescripcionProductoRMA = c.DescripcionProductoRMA,
+            Cantidad = c.Cantidad,
+            Estado = c.Estado,
+            FechaIngreso = c.FechaIngreso,
+            FechaEgreso = c.FechaEgreso,
+            IdProducto = c.IdProducto
+
+
+
+
+        };
+
+
+        esEdicion = true;
+    }
+
+    private async Task Registrar()
+    {
+        if (formProductoRMA is null)
+            return;
+
+        await formProductoRMA.Validate();
+
+        if (!formProductoRMA.IsValid)
+        {
+            Snackbar.Add("Por favor completá todos los campos requeridos.", Severity.Error);
+            return;
+        }
+
+        string mensaje = string.Empty;
+        bool resultado = false;
+        string mensajeStock = string.Empty;
+        bool exitoStock = false;
+
+        if (esEdicion)
+        {
+            var (exito, msg) = await ProductoRMAService.Editar(ProductoRMAActual);
+            resultado = exito;
+            mensaje = msg;
+
+            if (exito)
+            {
+                if (ProductoRMAActual.Estado == "PROCESO DE RMA COMPLETADO" || ProductoRMAActual.Estado == "REPARADO POR RMA")
+                {
+                    ( exitoStock,   mensajeStock) = await  ProductoService.SumarStockPorRMAAsync(ProductoRMAActual.IdProducto, ProductoRMAActual.Cantidad, sucursalSeleccionada);
+                }
+            }
+        }
+        else
+        {
+            var (idGenerado, msg) = await ProductoRMAService.Registrar(ProductoRMAActual);
+            resultado = idGenerado > 0;
+
+            mensaje = msg;
+
+            if(resultado)
+            {
+                (exitoStock, mensajeStock) = await ProductoService.RestarStockPorRMAAsync(ProductoRMAActual.IdProducto, ProductoRMAActual.Cantidad, sucursalSeleccionada);
+                
+            }
+        }
+
+        if (resultado)
+        {
+            Snackbar.Add($"{mensaje ?? ""} {mensajeStock ?? ""}", exitoStock ? Severity.Success : Severity.Error);
+
+            ProductoRMAActual = new ProductoRMA();
+            
+            esEdicion = false;
+            listaProductoRMA = await ProductoRMAService.Listar();
+            await formProductoRMA.ResetAsync(); // resetea el form
+
+        }
+        else
+        {
+
+            Snackbar.Add(mensaje, Severity.Error);
+        }
+    }
+
+
+    private async Task Eliminar(ProductoRMA c)
+    {
+        bool? confirmado = await DialogService.ShowMessageBox(
+            title: "Eliminar ProductoRMA",
+            markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar el ProductoRMA {c.DescripcionProductoRMA}?</b>",
+            yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
+        );
+
+        if (confirmado == true)
+        {
+            var (exito, mensaje) = await ProductoRMAService.Eliminar(c.IdProductoRMA);
+
+            if (exito)
+            {
+                Snackbar.Add(mensaje, Severity.Success);
+                listaProductoRMA = await ProductoRMAService.Listar();
+            }
+            else
+            {
+                Snackbar.Add(mensaje, Severity.Error);
+            }
+        }
+    }
+    private async Task AbrirMDProducto()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = DialogService.Show<MDProducto>("Seleccionar producto", options: options);
+        var result = await dialog.Result;
+        if (!result.Canceled && result.Data is Producto prod)
+        {
+            // Ajustá según tu modelo
+            ProductoRMAActual.IdProducto = prod.IdProducto;
+            ProductoRMAActual.DescripcionProductoRMA = prod.Nombre; // o la descripción que devuelva el modal
+            StateHasChanged();
+        }
+    }
+
+
+
+
+    private void CancelarEdicion()
+    {
+        ProductoRMAActual = new ProductoRMA();
+        
+
+        esEdicion = false;
+    }
+
+    RenderFragment FormProductoRMA => @<div style="padding: 16px;  padding-top : 16px">
+    <MudForm @ref="formProductoRMA" OnValidSubmit="Registrar">
+        <MudStack Spacing="2">
+
+
+            <div @ondblclick="AbrirMDProducto">
+                <MudTextField Label="Producto RMA"
+                              @bind-Value="ProductoRMAActual.DescripcionProductoRMA"
+                              ReadOnly="true"
+                              Required="true"
+                              Placeholder="Doble clic para buscar…"
+                              HelperText="Hacé doble clic para abrir el buscador"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              AdornmentColor="Color.Primary" />
+
+            </div>
+
+            <MudNumericField Label="Cantidad" @bind-Value="ProductoRMAActual.Cantidad" Required="true"  />
+
+            <MudSelect T="string" Label="Estado" @bind-Value="ProductoRMAActual.Estado" Required="true">
+                <MudSelectItem Value="@("DADO DE ALTA EN RMA")">DADO DE ALTA EN RMA</MudSelectItem>
+                <MudSelectItem Value="@("PROCESO DE RMA COMPLETADO")">PROCESO DE RMA COMPLETADO</MudSelectItem>
+                <MudSelectItem Value="@("EN ESPERA DE RESOLUCION RMA")">EN ESPERA DE RESOLUCION RMA</MudSelectItem>
+                <MudSelectItem Value="@("REPARADO POR RMA")">REPARADO POR RMA</MudSelectItem>
+                <MudSelectItem Value="@("NOTA DE CREDITO POR EL RMA")">NOTA DE CREDITO POR EL RMA</MudSelectItem>
+                <MudSelectItem Value="@("MERCADERIA NO A LA VENTA")">MERCADERIA NO A LA VENTA</MudSelectItem>
+            </MudSelect>
+
+            <!-- Fecha Ingreso (obligatoria) -->
+            <MudDatePicker Label="Fecha Desde"
+                           @bind-Date="ProductoRMAActual.FechaIngreso"
+                           Dense="true" Margin="Margin.Dense"
+                           Required ="true"
+                           Clearable="true"
+                           Adornment="Adornment.End"
+                           AdornmentIcon="@Icons.Material.Filled.DateRange" />
+
+            <!-- Fecha Egreso (puede ser nula; si querés obligarla, dejá Required) -->
+            <MudDatePicker Label="Fecha Egreso"
+                           @bind-Date="ProductoRMAActual.FechaEgreso"
+                           Dense="true" Margin="Margin.Dense"
+                           Clearable="true"
+                           Adornment="Adornment.End"
+                           AdornmentIcon="@Icons.Material.Filled.DateRange" />
+
+
+
+
+
+
+            <MudStack Direction="Row" Spacing="2">
+                <MudButton OnClick="Registrar" Variant="Variant.Filled" Color="Color.Primary">
+                    @(esEdicion ? "Actualizar" : "Guardar")
+                </MudButton>
+                @if (esEdicion)
+                                {
+
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CancelarEdicion">
+                    Cancelar
+                </MudButton>
+                                }
+            </MudStack>
+        </MudStack>
+    </MudForm>
+</div>;
+
+
+RenderFragment GridProductoRMA => @<div style="padding: 16px;  padding-top : 16px">
+    <MudTable Items="ProductoRMAsFiltradas"
+              Dense="true"
+              Hover="true"
+              Bordered="true"
+              Striped="true"
+              Sortable="true"
+              Breakpoint="Breakpoint.Sm"
+              RowsPerPageOptions="new int[]{ 5, 10, 20,30,40,50 }"
+              PagerAlwaysVisible="true"
+              Elevation="1"
+              Class="mt-2">
+        <HeaderContent>
+            <MudTh>
+                <MudTableSortLabel T="ProductoRMA" SortBy="@(c => c.DescripcionProductoRMA)">Producto RMA</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="ProductoRMA" SortBy="@(c => c.Cantidad)">Cantidad</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="ProductoRMA" SortBy="@(c => c.Estado)">Estado</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="ProductoRMA" SortBy="@(c => c.FechaIngreso)">Fecha Ingreso</MudTableSortLabel>
+            </MudTh>
+             <MudTh>
+                <MudTableSortLabel T="ProductoRMA" SortBy="@(c => c.FechaEgreso)">Fecha Egreso</MudTableSortLabel>
+
+            </MudTh>
+
+
+
+            <MudTh>Acciones</MudTh>
+
+
+
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Producto RMA">@context.DescripcionProductoRMA</MudTd>
+            <MudTd DataLabel="Cantidad">@context.Cantidad</MudTd>
+            <MudTd DataLabel="Estado">@context.Estado</MudTd>
+            <MudTd DataLabel="Fecha Ingreso">@context.FechaIngreso</MudTd>
+            <MudTd DataLabel="Fecha Egreso">@context.FechaEgreso</MudTd>
+
+
+
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Success" Size="Size.Small" OnClick="() => Editar(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => Eliminar(context)" Class="ms-2" />
+
+            </MudTd>
+        </RowTemplate>
+
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
+                           RowsPerPageString="Registros por página">
+            </MudTablePager>
+        </PagerContent>
+    </MudTable>
+
+</div>;
+
+}
+
+

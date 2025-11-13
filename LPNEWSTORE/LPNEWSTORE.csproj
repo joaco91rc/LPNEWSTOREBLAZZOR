@@ -29,9 +29,4 @@
     <ProjectReference Include="..\Services\Services.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Pages\ServicioTecnico\" />
-    <Folder Include="Pages\RMA\" />
-  </ItemGroup>
-
 </Project>
