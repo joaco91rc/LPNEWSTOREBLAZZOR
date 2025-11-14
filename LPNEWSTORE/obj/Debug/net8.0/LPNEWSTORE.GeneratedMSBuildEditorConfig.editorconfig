@@ -171,12 +171,20 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXEFkbWluTWVudS5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Shared/Modals/MDAgregarReparacion.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXE1vZGFsc1xNREFncmVnYXJSZXBhcmFjaW9uLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Shared/Modals/MDAperturaCaja.razor]
 build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXE1vZGFsc1xNREFwZXJ0dXJhQ2FqYS5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Shared/Modals/MDCliente.razor]
 build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXE1vZGFsc1xNRENsaWVudGUucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Shared/Modals/MDDetalleServicioTecnico.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXE1vZGFsc1xNRERldGFsbGVTZXJ2aWNpb1RlY25pY28ucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Shared/Modals/MDFiltrosReportes.razor]

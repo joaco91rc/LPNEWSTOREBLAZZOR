@@ -1,0 +1,363 @@
+﻿@using Entities
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Services
+@using System.ComponentModel.DataAnnotations
+@inject IJSRuntime JS
+
+
+
+
+<MudDialog MaxWidth="MaxWidth.Medium" FullWidth="true">
+    <DialogContent>
+        <EditForm Model="@vm" OnValidSubmit="RegistrarReparacionAsync">
+
+            <DataAnnotationsValidator />
+            <MudStack Spacing="2">
+                <MudText Typo="Typo.h5" Color="Color.Primary">Agregar Reparación</MudText>
+
+                <MudGrid GutterSize="2">
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="ID Servicio Técnico" @bind-Value="vm.IdServicioTecnico" ReadOnly="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudDatePicker Label="Fecha" @bind-Date="vm.Fecha" DateFormat="dddd, dd 'de' MMMM 'de' yyyy" />
+                        <ValidationMessage For="()=>vm.Fecha"/>
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudTextField Label="Técnico" @bind-Value="vm.Tecnico" />
+                        <ValidationMessage For="()=>vm.Tecnico"/>
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudTextField Label="Descripción Reparación" Lines="3" @bind-Value="vm.Descripcion" />
+                        <ValidationMessage For="()=>vm.Descripcion"/>
+                    </MudItem>
+
+                    <MudItem xs="12" Class="d-flex align-center">
+                        <MudText Typo="Typo.subtitle2" Color="Color.Success" Class="me-2">
+                            Agregar repuesto del stock
+                        </MudText>
+                        <MudIconButton Icon="@Icons.Material.Filled.Search"
+                                       Color="Color.Primary"
+                                       OnClick="AgregarRepuestoAsync"
+                                       Title="Buscar repuesto" />
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudTable Class="tabla-repuestos" Items="@vm.Items" Dense="true" Hover="true" Bordered="true" Elevation="0">
+                            <ColGroup>
+                                <col style="width:80px" />
+                                <col style="width:250px" />
+                                <col style="width:80px" />
+                                <col style="width:120px" />
+                                <col style="width:60px" />
+                            </ColGroup>
+
+                            <HeaderContent>
+                                <MudTh>Codigo</MudTh>
+                                <MudTh>Repuesto</MudTh>
+                                <MudTh>Cantidad</MudTh>
+                                <MudTh>Precio Venta</MudTh>
+                                <MudTh>Acciones</MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="row">
+                                <MudTd DataLabel="Codigo">@row.Codigo</MudTd>
+                                <MudTd DataLabel="Repuesto">@row.Nombre</MudTd>
+                                <MudTd DataLabel="Cantidad">@row.Cantidad</MudTd>
+
+                                
+                                <MudTd DataLabel="Precio Venta">
+                                    <MudTextField ReadOnly="true"
+                                                  Value="@row.PrecioVenta.ToString("N2")"
+                                                  
+                                                  Dense="true"
+                                                  Adornment="Adornment.Start"
+                                                  AdornmentText="$"
+                                                  DisableUnderLine="true" />
+                                </MudTd>
+
+                                
+                                <MudTd>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => EliminarItem(row))" />
+                                </MudTd>
+                            </RowTemplate>
+                            <FooterContent>
+                                
+                                <MudTr>
+                                    <MudTd ColSpan="5">
+                                        <div style="height:30px;"></div>
+                                    </MudTd>
+                                </MudTr>
+
+                                
+                                <MudTr>
+                                    <MudTd></MudTd>
+                                    <MudTd class="text-end fw-bold">Total repuestos:</MudTd>
+                                    <MudTd></MudTd>
+                                    <MudTd class="fw-bold">@vm.CostoRepuestos.ToString("C")</MudTd>
+                                    <MudTd></MudTd>
+                                </MudTr>
+                            </FooterContent>
+
+                        </MudTable>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="4">
+                        <MudNumericField T="decimal" Label="Horas de Trabajo"
+                                         @bind-Value="vm.HorasTrabajo" Min="0.01M" Adornment="Adornment.End" AdornmentText="hs" />
+                        <ValidationMessage For="()=>vm.HorasTrabajo"/>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudNumericField T="decimal" Label="Costo Repuestos" ReadOnly="true"
+                                         @bind-Value="vm.CostoRepuestos" Adornment="Adornment.Start" AdornmentText="$" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudNumericField T="decimal" Label="Costo Mano de Obra"
+                                         @bind-Value="vm.CostoManoObra" Min="0.01M" Adornment="Adornment.Start" AdornmentText="$" />
+                        <ValidationMessage For="()=>vm.CostoManoObra"/>
+                    </MudItem>
+                </MudGrid>
+            </MudStack>
+        </EditForm>
+    </DialogContent>
+
+    <DialogActions >
+        <MudButton Variant="Variant.Text" OnClick="()=>MudDialog.Close()">Cancelar</MudButton>
+        <MudButton Color="Color.Success"
+                   StartIcon="@Icons.Material.Filled.Build"
+                   OnClick="Submit">Registrar Reparación</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    // ----- Parámetros -----
+    [Parameter] public int IdServicioTecnico { get; set; }
+    [Parameter] public int IdNegocio { get; set; }   // sucursal (stock)
+
+    // ----- Inyecciones (ajustar a tus services) -----
+    [Inject] ISnackbar Snackbar { get; set; } = default!;
+    [Inject] IDialogService DialogService { get; set; } = default!;
+    // TODO: inyectá tus servicios reales
+    [Inject] HistorialServicioTecnicoService HistorialSrv { get; set; } = default!;
+    [Inject] HistorialProductoSTService HistorialProdSrv { get; set; } = default!;
+    [Inject] ProductoNegocioService ProductoNegocioSrv { get; set; } = default!;
+    [Inject] CotizacionService CotizacionSrv { get; set; } = default!;
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    // private async Task HandleValidSubmit(EditContext _)
+    // => await RegistrarReparacionAsync();
+
+    // ----- VM -----
+    private ReparacionVM vm = new();
+
+    protected override void OnInitialized()
+    {
+        vm.IdServicioTecnico = IdServicioTecnico;
+        vm.Fecha = DateTime.Now;
+    }
+
+
+
+    private async Task AgregarRepuestoAsync()
+    {
+        var opts = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var parms = new DialogParameters { /* si necesitás pasar filtros, sucursal, etc. */ };
+
+        // Reemplazá MDProducto por tu componente real del buscador:
+        var diag = DialogService.Show<MDProducto>("Buscar Producto", parms, opts);
+        var res = await diag.Result;
+
+        if (res.Canceled || res.Data is not Producto p) return;
+
+        // Si tu producto puede venir dolarizado, convertí a ARS
+        decimal precioPesos = p.PrecioLista;
+        if (p.ProductoDolar)
+        {
+            var cotiz = await CotizacionSrv.CotizacionActiva(); // tu servicio
+            precioPesos = Math.Round(p.PrecioLista * cotiz.Importe, 2);
+        }
+
+        // Si ya existe, sumo cantidad; si no, agrego fila
+        var existente = vm.Items.FirstOrDefault(x => x.IdProducto == p.IdProducto);
+        if (existente is not null)
+        {
+            existente.Cantidad += 1;
+        }
+        else
+        {
+            vm.Items.Add(new ItemRepuesto
+        {
+            IdProducto = p.IdProducto,
+            Codigo = p.Codigo,
+            Nombre = p.Nombre,
+            Cantidad = 1,
+            PrecioVenta = precioPesos
+        });
+        }
+
+        RecalcularCostos();
+        StateHasChanged();
+        Snackbar.Add("Repuesto agregado.", Severity.Success);
+        
+    }
+
+
+    private void EliminarItem(ItemRepuesto it)
+    {
+        vm.Items.Remove(it);
+        RecalcularCostos();
+    }
+
+    private void RecalcularCostos()
+    {
+        vm.CostoRepuestos = vm.Items.Sum(i => i.PrecioVenta * i.Cantidad);
+    }
+
+    private void OnCantidadChanged(ItemRepuesto row, decimal nuevaCantidad)
+    {
+        row.Cantidad = Math.Max(1, nuevaCantidad);
+        RecalcularCostos();
+    }
+
+    private void OnPrecioChanged(ItemRepuesto row, decimal nuevoPrecio)
+    {
+        row.PrecioVenta = Math.Max(0, nuevoPrecio);
+        RecalcularCostos();
+    }
+
+    
+
+    private async Task RegistrarReparacionAsync()
+    {
+        // Validaciones adicionales (las críticas de tu WinForms)
+        var errores = new List<string>();
+        if (vm.Fecha == null) errores.Add("Debe seleccionar una fecha válida.");
+        if (string.IsNullOrWhiteSpace(vm.Tecnico)) errores.Add("Debe ingresar el técnico responsable.");
+        if (string.IsNullOrWhiteSpace(vm.Descripcion)) errores.Add("Debe ingresar una descripción de la reparación.");
+        if (vm.CostoManoObra <= 0) errores.Add("El costo de mano de obra debe ser mayor a 0.");
+        if (vm.HorasTrabajo <= 0) errores.Add("Las horas de trabajo deben ser mayores a 0.");
+
+        if (errores.Any())
+        {
+            foreach (var e in errores) Snackbar.Add(e, Severity.Error);
+            return;
+        }
+
+        // 1) Registrar Historial Servicio Técnico
+        var hst = new HistorialServicioTecnico
+        {
+            IdServicio = vm.IdServicioTecnico,
+            FechaAccion = vm.Fecha!.Value,
+            Responsable = vm.Tecnico,
+            DescripcionAccion = vm.Descripcion,
+            CostoManoDeObra = vm.CostoManoObra,
+            CostoRepuestos = vm.CostoRepuestos,
+            HorasTrabajo = vm.HorasTrabajo,
+            EstadoReparacion = "REPARADO"
+           
+        };
+
+        var (idHistorial, msgH) = await HistorialSrv.RegistrarHistorialServicioAsync(hst);
+        if (idHistorial <= 0)
+        {
+            Snackbar.Add("Error al registrar historial: " + msgH, Severity.Error);
+            return;
+        }
+
+        // 2) Registrar detalle + actualizar stock
+        var mensajesStock = new List<string>();
+        foreach (var row in vm.Items.ToList())
+        {
+            var det = new HistorialProductoServTec
+            {
+                IdHistorialServicio = idHistorial,
+                IdProducto = row.IdProducto,
+                NombreProducto = row.Nombre,
+                Cantidad = row.Cantidad,
+                PrecioVenta = row.PrecioVenta
+            };
+
+            var (idGenerado, msgDet) = await HistorialProdSrv.InsertarHistorialProductoAsync(det);
+            if (idGenerado == 0)
+            {
+                Snackbar.Add("Error al insertar detalle: " + msgDet, Severity.Error);
+                return;
+            }
+
+            // stock: resta
+            var msgStock = await ProductoNegocioSrv.CargarOActualizarStockProductoAsync(row.IdProducto, IdNegocio, -(int)row.Cantidad);
+            mensajesStock.Add($"Producto: {row.Nombre} - {msgStock}");
+        }
+
+        Snackbar.Add("Reparación registrada correctamente.", Severity.Success);
+        if (mensajesStock.Any())
+            Snackbar.Add(string.Join("<br/>", mensajesStock), Severity.Info, config => config.VisibleStateDuration = 6000);
+
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Submit() => _ = RegistrarReparacionAsync();
+
+    // ======== VM / DTOs ========
+    public class ReparacionVM
+    {
+        [Required] public int IdServicioTecnico { get; set; }
+        [Required] public DateTime? Fecha { get; set; }
+        [Required] public string Tecnico { get; set; } = string.Empty;
+        [Required] public string Descripcion { get; set; } = string.Empty;
+
+        [Range(0.01, double.MaxValue)]
+        public decimal CostoManoObra { get; set; }
+
+        public decimal CostoRepuestos { get; set; }
+        [Range(0.01, double.MaxValue)]
+        public decimal HorasTrabajo { get; set; }
+
+        public List<ItemRepuesto> Items { get; set; } = new();
+    }
+
+    public class ItemRepuesto
+    {
+        public int IdProducto { get; set; }
+        public string Codigo { get; set; } = string.Empty;
+        public string Nombre { get; set; } = string.Empty;
+        public decimal Cantidad { get; set; } = 1;
+        public decimal PrecioVenta { get; set; }
+    }
+
+    // DTO ejemplo que retornaría tu buscador
+    public class ProductoSeleccionado
+    {
+        public int IdProducto { get; set; }
+        public string Codigo { get; set; } = "";
+        public string Nombre { get; set; } = "";
+        public bool ProductoDolar { get; set; }
+        public decimal PrecioLista { get; set; }
+    }
+}
+<style>
+
+    /* Hace que respete los anchos del ColGroup */
+    .tabla-repuestos table {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    /* Evita que el contenido “estire” la columna */
+    .tabla-repuestos td, .tabla-repuestos th {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* opcional para marcar qué truncar específicamente */
+    .truncate {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+
+</style>

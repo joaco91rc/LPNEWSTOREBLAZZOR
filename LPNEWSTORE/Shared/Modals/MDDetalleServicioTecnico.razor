@@ -1,0 +1,398 @@
+﻿@using MudBlazor
+@using Entities   
+@using Services   
+
+<MudDialog MaxWidth="MaxWidth.Large" FullWidth="true">
+    <DialogContent>
+
+        <!-- CABECERA -->
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            
+            
+        </MudStack>
+
+        <!-- DATOS BÁSICOS -->
+        <MudPaper Class="p-3 mb-3" Elevation="3" Style="border:1px solid var(--mud-palette-primary); border-radius:8px;">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Color="Color.Primary">Cliente</MudText>
+                    <MudText Style="text-decoration: underline;">@ServicioTecnico.NombreCliente</MudText>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Color="Color.Primary">Equipo a reparar</MudText>
+                    <MudText Style="text-decoration: underline;  ">@ServicioTecnico.Producto</MudText>
+                </MudItem>
+
+                <MudItem xs="12" md="6" Class="mt-2">
+                    <MudText Typo="Typo.subtitle2" Color="Color.Primary">Descripción del problema</MudText>
+                    <MudText Style="text-decoration: underline;">@ServicioTecnico.DescripcionProblema</MudText>
+                </MudItem>
+                <MudItem xs="12" md="6" Class="mt-2">
+                    <MudText Typo="Typo.subtitle2" Color="Color.Primary">Observaciones</MudText>
+                    <MudText Style="text-decoration: underline; ">
+                        @ServicioTecnico.Observaciones
+                    </MudText>
+
+                </MudItem>
+
+                <MudItem xs="12" md="6" Class="mt-2">
+                    <div style="height:30px;"></div>
+                </MudItem>
+               
+            </MudGrid>
+
+        </MudPaper>
+
+        <!-- GRILLAS REPARACIONES / REPUESTOS -->
+        <MudGrid>
+            <!-- Reparaciones -->
+            <MudItem xs="12" md="6" >
+                <MudPaper Class="p-2" Elevation="1">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+                        <MudText Typo="Typo.subtitle1" Color="Color.Primary">Reparaciones</MudText>
+                        @if (_cargandoReparaciones)
+                        {
+                            <MudProgressCircular Indeterminate="true" Size="Size.Medium" />
+                        }
+                    </MudStack>
+
+                    <MudTable T="HistorialServicioTecnico"
+                                Items="_reparaciones"
+
+                              Hover="true"
+                              Dense="true"
+                              Bordered="true"
+                              Striped="true"
+                              OnRowClick="OnRowClickReparacion">
+                        <HeaderContent>
+                            <MudTh>Fecha</MudTh>
+                            <MudTh>Descripción</MudTh>
+                            <MudTh>Responsable</MudTh>
+                            <MudTh>MO</MudTh>
+                            <MudTh>Rep.</MudTh>
+                            <MudTh>Horas</MudTh>
+                            <MudTh style="width:60px; text-align:right;">Acciones</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Fecha">@context.FechaAccion.ToString("dd/MM/yyyy HH:mm")</MudTd>
+                            <MudTd DataLabel="Descripción">@context.DescripcionAccion</MudTd>
+                            <MudTd DataLabel="Responsable">@context.Responsable</MudTd>
+                            <MudTd DataLabel="MO">@((context.CostoManoDeObra ?? 0).ToString("N2"))</MudTd>
+                            <MudTd DataLabel="Rep.">@((context.CostoRepuestos ?? 0).ToString("N2"))</MudTd>
+                            <MudTd DataLabel="Horas">@((context.HorasTrabajo ?? 0).ToString("N2"))</MudTd>
+                            <MudTd DataLabel="Acciones" Class="d-flex justify-end">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               OnClick="@(() => EliminarReparacionAsync(context))" />
+                            </MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent>
+                            <MudText>No hay reparaciones registradas.</MudText>
+                        </NoRecordsContent>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Repuestos -->
+            <MudItem xs="12" md="6">
+                <MudPaper Class="p-2" Elevation="4">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+                        <MudText Typo="Typo.subtitle1" Color="Color.Primary">
+                            Repuestos @if (_reparacionSeleccionada is not null)
+                            {
+                                <text>(Reparación @(_reparacionSeleccionada.IdHistorial))</text>
+                            }
+                        </MudText>
+                        @if (_cargandoRepuestos)
+                        {
+                            <MudProgressCircular Indeterminate="true" Size="Size.Medium" />
+                        }
+                    </MudStack>
+
+                    <MudTable Items="_repuestos"
+                              Hover="true"
+                              Dense="true"
+                              Bordered="true"
+                              Striped="true">
+                        <HeaderContent>
+                            <MudTh>Código</MudTh>
+                            <MudTh>Producto</MudTh>
+                            <MudTh>Cant.</MudTh>
+                            <MudTh>Precio Venta</MudTh>
+                            <MudTh style="width:60px; text-align:right;">Acciones</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Código">@context.CodigoProducto</MudTd>
+                            <MudTd DataLabel="Producto">@context.NombreProducto</MudTd>
+                            <MudTd DataLabel="Cant.">@context.Cantidad</MudTd>
+                            <MudTd DataLabel="Precio Venta">@context.PrecioVenta.ToString("N2")</MudTd>
+                            <MudTd DataLabel="Acciones" Class="d-flex justify-end">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               OnClick="@(() => EliminarRepuestoAsync(context))" />
+                            </MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent>
+                            <MudText>Seleccioná una reparación para ver sus repuestos.</MudText>
+                        </NoRecordsContent>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+        <div style="height:100px;"></div>
+    </DialogContent>
+
+    <DialogActions >
+        <MudSpacer />
+        <MudButton Color="Color.Primary" Variant="Variant.Outlined" OnClick="@Cerrar">
+            Cerrar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    // Parámetro que te pasa el formulario padre
+    [Parameter] public ServTecnico ServicioTecnico { get; set; } = default!;
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Inject] public HistorialServicioTecnicoService HistorialServicioService { get; set; } = default!;
+    [Inject] public HistorialProductoSTService HistorialProductoService { get; set; } = default!;
+    [Inject] public ProductoNegocioService ProductoNegocioService { get; set; } = default!;
+    [Inject] public ISnackbar Snackbar { get; set; } = default!;
+    [Inject] public IDialogService DialogService { get; set; } = default!; // para confirmar eliminaciones
+
+    private List<HistorialServicioTecnico> _reparaciones = new();
+    private List<HistorialProductoServTec> _repuestos = new();
+    private HistorialServicioTecnico? _reparacionSeleccionada;
+
+    private bool _cargandoReparaciones;
+    private bool _cargandoRepuestos;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarReparacionesAsync();
+    }
+
+    private void Cerrar()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task CargarReparacionesAsync()
+    {
+        _cargandoReparaciones = true;
+        try
+        {
+            _reparaciones = await HistorialServicioService
+                .ListarHistorialServicioAsync(ServicioTecnico.IdServicio);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar reparaciones: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _cargandoReparaciones = false;
+        }
+    }
+
+    private async Task OnRowClickReparacion(TableRowClickEventArgs<HistorialServicioTecnico> e)
+    {
+        await SeleccionarReparacionAsync(e.Item);
+    }
+
+    private async Task SeleccionarReparacionAsync(HistorialServicioTecnico reparacion)
+    {
+        _reparacionSeleccionada = reparacion;
+        await CargarRepuestosAsync(reparacion.IdHistorial);
+    }
+
+    
+    private async Task CargarRepuestosAsync(int idHistorialServicio)
+    {
+        _cargandoRepuestos = true;
+        try
+        {
+            _repuestos = await HistorialProductoService
+                .ListarHistorialProductosAsync(idHistorialServicio);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar repuestos: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _cargandoRepuestos = false;
+        }
+    }
+
+    // === Eliminar reparación (equivalente a dgvDataReparaciones_CellClick en columna eliminar) ===
+    private async Task EliminarReparacionAsync(HistorialServicioTecnico reparacion)
+    {
+        // Confirmación
+        bool? confirm = await MostrarConfirmacionAsync(
+            "Servicio Técnico",
+            "¿Querés eliminar la reparación seleccionada y todos sus repuestos asociados?"
+        );
+
+        if (confirm != true)
+            return;
+
+        var mensajesStock = new List<string>();
+
+        try
+        {
+            // Traigo repuestos de esa reparación
+            var repuestosDeLaReparacion = await HistorialProductoService
+                .ListarHistorialProductosAsync(reparacion.IdHistorial);
+
+            // Elimino primero todos los repuestos + devuelvo stock
+            foreach (var repuesto in repuestosDeLaReparacion)
+            {
+                var (eliminado, mensaje) =
+                    await HistorialProductoService.EliminarHistorialProductoAsync(repuesto.IdHistorialProducto);
+
+                if (!eliminado)
+                {
+                    Snackbar.Add($"No se pudo eliminar un repuesto asociado. {mensaje}", Severity.Error);
+                    return;
+                }
+                int idProducto = 0;
+                if (repuesto.IdProducto.HasValue)
+                {
+                    idProducto = repuesto.IdProducto.Value;
+                }
+                // Devolver stock
+                var resultadoStock = await ProductoNegocioService
+                    .CargarOActualizarStockProductoAsync(
+                        idProducto,
+                        ServicioTecnico.IdNegocio, // o GlobalSettings.SucursalId si es estático
+                        Convert.ToInt32(repuesto.Cantidad));
+
+                mensajesStock.Add($"Producto: {repuesto.NombreProducto} - {resultadoStock}");
+            }
+
+            if (mensajesStock.Count > 0)
+            {
+                Snackbar.Add(string.Join(" | ", mensajesStock), Severity.Info);
+            }
+
+            // Ahora elimino la reparación
+            var (okReparacion, mensajeRep) =
+                await HistorialServicioService.EliminarHistorialServicioAsync(reparacion.IdHistorial);
+
+            if (okReparacion)
+            {
+                _reparaciones.Remove(reparacion);
+
+                if (_reparacionSeleccionada?.IdHistorial == reparacion.IdHistorial)
+                {
+                    _reparacionSeleccionada = null;
+                    _repuestos.Clear();
+                }
+
+                Snackbar.Add("Se ha eliminado la reparación.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add($"No se pudo eliminar la reparación. {mensajeRep}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al eliminar la reparación: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // === Eliminar repuesto (equivalente a dgvDataRepuestos_CellContentClick columna eliminar) ===
+    private async Task EliminarRepuestoAsync(HistorialProductoServTec repuesto)
+    {
+        bool? confirm = await MostrarConfirmacionAsync(
+            "Servicio Técnico",
+            $"¿Querés eliminar el repuesto '{repuesto.NombreProducto}' de la reparación?"
+        );
+
+        if (confirm != true)
+            return;
+
+        try
+        {
+            var (eliminado, mensaje) =
+                await HistorialProductoService.EliminarHistorialProductoAsync(repuesto.IdHistorialProducto);
+
+            if (!eliminado)
+            {
+                Snackbar.Add($"No se pudo eliminar el repuesto de la reparación. {mensaje}", Severity.Error);
+                return;
+            }
+
+            int idProducto = 0;
+            if (repuesto.IdProducto.HasValue)
+            {
+                idProducto = repuesto.IdProducto.Value;
+            }
+
+            // Devolver stock
+            var resultadoStock = await ProductoNegocioService
+                .CargarOActualizarStockProductoAsync(
+                    idProducto,
+                    ServicioTecnico.IdNegocio,
+                    Convert.ToInt32(repuesto.Cantidad));
+
+            Snackbar.Add(
+                $"Se ha eliminado el repuesto. Producto: {repuesto.NombreProducto}. {resultadoStock}",
+                Severity.Success);
+
+            _repuestos.Remove(repuesto);
+
+            // Si ya no quedan repuestos para ese historial, elimino la reparación también
+            if (!_repuestos.Any(r => r.IdHistorialServicio == repuesto.IdHistorialServicio))
+            {
+                var reparacion = _reparaciones
+                    .FirstOrDefault(r => r.IdHistorial == repuesto.IdHistorialServicio);
+
+                if (reparacion is not null)
+                {
+                    var (elimRep, msgRep) =
+                        await HistorialServicioService.EliminarHistorialServicioAsync(reparacion.IdHistorial);
+
+                    if (elimRep)
+                    {
+                        _reparaciones.Remove(reparacion);
+                        if (_reparacionSeleccionada?.IdHistorial == reparacion.IdHistorial)
+                        {
+                            _reparacionSeleccionada = null;
+                        }
+
+                        Snackbar.Add("Se ha eliminado la reparación ya que no tenía repuestos asociados.", Severity.Info);
+                    }
+                    else
+                    {
+                        Snackbar.Add($"No se pudo eliminar la reparación. {msgRep}", Severity.Error);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al eliminar el repuesto: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task<bool?> MostrarConfirmacionAsync(string titulo, string mensaje)
+    {
+        var result = await DialogService.ShowMessageBox(
+            title: titulo,
+            markupMessage: (MarkupString)mensaje,
+            yesText: "Aceptar",
+            cancelText: "Cancelar"
+        );
+
+        return result; // true = Aceptar, false/null = Cancelar / cerrar
+    }
+
+}

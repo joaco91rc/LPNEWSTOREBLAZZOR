@@ -10,7 +10,7 @@
 @using System.ComponentModel.DataAnnotations
 @using System.Text
 
-
+@inject OrdenTrabajoService OrdenTrabajoService
 @inject ProductoService ProductoService
 @inject ServicioTecnicoService ServTecnicoService
 @inject RolService rolService
@@ -272,101 +272,82 @@
     }
 
 
-    private async Task CobrarServicio(ServTecnico c)
+    private async Task CompletarServicio(ServTecnico c)
     {
-        // bool? confirmado = await DialogService.ShowMessageBox(
-        //     title: "Eliminar ServTecnico",
-        //     markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar el ServTecnico {c.IdServicio}?</b>",
-        //     yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
-        // );
-
-        // if (confirmado == true)
-        // {
-        //     var (exito, mensaje) = await ServTecnicoService.eli(c.IdServTecnico);
-
-        //     if (exito)
-        //     {
-        //         Snackbar.Add(mensaje, Severity.Success);
-        //         listaServTecnico = await ServTecnicoService.Listar();
-        //     }
-        //     else
-        //     {
-        //         Snackbar.Add(mensaje, Severity.Error);
-        //     }
-        // }
+        
     }
 
 
     private async Task AgregarReparacion(ServTecnico c)
     {
-        // bool? confirmado = await DialogService.ShowMessageBox(
-        //     title: "Eliminar ServTecnico",
-        //     markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar el ServTecnico {c.IdServicio}?</b>",
-        //     yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
-        // );
+        // Validación previa (similar a tu if de WinForms)
+        var estado = c.EstadoServicio;
+        if (!string.Equals(estado, "EN REPARACION", StringComparison.OrdinalIgnoreCase))
+        {
+            Snackbar.Add("El estado del Servicio debe ser EN REPARACION para poder agregar Reparaciones.",
+                         Severity.Error);
+            return;
+        }
 
-        // if (confirmado == true)
-        // {
-        //     var (exito, mensaje) = await ServTecnicoService.eli(c.IdServTecnico);
+        // Parámetros para el diálogo (pasá lo que necesites)
+        var parameters = new DialogParameters
+    {
+        { nameof(MDAgregarReparacion.IdServicioTecnico), c.IdServicio },
+         { nameof(MDAgregarReparacion.IdNegocio), c.IdNegocio }
+        
+    };
 
-        //     if (exito)
-        //     {
-        //         Snackbar.Add(mensaje, Severity.Success);
-        //         listaServTecnico = await ServTecnicoService.Listar();
-        //     }
-        //     else
-        //     {
-        //         Snackbar.Add(mensaje, Severity.Error);
-        //     }
-        // }
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Large,
+            FullWidth = true
+        };
+
+        // Abrir diálogo
+        var dialog = DialogService.Show<MDAgregarReparacion>("Agregar reparación", parameters, options);
+        var result = await dialog.Result;
+
+       
     }
+
 
     private async Task ConsultarReparaciones(ServTecnico c)
     {
-        // bool? confirmado = await DialogService.ShowMessageBox(
-        //     title: "Eliminar ServTecnico",
-        //     markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar el ServTecnico {c.IdServicio}?</b>",
-        //     yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
-        // );
+        var parameters = new DialogParameters
+    {
+        { nameof(MDDetalleServicioTecnico.ServicioTecnico), c }
+    };
 
-        // if (confirmado == true)
-        // {
-        //     var (exito, mensaje) = await ServTecnicoService.eli(c.IdServTecnico);
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.ExtraLarge,
+            FullWidth = true
+        };
 
-        //     if (exito)
-        //     {
-        //         Snackbar.Add(mensaje, Severity.Success);
-        //         listaServTecnico = await ServTecnicoService.Listar();
-        //     }
-        //     else
-        //     {
-        //         Snackbar.Add(mensaje, Severity.Error);
-        //     }
-        // }
+        DialogService.Show<MDDetalleServicioTecnico>("Detalle Servicio Técnico", parameters, options);
+    
     }
 
     private async Task CambiarEstado(ServTecnico c)
     {
-        // bool? confirmado = await DialogService.ShowMessageBox(
-        //     title: "Eliminar ServTecnico",
-        //     markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar el ServTecnico {c.IdServicio}?</b>",
-        //     yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
-        // );
+        var ordenTrabajo = OrdenTrabajoService.ObtenerPorIdServicio(c.IdServicio);
+        if(ordenTrabajo != null)
+        {
 
-        // if (confirmado == true)
-        // {
-        //     var (exito, mensaje) = await ServTecnicoService.eli(c.IdServTecnico);
+            var ( cambiarEstado , mensaje ) = await ServTecnicoService.CambiarEstadoIngresadoAEnReparacionAsync(c.IdServicio);
+            if (cambiarEstado)
+            {
+                Snackbar.Add($"El estado del Servicio Tecnico numero {c.IdServicio} ha pasado al Estado En Reparacion");
+                listaServTecnico = await ServTecnicoService.ListarAsync(sucursalSeleccionada);
+                StateHasChanged();
+            }
 
-        //     if (exito)
-        //     {
-        //         Snackbar.Add(mensaje, Severity.Success);
-        //         listaServTecnico = await ServTecnicoService.Listar();
-        //     }
-        //     else
-        //     {
-        //         Snackbar.Add(mensaje, Severity.Error);
-        //     }
-        // }
+        } else
+        {
+            Snackbar.Add("Para cambiar el estado del Servicio tecnico a EN REPARACION, debe confirmar la Orden de Trabajo en el Modulo Ordenes de Trabajo", Severity.Warning);
+        }
     }
 
     private async Task AbrirMDCliente()
@@ -577,10 +558,10 @@ RenderFragment GridServTecnico => @<div style="padding: 16px;  padding-top : 16p
 
             <MudTd>
                 <MudIconButton Icon="@Icons.Material.Filled.Edit"  Color ="Color.Primary" Size="Size.Small" OnClick="() => Editar(context)" />
-                <MudIconButton Icon="@Icons.Material.Filled.Sync" Color="Color.Secondary" Size="Size.Small" OnClick="() => CambiarEstado(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.ImportExport" Color="Color.Warning"  Size="Size.Small" OnClick="() => CambiarEstado(context)" />
                 <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Success" Size="Size.Small" OnClick="() => AgregarReparacion(context)" Class="ms-2" />
-                <MudIconButton Icon="@Icons.Material.Filled.List" Color="Color.Info" Size="Size.Small" OnClick="() => ConsultarReparaciones(context)" />
-                <MudIconButton Icon="@Icons.Material.Filled.AttachMoney" Color="Color.Success" Size="Size.Small" OnClick="() => CobrarServicio(context)" Class="ms-2" />
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Secondary" Size="Size.Small" OnClick="() => ConsultarReparaciones(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.CheckCircleOutline" Color="Color.Dark" Size="Size.Small" OnClick="() => CompletarServicio(context)" Class="ms-2" />
 
             </MudTd>
         </RowTemplate>
