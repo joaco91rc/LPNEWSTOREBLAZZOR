@@ -1,0 +1,149 @@
+﻿@using Entities
+@using MudBlazor
+@using Services
+@inject ServicioTecnicoService ServTecnicoService
+
+@inherits ComponentBase
+
+<CascadingValue Value="MudDialog">
+    <MudDialog>
+        <DialogContent>
+            <MudStack Spacing="2">
+
+                <MudText Typo="Typo.h5" Color="Color.Primary">
+                    Confirmar reparación
+                </MudText>
+
+                <MudText Typo="Typo.body2">
+                    Se va a calcular el costo del servicio técnico y se cambiará el estado a
+                    <MudText Color="Color.Success" Typo="Typo.body2" Inline="true"> Completado</MudText>.
+                </MudText>
+
+                <MudForm @ref="_form">
+                    <MudTextField @bind-Value="_descripcionReparacion"
+                                  Label="Descripción de la reparación"
+                                  Required="true"
+                                  Lines="3"
+                                  Text="@_descripcionReparacion"
+                                  Variant="Variant.Outlined"
+                                  FullWidth="true" />
+
+                    <MudTextField @bind-Value="_observaciones"
+                                  Label="Observaciones"
+                                  Lines="3"
+                                  Text="@_observaciones"
+                                  Variant="Variant.Outlined"
+                                  FullWidth="true" />
+                </MudForm>
+
+            </MudStack>
+        </DialogContent>
+
+        <DialogActions>
+            <MudSpacer />
+            <MudButton Color="Color.Default"
+                       Variant="Variant.Outlined"
+                       OnClick="Cancelar"
+                       Disabled="_cargando">
+                Cancelar
+            </MudButton>
+
+            <MudButton Color="Color.Primary"
+                       Variant="Variant.Filled"
+                       OnClick="CompletarReparacionAsync"
+                       Disabled="_cargando">
+                @if (_cargando)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                    <span>Procesando...</span>
+                }
+                else
+                {
+                    <span>Completar reparación</span>
+                }
+            </MudButton>
+        </DialogActions>
+    </MudDialog>
+</CascadingValue>
+
+@code {
+    [CascadingParameter] 
+    public IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public ServTecnico ServicioTecnico { get; set; }
+
+    [Inject]
+    public ISnackbar Snackbar { get; set; } = default!;
+
+   
+    
+
+    private MudForm? _form;
+    private string? _descripcionReparacion;
+    private string? _observaciones;
+    private bool _cargando = false;
+
+    private void Cancelar()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task CompletarReparacionAsync()
+    {
+        if (_form is null)
+            return;
+
+        await _form.Validate();
+        if (!_form.IsValid)
+            return;
+
+        _cargando = true;
+
+        try
+        {
+            string mensaje = string.Empty;
+
+            // 1) Calcular costos
+            // Versión “parecida” a tu WinForms:
+            // bool calculoCosto = new CN_ServicioTecnico().ObtenerCostosPorServicio(IdServicioTecnico, out var costoST, out mensaje);
+
+            var (calculoCosto, costoST, mensajeCosto) = await ServTecnicoService.ObtenerCostosPorServicioAsync(ServicioTecnico.IdServicio);
+
+            if (!calculoCosto)
+            {
+                Snackbar.Add($"Error al calcular los costos: {mensajeCosto}", Severity.Error);
+                return;
+            }
+
+            // 2) Cambiar estado a Completado
+            var (completarReparacion, mensajeEstado) = await ServTecnicoService.CambiarEstadoPendienteACompletadoAsync(
+                    ServicioTecnico.IdServicio,
+                    _descripcionReparacion ?? string.Empty,
+                    _observaciones ?? string.Empty
+                );
+
+            if (completarReparacion)
+            {
+                Snackbar.Add(
+                    "Se ha cambiado el Estado de la reparación a Completado y se han calculado el costo del mismo.",
+                    Severity.Success);
+
+                // Podés devolver true para que el padre sepa que se actualizó algo
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add($"No se ha podido cambiar el Estado de la reparación: {mensajeEstado}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error inesperado: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+}

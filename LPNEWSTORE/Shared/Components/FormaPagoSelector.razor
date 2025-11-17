@@ -1,0 +1,279 @@
+﻿@typeparam TProducto
+@using System.ComponentModel.DataAnnotations
+@using Entities
+@using MudBlazor
+@using Services
+
+@inject CotizacionService CotizacionService
+
+<MudGrid Class="mt-2" GutterSize="2">
+
+    <!-- COLUMNA 1: AGREGAR PAGO -->
+    <MudItem xs="12" md="4">
+        <MudPaper Class="p-3 pago-paper" Elevation="1">
+            <MudText Typo="Typo.subtitle1" Color="Color.Success">Agregar Pago</MudText>
+
+            <MudGrid Class="mt-2" GutterSize="2">
+
+                <!-- Forma de pago + Pago parcial -->
+                <MudItem xs="12" sm="8">
+                    <MudSelect T="int"
+                               Label="Forma de Pago"
+                               @bind-Value="_formaPagoId">
+                        @foreach (var fp in FormasPago)
+                        {
+                            <MudSelectItem Value="@fp.IdFormaPago">@fp.Descripcion</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="6" sm="4" Class="d-flex align-center justify-end">
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Primary"
+                               OnClick="OnPagoParcialClick">
+                        Pago Parcial
+                        <MudIcon Icon="@Icons.Material.Filled.Payments" Class="ml-1" />
+                    </MudButton>
+                </MudItem>
+
+                <!-- Importe + boton + contador -->
+                <MudItem xs="12" sm="8">
+                    <MudNumericField T="decimal"
+                                     Label="Importe"
+                                     @bind-Value="_importe"
+                                     Adornment="Adornment.Start"
+                                     AdornmentText="$"
+                                     DecimalPlaces="2" />
+                </MudItem>
+
+                <MudItem xs="6" sm="2" Class="d-flex align-center">
+                    <MudButton Color="Color.Success"
+                               Size="Size.Small"
+                               Variant="Variant.Filled"
+                               FullWidth="true"
+                               OnClick="AgregarPago">
+                        <MudIcon Icon="@Icons.Material.Filled.AttachMoney" />
+                    </MudButton>
+                </MudItem>
+
+                <MudItem xs="6" sm="2" Class="d-flex align-center justify-center">
+                    <MudText Typo="Typo.subtitle1">@_pagos.Count</MudText>
+                </MudItem>
+
+                <!-- Aplicar descuento / recargo -->
+                <MudItem xs="12">
+                    <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                        <MudText>Aplicar descuento o recargo</MudText>
+
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   OnClick="OnDescuentoRecargoClick">
+                            Agregar descuento / recargo
+                            <MudIcon Icon="@Icons.Material.Filled.Percent" Class="ml-1" />
+                        </MudButton>
+                    </MudStack>
+                </MudItem>
+
+            </MudGrid>
+        </MudPaper>
+    </MudItem>
+
+    <!-- COLUMNA 2: GRILLA FORMAS DE PAGO -->
+    <MudItem xs="12" md="4">
+        <MudPaper Class="p-3 pago-paper" Elevation="1">
+            <MudText Typo="Typo.subtitle1" Color="Color.Success">Formas de Pago</MudText>
+
+            <MudTable Items="@_pagos" Dense="true" Hover="true" Bordered="true" Elevation="0" Class="mt-2">
+                <HeaderContent>
+                    <MudTh>FORMA DE PAGO</MudTh>
+                    <MudTh class="text-right">IMPORTE</MudTh>
+                    <MudTh style="width:40px;"></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.FormaPagoNombre</MudTd>
+                    <MudTd DataLabel="Importe" Class="text-right">
+                        @context.Importe.ToString("N2")
+                    </MudTd>
+                    <MudTd>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                       Color="Color.Error"
+                                       Size="Size.Small"
+                                       OnClick="@(() => EliminarPago(context))" />
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    </MudItem>
+
+    <!-- COLUMNA 3: DETALLE PAGO -->
+    <MudItem xs="12" md="4">
+        <MudPaper Class="p-3 pago-paper" Elevation="1">
+            <MudText Typo="Typo.subtitle1" Color="Color.Success">Detalle Pago</MudText>
+
+            <MudGrid Class="mt-2" GutterSize="2">
+
+                <MudItem xs="6">
+                    <MudNumericField T="decimal"
+                                     Label="Total U$S"
+                                     Value="@TotalUsd"
+                                     ReadOnly="true"
+                                     DecimalPlaces="2" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudNumericField T="decimal"
+                                     Label="Restan U$S"
+                                     Value="@RestanUsd"
+                                     ReadOnly="true"
+                                     DecimalPlaces="2" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudNumericField T="decimal"
+                                     Label="Total $"
+                                     Value="@TotalVenta"
+                                     ReadOnly="true"
+                                     DecimalPlaces="2" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudNumericField T="decimal"
+                                     Label="Restan $"
+                                     Value="@RestanPesos"
+                                     ReadOnly="true"
+                                     DecimalPlaces="2" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudNumericField T="decimal"
+                                     Label="Cambio"
+                                     Value="@Cambio"
+                                     ReadOnly="true"
+                                     DecimalPlaces="2" />
+                </MudItem>
+
+            </MudGrid>
+        </MudPaper>
+    </MudItem>
+
+</MudGrid>
+
+
+@code {
+    // ---------- Parámetros públicos ----------
+
+    /// <summary>Lista de formas de pago (llenada desde la página).</summary>
+    [Parameter] public List<FormaPago> FormasPago { get; set; } = new();
+
+    /// <summary>Productos a los que se les aplican los pagos.</summary>
+    [Parameter] public IEnumerable<TProducto> Productos { get; set; } = Enumerable.Empty<TProducto>();
+
+    /// <summary>Función que indica cómo obtener el PrecioLista de cada producto.</summary>
+    [Parameter] public Func<TProducto, decimal> GetPrecioLista { get; set; } = default!;
+
+    /// <summary>Devuelve la lista de pagos al padre cada vez que cambia.</summary>
+    [Parameter] public EventCallback<List<PagoDetalle>> PagosChanged { get; set; }
+
+    /// <summary>Callback para abrir el modal de pagos parciales.</summary>
+    [Parameter] public EventCallback OnPagoParcial { get; set; }
+
+    [Parameter] public EventCallback OnAbrirDescuentoRecargo { get; set; }
+
+    // ---------- Estado interno ----------
+    private int _formaPagoId;
+    private decimal _importe;
+    private decimal _cotizacionActual;
+    private bool _esDescuento;
+    private bool _esRecargo;
+    private bool _esUsd;          // lo dejé por si lo usás después, pero no interviene en los totales
+    private decimal _porcentaje;
+    private decimal _montoDescRec;
+
+    private readonly List<PagoDetalle> _pagos = new();
+
+    // ---------- Ciclo de vida ----------
+    protected override async Task OnInitializedAsync()
+    {
+        var cot = await CotizacionService.CotizacionActiva();
+        _cotizacionActual = cot?.Importe ?? 1m;
+
+        if (_cotizacionActual <= 0)
+            _cotizacionActual = 1m;
+    }
+
+    private async Task OnDescuentoRecargoClick()
+    {
+        if (OnAbrirDescuentoRecargo.HasDelegate)
+            await OnAbrirDescuentoRecargo.InvokeAsync();
+    }
+
+    // ---------- Cálculos ----------
+
+    /// <summary>Total de la venta en PESOS: suma de PrecioLista de los productos.</summary>
+    private decimal TotalVenta =>
+        Productos != null && GetPrecioLista != null
+            ? Productos.Sum(p => GetPrecioLista(p))
+            : 0m;
+
+    /// <summary>Total pagado en pesos (suma de la columna Importe de la "grilla").</summary>
+    private decimal TotalPagadoPesos => _pagos.Sum(p => p.Importe);
+
+    /// <summary>Total de la venta en dólares (equivalencia del total de productos).</summary>
+    private decimal TotalUsd =>
+        _cotizacionActual > 0 ? TotalVenta / _cotizacionActual : 0m;
+
+    /// <summary>Cuánto resta pagar en pesos.</summary>
+    private decimal RestanPesos => TotalVenta - TotalPagadoPesos;
+
+    /// <summary>Cuánto resta pagar en dólares equivalentes.</summary>
+    private decimal RestanUsd =>
+        _cotizacionActual > 0 ? RestanPesos / _cotizacionActual : 0m;
+
+    /// <summary>Cambio en pesos (si pagaron de más).</summary>
+    private decimal Cambio =>
+        RestanPesos < 0 ? Math.Abs(RestanPesos) : 0m;
+
+
+    // ---------- Clases auxiliares ----------
+    public class PagoDetalle
+    {
+        public int FormaPagoId { get; set; }
+        public string FormaPagoNombre { get; set; } = "";
+        public decimal Importe { get; set; }   // SIEMPRE en pesos
+    }
+
+    // ---------- Métodos ----------
+    private async Task OnPagoParcialClick()
+    {
+        if (OnPagoParcial.HasDelegate)
+            await OnPagoParcial.InvokeAsync();
+    }
+
+    private async Task AgregarPago()
+    {
+        if (_formaPagoId == 0 || _importe <= 0) return;
+
+        var forma = FormasPago.FirstOrDefault(f => f.IdFormaPago == _formaPagoId);
+
+        var pago = new PagoDetalle
+        {
+            FormaPagoId = _formaPagoId,
+            FormaPagoNombre = forma?.Descripcion ?? "",
+            Importe = _importe,
+        };
+
+        _pagos.Add(pago);
+        await PagosChanged.InvokeAsync(_pagos);
+
+        _importe = 0;
+        _porcentaje = 0;
+        _montoDescRec = 0;
+        StateHasChanged();
+    }
+
+    private async Task EliminarPago(PagoDetalle pago)
+    {
+        _pagos.Remove(pago);
+        await PagosChanged.InvokeAsync(_pagos);
+    }
+}

@@ -1,0 +1,41 @@
+﻿@page "/cobrarservicio"
+@using LPNEWSTORE.Shared.Components
+         @using Entities
+@using Services
+@inject FormaPagoService FormaPagoService         
+ 
+
+
+
+<FormaPagoSelector TProducto="Producto"
+                FormasPago="@_formasPago"
+                Productos="@_productos"
+                GetPrecioLista="@(p => p.PrecioLista)"
+                PagosChanged="OnPagosChanged"
+                OnPagoParcial="AbrirModalPagosParciales" />
+
+
+@code {
+
+
+    private List<FormaPago> _formasPago = new(); 
+
+
+    private List<Producto> _productos = new(); // la lista que ya usás en la venta
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        _formasPago = await FormaPagoService.ListarFormasDePago();
+    }
+
+    private void OnPagosChanged(List<FormaPagoSelector<Producto>.PagoDetalle> pagos)
+    {
+        // acá podés actualizar la Venta, Caja, etc.
+    }
+
+    private void AbrirModalPagosParciales()
+    {
+        // Mostrar MudDialog de pagos parciales
+    }
+}

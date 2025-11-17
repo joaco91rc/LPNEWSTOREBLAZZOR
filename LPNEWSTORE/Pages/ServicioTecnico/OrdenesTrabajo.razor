@@ -1,0 +1,336 @@
+﻿@page "/ordenestrabajo"
+@using ClosedXML.Excel
+@using Entities
+@using MudBlazor
+@using Microsoft.AspNetCore.Identity
+@using Services
+
+@using System.Security.Claims
+@using System.Text
+@using System.Globalization
+@using ClosedXML
+@inject OrdenTrabajoService OrdenTrabajoService
+@inject RolService rolService
+@inject NavigationManager Nav;
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SesionNegocioService SesionNegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+
+
+
+@code {
+    // Example backing variables in a page that consumes the layout component
+    private List<string> _cols = new() { "Nro. Orden Trabajo","Fecha", "Estado", "Cliente", "Equipo", "Tipo", "Marca","Modelo", "S/N", "Problema" };
+    List<OrdenTrabajo> _OrdenTrabajos = new();
+    private List<OrdenTrabajo> _OrdenTrabajosFiltradas = new();
+    private bool _busy;
+    private int? _idSucursal;
+    private DateTime? DateFrom { get; set; }
+    private DateTime? DateTo { get; set; }
+
+
+
+
+
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+        if (int.TryParse(sucursal, out var idSucursal))
+        {
+            _idSucursal = idSucursal;
+            var desde = DateTime.Now.AddDays(-15);
+            var hasta = DateTime.Now;
+            _OrdenTrabajos = await OrdenTrabajoService.ListarGeneradas(idSucursal);
+            _OrdenTrabajosFiltradas = new List<OrdenTrabajo>(_OrdenTrabajos);
+            StateHasChanged();
+        }
+    }
+
+    private async Task DoSearch((DateTime? from, DateTime? to) args)
+    {
+        _busy = true;
+        try
+        {
+            if (_idSucursal is null)
+                return; // o mostrás un mensaje
+
+            var fechaInicio = args.from ?? DateFrom ?? DateTime.Now.AddDays(-15);
+            var fechaFin = args.to ?? DateTo ?? DateTime.Now;
+
+            _OrdenTrabajos = await OrdenTrabajoService.ListarGeneradas(_idSucursal.Value);
+            DateFrom = fechaInicio;
+            DateTo = fechaFin;
+            _OrdenTrabajosFiltradas = _OrdenTrabajos
+        .Where(o => o.FechaGeneracion >= fechaInicio && o.FechaGeneracion <= fechaFin)
+        .ToList();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+
+    private Task DoClearSearch()
+    {
+        DateFrom = null;
+        DateTo = null;
+        _OrdenTrabajos = new();
+        _OrdenTrabajosFiltradas = new();
+        return Task.CompletedTask;
+    }
+
+
+    private Task DoFilter((string? col, string? text) f)
+    {
+        var col = f.col?.Trim();
+        var text = f.text?.Trim();
+
+        if (string.IsNullOrWhiteSpace(col) || string.IsNullOrWhiteSpace(text))
+        {
+            _OrdenTrabajosFiltradas = new List<OrdenTrabajo>(_OrdenTrabajos);
+            return Task.CompletedTask;
+        }
+
+        var key = col!.ToLowerInvariant();
+        var filtro = text!.ToLowerInvariant();
+
+        // Helpers locales
+        static bool TryParseFecha(string input, out DateTime fecha)
+        {
+            var formatos = new[]
+            {
+            "dd/MM/yyyy HH:mm",
+            "dd/MM/yyyy",
+            "d/M/yyyy HH:mm",
+            "d/M/yyyy"
+        };
+            var esAR = new CultureInfo("es-AR");
+            return DateTime.TryParseExact(input, formatos, esAR, DateTimeStyles.None, out fecha)
+                   || DateTime.TryParse(input, esAR, DateTimeStyles.AllowWhiteSpaces, out fecha)
+                   || DateTime.TryParse(input, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out fecha);
+        }
+
+        static bool TryParseDecimalFlexible(string input, out decimal value)
+        {
+            var esAR = new CultureInfo("es-AR");
+            // Primero intentamos con es-AR (1.234,56), luego Invariant (1,234.56 o 1234.56)
+            return decimal.TryParse(input, NumberStyles.Number | NumberStyles.AllowCurrencySymbol, esAR, out value)
+                   || decimal.TryParse(input, NumberStyles.Number | NumberStyles.AllowCurrencySymbol, CultureInfo.InvariantCulture, out value);
+        }
+
+        _OrdenTrabajosFiltradas = key switch
+        {
+            "Nro. Orden Trabajo" =>
+                _OrdenTrabajos.FindAll(c => (c.IdOrdenTrabajo.ToString() ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+            // Texto llano
+            "estado"  =>
+                _OrdenTrabajos.FindAll(c => (c.Estado ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            "cliente" or "cliente" or "NombreCliente" =>
+                _OrdenTrabajos.FindAll(c => (c.ServicioTecnico.NombreCliente ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            "equipo"  =>
+                _OrdenTrabajos.FindAll(c => (c.ServicioTecnico.Producto ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            "tipo"  =>
+                _OrdenTrabajos.FindAll(c => (c.ServicioTecnico.TipoEquipo ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+            "marca" =>
+            _OrdenTrabajos.FindAll(c => (c.ServicioTecnico.Marca ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+            "modelo" =>
+                _OrdenTrabajos.FindAll(c => (c.ServicioTecnico.Modelo ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+            "s/n" or "serial number" =>
+            _OrdenTrabajos.FindAll(c => (c.ServicioTecnico.SerialNumber ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            "problema" =>
+                _OrdenTrabajos.FindAll(c => (c.ServicioTecnico.DescripcionProblema ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+            // Fecha: intento parse fuerte, si no, fallback a contains de la representación formateada
+            "fecha" or "fecha generacion" =>
+                TryParseFecha(text, out var fechaBuscada)
+                    ? _OrdenTrabajos.FindAll(c => c.FechaGeneracion.Date == fechaBuscada.Date)
+                    : _OrdenTrabajos.FindAll(c => c.FechaGeneracion.ToString("dd/MM/yyyy HH:mm", new CultureInfo("es-AR"))
+                                               .Contains(text, StringComparison.OrdinalIgnoreCase)
+                                            || c.FechaGeneracion.ToString("dd/MM/yyyy", new CultureInfo("es-AR"))
+                                               .Contains(text, StringComparison.OrdinalIgnoreCase)),
+
+
+
+            _ => new List<OrdenTrabajo>(_OrdenTrabajos)
+        };
+
+        return Task.CompletedTask;
+    }
+
+
+    private Task DoClearFilter()
+    {
+        _OrdenTrabajosFiltradas = new List<OrdenTrabajo>(_OrdenTrabajos);
+        return Task.CompletedTask;
+    }
+
+
+
+
+    private async Task DoExport()
+    {
+        var esAR = new CultureInfo("es-AR");
+
+        // ---------- nombre del archivo con fechas ----------
+        string fromPart = DateFrom?.ToString("yyyyMMdd") ?? "inicio";
+        string toPart = DateTo?.ToString("yyyyMMdd") ?? "hoy";
+        var fileName = $"Historico OrdenTrabajos desde {fromPart} hasta {toPart}.xlsx";
+        // ---------------------------------------------------
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("OrdenTrabajos");
+
+        // Encabezados
+        int r = 1, c = 1;
+        ws.Cell(r, c++).Value = "Nro. Orden Trabajo";
+        ws.Cell(r, c++).Value = "Fecha";
+        ws.Cell(r, c++).Value = "Estado";
+        ws.Cell(r, c++).Value = "Cliente";
+        ws.Cell(r, c++).Value = "Equipo";
+        ws.Cell(r, c++).Value = "tipo";
+        ws.Cell(r, c++).Value = "Marca";
+        ws.Cell(r, c++).Value = "Modelo";
+        ws.Cell(r, c++).Value = "S/N";
+        ws.Cell(r, c++).Value = "Problema";
+
+        ws.Range(1, 1, 1, 6).Style.Font.SetBold();
+        ws.Range(1, 1, 1, 6).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+
+        // Datos
+        r = 2;
+        foreach (var x in _OrdenTrabajosFiltradas)
+        {
+            c = 1;
+            ws.Cell(r, c++).Value = x.IdOrdenTrabajo;
+            ws.Cell(r, c++).Value = x.FechaGeneracion;
+            ws.Cell(r, c++).Value = x.Estado;
+            ws.Cell(r, c++).Value = x.ServicioTecnico.NombreCliente ?? "";
+            ws.Cell(r, c++).Value = x.ServicioTecnico.Producto ?? "";
+            ws.Cell(r, c++).Value = x.ServicioTecnico.TipoEquipo;
+            ws.Cell(r, c++).Value = x.ServicioTecnico.Marca ?? "";
+            ws.Cell(r, c++).Value = x.ServicioTecnico.Modelo ?? "";
+            ws.Cell(r, c++).Value = x.ServicioTecnico.SerialNumber ?? "";
+            ws.Cell(r, c++).Value = x.ServicioTecnico.DescripcionProblema ?? "";
+            r++;
+        }
+
+        // Formatos
+        ws.Column(2).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
+        ws.Column(6).Style.NumberFormat.Format = "$ #.##0,00";
+
+        ws.Columns().AdjustToContents();
+        ws.RangeUsed().SetAutoFilter();
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        var base64 = Convert.ToBase64String(ms.ToArray());
+
+        await JS.InvokeVoidAsync("downloadFileFromBytes",
+            fileName,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            base64);
+    }
+
+
+    private async Task ImprimirOrdenTrabajo(OrdenTrabajo orden)
+    {
+        
+        
+    
+    
+    }
+
+}
+
+<style>
+    /* separa el contenido de la navbar */
+    .mt-navbar-gap {
+        margin-top: 20px;
+    }
+
+    @@media (min-width: 960px) {
+        .mt-navbar-gap {
+            margin-top: 28px;
+        }
+    }
+
+    /* fuerza que las dos cards de arriba tengan la misma altura */
+    .equal-col {
+        display: flex;
+    }
+
+    .equal-card {
+        flex: 1;
+    }
+</style>
+
+<!-- Título centrado con espacio antes de la navbar -->
+<MudText Typo="Typo.h6" Align="Align.Center" Class="mt-navbar-gap mb-3">
+    Histórico OrdenTrabajos
+</MudText>
+
+<ReportListLayout TItem="OrdenTrabajo"
+                  Items="@_OrdenTrabajosFiltradas"
+                  FilterColumns="@(new[] { "Nro. Orden Trabajo" ,"Fecha", "Estado", "Cliente", "Equipo", "Tipo", "Marca", "Modelo", "S/N", "Problema" })"
+                  OnSearchParameters="DoSearch"
+                  OnFilter="DoFilter"
+                  OnClearParameters="DoClearSearch"
+                  OnClearFilter="DoClearFilter"
+                  OnExport="DoExport">
+
+    <Columns>
+        <PropertyColumn T="OrdenTrabajo" TProperty="int" Property="e => e.IdOrdenTrabajo"
+                        Title="Nro. Orden Trabajo"
+                        Visible="false" />
+
+        <PropertyColumn T="OrdenTrabajo" TProperty="DateTime" Property="e => e.FechaGeneracion"
+                        Title="Fecha" Format="dd/MM/yyyy" />
+
+        <PropertyColumn T="OrdenTrabajo" TProperty="string" Property="e => e.Estado"
+                        Title="Estado" />
+
+        <PropertyColumn T="OrdenTrabajo" TProperty="string" Property="e => e.ServicioTecnico.NombreCliente"
+                        Title="Cliente" />
+
+        
+
+        <PropertyColumn T="OrdenTrabajo" TProperty="string" Property="e => e.ServicioTecnico.Producto"
+                        Title="Equipo" />
+
+        <PropertyColumn T="OrdenTrabajo" TProperty="string" Property="e => e.ServicioTecnico.TipoEquipo"
+                        Title="Tipo" />
+
+        <PropertyColumn T="OrdenTrabajo" TProperty="string" Property="e => e.ServicioTecnico.Marca"
+                        Title="Marca" />
+        <PropertyColumn T="OrdenTrabajo" TProperty="string" Property="e => e.ServicioTecnico.Modelo"
+                        Title="Modelo" />
+        <PropertyColumn T="OrdenTrabajo" TProperty="string" Property="e => e.ServicioTecnico.SerialNumber"
+                        Title="S/N" />
+        <PropertyColumn T="OrdenTrabajo" TProperty="string" Property="e => e.ServicioTecnico.DescripcionProblema"
+                        Title="Problema" />
+
+        <TemplateColumn T="OrdenTrabajo" Title="Acciones" Align="DataGridColumnAlign.Center" Width="160px">
+            <CellTemplate Context="row">
+                <MudIconButton Size="Size.Small"
+                               Icon="@Icons.Material.Filled.Edit"
+                               OnClick="@(()=>ImprimirOrdenTrabajo(row.Item))" />
+                
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+</ReportListLayout>
+
+

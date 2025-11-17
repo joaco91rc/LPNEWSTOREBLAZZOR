@@ -274,7 +274,38 @@
 
     private async Task CompletarServicio(ServTecnico c)
     {
-        
+        var estado = c.EstadoServicio;
+        if (!string.Equals(estado, "EN REPARACION", StringComparison.OrdinalIgnoreCase))
+        {
+            Snackbar.Add("El estado del Servicio debe ser EN REPARACION para poder Completar el Servicio Tecnico.",
+                         Severity.Error);
+            return;
+        }
+
+        var parameters = new DialogParameters
+        {
+            { nameof(ConfirmarServicioTecnico.ServicioTecnico), c }
+        };
+
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+
+        var dialog = DialogService.Show<ConfirmarServicioTecnico>(
+            "Confirmar reparación", parameters, options);
+
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is bool ok && ok)
+        {
+            // Si querés refrescar la grilla/listado de servicios técnicos
+            listaServTecnico = await ServTecnicoService.ListarAsync(sucursalSeleccionada);
+            StateHasChanged();
+        }
+
     }
 
 
@@ -294,7 +325,7 @@
     {
         { nameof(MDAgregarReparacion.IdServicioTecnico), c.IdServicio },
          { nameof(MDAgregarReparacion.IdNegocio), c.IdNegocio }
-        
+
     };
 
         var options = new DialogOptions
@@ -308,7 +339,7 @@
         var dialog = DialogService.Show<MDAgregarReparacion>("Agregar reparación", parameters, options);
         var result = await dialog.Result;
 
-       
+
     }
 
 
@@ -327,23 +358,26 @@
         };
 
         DialogService.Show<MDDetalleServicioTecnico>("Detalle Servicio Técnico", parameters, options);
-    
+
     }
 
     private async Task CambiarEstado(ServTecnico c)
     {
         var ordenTrabajo = OrdenTrabajoService.ObtenerPorIdServicio(c.IdServicio);
-        if(ordenTrabajo != null)
+        if(ordenTrabajo != null )
         {
-
-            var ( cambiarEstado , mensaje ) = await ServTecnicoService.CambiarEstadoIngresadoAEnReparacionAsync(c.IdServicio);
-            if (cambiarEstado)
+            if(c.EstadoServicio == "EN REPARACION"){
+                var ( cambiarEstado , mensaje ) = await ServTecnicoService.CambiarEstadoIngresadoAEnReparacionAsync(c.IdServicio);
+                if (cambiarEstado)
+                {
+                    Snackbar.Add($"El estado del Servicio Tecnico numero {c.IdServicio} ha pasado al Estado En Reparacion",  Severity.Success);
+                    listaServTecnico = await ServTecnicoService.ListarAsync(sucursalSeleccionada);
+                    StateHasChanged();
+                }
+            } else
             {
-                Snackbar.Add($"El estado del Servicio Tecnico numero {c.IdServicio} ha pasado al Estado En Reparacion");
-                listaServTecnico = await ServTecnicoService.ListarAsync(sucursalSeleccionada);
-                StateHasChanged();
+                Snackbar.Add($"El estado del Servicio Tecnico numero {c.IdServicio} ya se encuentra en  Estado En Reparacion", Severity.Info);
             }
-
         } else
         {
             Snackbar.Add("Para cambiar el estado del Servicio tecnico a EN REPARACION, debe confirmar la Orden de Trabajo en el Modulo Ordenes de Trabajo", Severity.Warning);
