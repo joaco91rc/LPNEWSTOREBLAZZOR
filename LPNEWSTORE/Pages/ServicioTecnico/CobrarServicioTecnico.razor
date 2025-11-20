@@ -1,13 +1,34 @@
 ﻿@page "/cobrarservicio"
 @using LPNEWSTORE.Shared.Components
          @using Entities
+@using LPNEWSTORE.Shared.Modals
+@using MudBlazor
 @using Services
-@inject FormaPagoService FormaPagoService         
- 
+@using static LPNEWSTORE.Shared.Components.CabeceraSelector
+@inject FormaPagoService FormaPagoService  
+@inject VendedorService VendedorService
+@inject CotizacionService CotizacionService
+@inject IDialogService DialogService
+@inject IJSRuntime JS
 
 
+<CabeceraSelector EsVenta="true"
+                   @bind-Fecha="vm.Fecha"
+                   TiposDocumento="vm.TiposDocumento"
+                  @bind-TipoDocumento="vm.TipoDocumento"
+                   Vendedores="vm.Vendedores"
+                  @bind-VendedorId="vm.VendedorId"
+                   @bind-DocumentoPersona="vm.DniCliente"
+                   @bind-NombrePersona="vm.NombreCliente"
+                   OnBuscarPersona="AbrirMDCliente" />
+
+                   <DetalleProductoSelector @bind-Items="_detalle"
+                  CotizacionInicialUsd="_cotizacionActual"
+                  IdSucursal="_idSucursal" 
+                  />
 
 <FormaPagoSelector TProducto="Producto"
+                   @ref="_formaPagoSelector"
                 FormasPago="@_formasPago"
                 Productos="@_productos"
                 GetPrecioLista="@(p => p.PrecioLista)"
@@ -19,14 +40,40 @@
 
 
     private List<FormaPago> _formasPago = new(); 
-
-
+    private FormaPagoSelector<Producto>? _formaPagoSelector;
+    private VentaViewModel vm = new();
     private List<Producto> _productos = new(); // la lista que ya usás en la venta
-
+    private List<DetalleProductoSelector.DetalleProductoItem> _detalle = new();
+    private decimal _cotizacionActual;
+    private int _idSucursal;
 
     protected override async Task OnInitializedAsync()
     {
+        var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+        if (int.TryParse(sucursal, out var idSucursal))
+        {
+            _idSucursal = idSucursal;
+        }
+        var cotizacion = await CotizacionService.CotizacionActiva();
+        _cotizacionActual = cotizacion.Importe;
         _formasPago = await FormaPagoService.ListarFormasDePago();
+        vm.Vendedores = await VendedorService.ListarVendedores();
+        vm.TiposDocumento = new List<OpcionDocumento>
+            {
+                new() { Valor = "Factura A", Texto = "Factura A" },
+                new() { Valor = "Factura B", Texto = "Factura B" },
+                new() { Valor = "Factura C", Texto = "Factura C" },
+                new() { Valor = "Remito R",  Texto = "Remito R" },
+                new() { Valor = "Presupuesto", Texto = "Presupuesto" }
+            };
+
+        if (vm.Vendedores is { Count: > 0 })
+            vm.VendedorId = vm.Vendedores[0].IdVendedor;
+
+        
+        if (vm.TiposDocumento is { Count: > 0 })
+            vm.TipoDocumento = vm.TiposDocumento[0].Valor;
+            
     }
 
     private void OnPagosChanged(List<FormaPagoSelector<Producto>.PagoDetalle> pagos)
@@ -34,8 +81,84 @@
         // acá podés actualizar la Venta, Caja, etc.
     }
 
-    private void AbrirModalPagosParciales()
+    private async Task AbrirModalPagosParciales()
     {
-        // Mostrar MudDialog de pagos parciales
+        var parameters = new DialogParameters
+        {
+            { nameof(MDPagoParcial.IdCliente), 142 },
+            // { nameof(MDPagoParcial.TotalPendiente), TotalPendiente },
+        };
+
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Large,
+            FullWidth = true
+        };
+
+        var dialog = DialogService.Show<MDPagoParcial>("Pago parcial", parameters, options);
+        var result = await dialog.Result;
+
+        // OJO: es Cancelled, no Canceled
+        if (!result.Canceled && result.Data is PagoParcial pagoParcial)
+        {
+            // armamos el PagoDetalle que usa el selector
+            var pagoDetalle = new FormaPagoSelector<Producto>.PagoDetalle
+            {
+                FormaPagoId = pagoParcial.IdPagoParcial,
+                // Acá ponemos la leyenda "Pago parcial - "
+                FormaPagoNombre = $"Pago Parcial Nro. {pagoParcial.IdPagoParcial} - {pagoParcial.FormaPago}",
+                Importe = pagoParcial.Monto,
+                Moneda = pagoParcial.Moneda
+
+            };
+
+            // le avisamos al componente hijo que agregue este pago
+            await _formaPagoSelector!.AgregarPagoExternoAsync(pagoDetalle);
+        }
     }
+
+    private async Task AbrirMDCliente()
+    {
+        var parameters = new DialogParameters
+        {
+            // { nameof(MDPagoParcial.IdCliente), 142 },
+            // { nameof(MDPagoParcial.TotalPendiente), TotalPendiente },
+        };
+
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Large,
+            FullWidth = true
+        };
+
+        var dialog = DialogService.Show<MDCliente>("Clientes", parameters, options);
+        var result = await dialog.Result;
+
+        // OJO: es Cancelled, no Canceled
+        if (!result.Canceled && result.Data is Cliente cliente)
+        {
+            vm.DniCliente = cliente.Documento;
+            vm.NombreCliente = cliente.NombreCompleto;
+
+        }
+    }
+
+    public class VentaViewModel
+    {
+        public DateTime? Fecha { get; set; } = DateTime.Today;
+
+        
+        public int? VendedorId { get; set; }
+
+        public string? DniCliente { get; set; }
+        public string? NombreCliente { get; set; }
+
+        public string? TipoDocumento { get; set; }       // ej: "Factura A"
+        public List<OpcionDocumento> TiposDocumento { get; set; } = new();
+    
+        public List<Vendedor>? Vendedores { get; set; }
+    }
+
 }

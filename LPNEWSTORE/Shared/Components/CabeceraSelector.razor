@@ -1,0 +1,161 @@
+﻿@using Entities
+@using MudBlazor
+
+<div class="p-2">
+    <MudGrid GutterSize="2">
+        <!-- Bloque Información Venta / Compra -->
+        <MudItem xs="12" md="6">
+            <MudPaper Class="p-3 cabecera-paper" Outlined="true">
+                <MudText Typo="Typo.subtitle1" Color="Color.Primary" Class="cabecera-titulo">
+                    @TituloOperacion
+                </MudText>
+                <MudDivider Class="mb-2" />
+
+                <MudGrid GutterSize="2">
+                    <MudItem xs="12" md="4">
+                        <MudText Typo="Typo.caption">Fecha:</MudText>
+                        <MudDatePicker @bind-Date="Fecha"
+                                       DateFormat="dd MM yyyy"
+                                       Dense="true"
+                                       DisableToolbar="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudText Typo="Typo.caption">Tipo de Documento:</MudText>
+                        <MudSelect T="string"
+                                   @bind-Value="TipoDocumento"
+                                   Dense="true">
+                            @if (TiposDocumento is not null)
+                            {
+                                @foreach (var t in TiposDocumento)
+                                {
+                                    <MudSelectItem Value="@t.Valor">@t.Texto</MudSelectItem>
+                                }
+                            }
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudText Typo="Typo.caption">Vendedor:</MudText>
+                        <MudSelect T="int?"
+                                   @bind-Value="VendedorId"
+                                   Dense="true"
+                                   ToStringFunc="VendedorToString">
+                            @if (Vendedores is not null)
+                            {
+                                @foreach (var v in Vendedores)
+                                {
+                                    <MudSelectItem T="int?" Value="@v.IdVendedor">
+                                        @($"{v.Nombre} {v.Apellido}")
+                                    </MudSelectItem>
+                                }
+                            }
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Bloque Información Cliente / Proveedor -->
+        <MudItem xs="12" md="6">
+            <MudPaper Class="p-3 cabecera-paper" Outlined="true">
+                <MudText Typo="Typo.subtitle1" Color="Color.Primary" Class="cabecera-titulo">
+                    @TituloPersona
+                </MudText>
+                <MudDivider Class="mb-2" />
+
+                <MudGrid GutterSize="2">
+                    <!-- Fila única: DNI + ícono + Nombre -->
+                    <MudItem xs="12" md="4">
+                        <MudTextField Label="@DocumentoLabel"
+                                      @bind-Value="DocumentoPersona"
+                                      Dense="true"
+                                      ReadOnly="true" />
+                    </MudItem>
+
+                    <MudItem xs="2" md="1" Class="d-flex align-end justify-center">
+                        <MudIconButton Icon="@Icons.Material.Filled.Search"
+                                       Color="Color.Primary"
+                                       Size="Size.Medium"
+                                       OnClick="OnBuscarPersona" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="7">
+                        <MudTextField Label="@NombreLabel"
+                                      @bind-Value="NombrePersona"
+                                      Dense="true"
+                                      ReadOnly="true" />
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</div>
+
+
+@code {
+
+    // --- Modo de uso: si es venta o compra ---
+    [Parameter] public bool EsVenta { get; set; } = true;
+
+    // --- Fecha ---
+    [Parameter] public DateTime? Fecha { get; set; } = DateTime.Now;
+    [Parameter] public EventCallback<DateTime?> FechaChanged { get; set; }
+
+    // --- Tipo de documento ---
+    [Parameter] public string? TipoDocumento { get; set; }
+    [Parameter] public EventCallback<string?> TipoDocumentoChanged { get; set; }
+    [Parameter] public List<OpcionDocumento>? TiposDocumento { get; set; }
+    
+    // --- Vendedor ---
+    [Parameter] public int? VendedorId { get; set; }
+    [Parameter] public EventCallback<int?> VendedorIdChanged { get; set; }
+    [Parameter] public List<Vendedor>? Vendedores { get; set; }
+
+    // --- Cliente / Proveedor ---
+    [Parameter] public string? DocumentoPersona { get; set; }
+    [Parameter] public EventCallback<string?> DocumentoPersonaChanged { get; set; }
+
+    [Parameter] public string? NombrePersona { get; set; }
+    [Parameter] public EventCallback<string?> NombrePersonaChanged { get; set; }
+
+    [Parameter] public EventCallback OnBuscarPersona { get; set; }
+
+    // --- Textos dinámicos según modo ---
+    private string TituloOperacion => EsVenta ? "Información Venta" : "Información Compra";
+    private string TituloPersona => EsVenta ? "Información Cliente" : "Información Proveedor";
+    private string DocumentoLabel => EsVenta ? "Nro. Documento" : "CUIT";
+    private string NombreLabel => EsVenta ? "Nombre Cliente" : "Razón Social";
+
+    private string VendedorToString(int? id)
+    {
+        if (id is null || Vendedores is null)
+            return string.Empty;
+
+        var v = Vendedores.FirstOrDefault(x => x.IdVendedor == id.Value);
+        return v is null ? string.Empty : $"{v.Nombre} {v.Apellido}";
+    }
+
+    public class OpcionSelector
+    {
+        public string Valor { get; set; } = "";
+        public string Texto { get; set; } = "";
+    }
+
+    public class OpcionDocumento
+    {
+        public string Valor { get; set; } = "";  // lo que se guarda en el modelo
+        public string Texto { get; set; } = "";  // lo que se muestra en el combo
+    }
+
+}
+
+<style>
+    .cabecera-paper {
+        position: relative;
+    }
+
+    .cabecera-titulo {
+        font-weight: 600;
+    }
+</style>

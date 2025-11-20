@@ -92,7 +92,7 @@
                 <RowTemplate>
                     <MudTd>@context.FormaPagoNombre</MudTd>
                     <MudTd DataLabel="Importe" Class="text-right">
-                        @context.Importe.ToString("N2")
+                        @context.SimboloMoneda @context.Importe.ToString("N2")
                     </MudTd>
                     <MudTd>
                         <MudIconButton Icon="@Icons.Material.Filled.Delete"
@@ -117,6 +117,7 @@
                                      Label="Total U$S"
                                      Value="@TotalUsd"
                                      ReadOnly="true"
+                                     
                                      DecimalPlaces="2" />
                 </MudItem>
 
@@ -141,7 +142,8 @@
                                      Label="Restan $"
                                      Value="@RestanPesos"
                                      ReadOnly="true"
-                                     DecimalPlaces="2" />
+                                     DecimalPlaces="2" 
+                                     />
                 </MudItem>
 
                 <MudItem xs="12">
@@ -216,7 +218,13 @@
             : 0m;
 
     /// <summary>Total pagado en pesos (suma de la columna Importe de la "grilla").</summary>
-    private decimal TotalPagadoPesos => _pagos.Sum(p => p.Importe);
+    private decimal TotalPagadoPesos =>
+     _pagos.Sum(p =>
+         (p.SimboloMoneda?.Trim().ToUpper() is "USD" )
+             ? p.Importe * _cotizacionActual
+             : p.Importe
+     );
+
 
     /// <summary>Total de la venta en dólares (equivalencia del total de productos).</summary>
     private decimal TotalUsd =>
@@ -240,6 +248,18 @@
         public int FormaPagoId { get; set; }
         public string FormaPagoNombre { get; set; } = "";
         public decimal Importe { get; set; }   // SIEMPRE en pesos
+        public string Moneda { get; set; }  // "ARS" o "USD"
+
+        public string SimboloMoneda =>
+     Moneda?.Trim().ToUpper() switch
+     {
+         "PESOS" => "$",
+         "$" => "$",
+         "ARS" => "$",
+         "USD" => "USD",
+         "DOLARES" => "USD",
+         _ => "$"  // valor por defecto
+     };
     }
 
     // ---------- Métodos ----------
@@ -260,6 +280,7 @@
             FormaPagoId = _formaPagoId,
             FormaPagoNombre = forma?.Descripcion ?? "",
             Importe = _importe,
+            Moneda = forma?.Descripcion == "DOLAR EFECTIVO" ? "USD": "$"
         };
 
         _pagos.Add(pago);
@@ -275,5 +296,18 @@
     {
         _pagos.Remove(pago);
         await PagosChanged.InvokeAsync(_pagos);
+    }
+
+    private async Task NotificarCambiosAsync()
+    {
+        await PagosChanged.InvokeAsync(_pagos);
+        StateHasChanged();
+    }
+
+    // 👇 método público para que el padre agregue pagos externos (pagos parciales)
+    public async Task AgregarPagoExternoAsync(PagoDetalle pago)
+    {
+        _pagos.Add(pago);
+        await NotificarCambiosAsync();
     }
 }

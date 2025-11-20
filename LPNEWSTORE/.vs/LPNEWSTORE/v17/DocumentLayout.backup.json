@@ -3,20 +3,48 @@
   "WorkspaceRootPath": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\components\\formapagoselector.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
-      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\components\\formapagoselector.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\components\\detalleproductoselector.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\components\\detalleproductoselector.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\pages\\serviciotecnico\\cobrarserviciotecnico.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
       "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:pages\\serviciotecnico\\cobrarserviciotecnico.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\vendedormenu.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
-      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\vendedormenu.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\modals\\mdseleccionsn.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\modals\\mdseleccionsn.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\modals\\mdproducto.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\modals\\mdproducto.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\components\\cabeceraselector.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\components\\cabeceraselector.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\pages\\compras\\listadocompras.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:pages\\compras\\listadocompras.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\components\\formapagoselector.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\components\\formapagoselector.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\pages\\serviciotecnico\\serviciotecnico.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
       "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:pages\\serviciotecnico\\serviciotecnico.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\modals\\mdpagoparcial.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\modals\\mdpagoparcial.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\vendedormenu.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\vendedormenu.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\pages\\serviciotecnico\\ordenestrabajo.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
@@ -43,10 +71,6 @@
       "AbsoluteMoniker": "D:0:0:{4296B31B-FB59-42B1-BDB0-07C57423E5D1}|..\\Services\\Services.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\services\\serviciotecnicoservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\modals\\mddetalleserviciotecnico.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
       "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\modals\\mddetalleserviciotecnico.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
@@ -64,10 +88,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\pages\\productos\\productos.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
       "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:pages\\productos\\productos.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\modals\\mdproducto.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
-      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\modals\\mdproducto.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{4296B31B-FB59-42B1-BDB0-07C57423E5D1}|..\\Services\\Services.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\services\\extensions\\dependencyinjection.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
@@ -100,18 +120,11 @@
       "AbsoluteMoniker": "D:0:0:{F753CA1F-201C-4BA1-8B6B-8CD47E07C44D}|..\\DataLayer\\DataLayer.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\datalayer\\dl_producto.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{F753CA1F-201C-4BA1-8B6B-8CD47E07C44D}|..\\DataLayer\\DataLayer.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\datalayer\\dl_cotizacion.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{F753CA1F-201C-4BA1-8B6B-8CD47E07C44D}|..\\DataLayer\\DataLayer.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\datalayer\\dl_cajaregistradora.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\pages\\cajaregistradora\\cajadiaria.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
       "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:pages\\cajaregistradora\\cajadiaria.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\mainlayout.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
-      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\mainlayout.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\modals\\mdaperturacaja.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
@@ -124,10 +137,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\pages\\clientes\\clientes.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
       "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:pages\\clientes\\clientes.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\pages\\compras\\listadocompras.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
-      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:pages\\compras\\listadocompras.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{F753CA1F-201C-4BA1-8B6B-8CD47E07C44D}|..\\DataLayer\\DataLayer.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\datalayer\\dl_transaccioncaja.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
@@ -226,10 +235,6 @@
       "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:utils\\preciohelper.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\modals\\mdseleccionsn.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
-      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\modals\\mdseleccionsn.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\modals\\mdtraspasosucursal.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
       "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\modals\\mdtraspasosucursal.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
@@ -285,18 +290,10 @@
       "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:pages\\cajaregistradora\\aperturacaja.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\modals\\mdpagoparcial.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
-      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\modals\\mdpagoparcial.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{4296B31B-FB59-42B1-BDB0-07C57423E5D1}|..\\Services\\Services.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\services\\clienteservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{F753CA1F-201C-4BA1-8B6B-8CD47E07C44D}|..\\DataLayer\\DataLayer.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\datalayer\\dl_cliente.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\modals\\mdcliente.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
-      "RelativeMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|solutionrelative:shared\\modals\\mdcliente.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{94E555F4-9A22-4621-B094-CA476F799B52}|LPNEWSTORE.csproj|c:\\users\\jaalvarez\\documents\\joaco\\lpnewstore_web\\lpnewstore\\shared\\registerlayout.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
@@ -346,11 +343,11 @@
       "DocumentGroups": [
         {
           "DockedWidth": 226,
-          "SelectedChildIndex": 34,
+          "SelectedChildIndex": 32,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 11,
+              "DocumentIndex": 6,
               "Title": "Program.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Program.cs",
               "RelativeDocumentMoniker": "Program.cs",
@@ -364,7 +361,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 18,
+              "DocumentIndex": 23,
               "Title": "DependencyInjection.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\Extensions\\DependencyInjection.cs",
               "RelativeDocumentMoniker": "..\\Services\\Extensions\\DependencyInjection.cs",
@@ -373,22 +370,7 @@
               "ViewState": "AgIAADEAAAAAAAAAAAAuwDcAAAAuAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-07-28T14:14:29.664Z",
-              "IsPinned": true,
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 30,
-              "Title": "MainLayout.razor",
-              "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\MainLayout.razor",
-              "RelativeDocumentMoniker": "Shared\\MainLayout.razor",
-              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\MainLayout.razor",
-              "RelativeToolTip": "Shared\\MainLayout.razor",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABkAAAAWAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-07-28T12:59:52.134Z",
-              "IsPinned": true,
-              "EditorCaption": ""
+              "IsPinned": true
             },
             {
               "$type": "Bookmark",
@@ -512,59 +494,124 @@
             },
             {
               "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "DetalleProductoSelector.razor",
+              "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Components\\DetalleProductoSelector.razor",
+              "RelativeDocumentMoniker": "Shared\\Components\\DetalleProductoSelector.razor",
+              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Components\\DetalleProductoSelector.razor*",
+              "RelativeToolTip": "Shared\\Components\\DetalleProductoSelector.razor*",
+              "ViewState": "AgIAADgBAAAAAAAAAAAAAFcBAAAZAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-11-20T14:26:47.321Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "MDPagoParcial.razor",
+              "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDPagoParcial.razor",
+              "RelativeDocumentMoniker": "Shared\\Modals\\MDPagoParcial.razor",
+              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDPagoParcial.razor",
+              "RelativeToolTip": "Shared\\Modals\\MDPagoParcial.razor",
+              "ViewState": "AgIAAHIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-11-20T11:51:43Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "MDSeleccionSN.razor",
+              "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDSeleccionSN.razor",
+              "RelativeDocumentMoniker": "Shared\\Modals\\MDSeleccionSN.razor",
+              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDSeleccionSN.razor",
+              "RelativeToolTip": "Shared\\Modals\\MDSeleccionSN.razor",
+              "ViewState": "AgIAALoAAAAAAAAAAAAAANQAAAAzAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-10-27T12:28:40.045Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 1,
               "Title": "CobrarServicioTecnico.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\ServicioTecnico\\CobrarServicioTecnico.razor",
               "RelativeDocumentMoniker": "Pages\\ServicioTecnico\\CobrarServicioTecnico.razor",
               "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\ServicioTecnico\\CobrarServicioTecnico.razor",
               "RelativeToolTip": "Pages\\ServicioTecnico\\CobrarServicioTecnico.razor",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAWAAAAAAAAAA==",
+              "ViewState": "AgIAAB0AAAAAAAAAAAAAADkAAAAIAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
               "WhenOpened": "2025-11-17T16:00:51.46Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 3,
+              "Title": "MDProducto.razor",
+              "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDProducto.razor",
+              "RelativeDocumentMoniker": "Shared\\Modals\\MDProducto.razor",
+              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDProducto.razor",
+              "RelativeToolTip": "Shared\\Modals\\MDProducto.razor",
+              "ViewState": "AgIAAKgAAAAAAAAAAAAAALUAAAAEAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-11-14T14:16:58.823Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "CabeceraSelector.razor",
+              "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Components\\CabeceraSelector.razor",
+              "RelativeDocumentMoniker": "Shared\\Components\\CabeceraSelector.razor",
+              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Components\\CabeceraSelector.razor",
+              "RelativeToolTip": "Shared\\Components\\CabeceraSelector.razor",
+              "ViewState": "AgIAADAAAAAAAAAAAIAwwE8AAABDAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-11-20T13:02:43.09Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
               "Title": "FormaPagoSelector.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Components\\FormaPagoSelector.razor",
               "RelativeDocumentMoniker": "Shared\\Components\\FormaPagoSelector.razor",
-              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Components\\FormaPagoSelector.razor*",
-              "RelativeToolTip": "Shared\\Components\\FormaPagoSelector.razor*",
-              "ViewState": "AgIAAC0AAAAAAAAAAADwv0AAAABFAAAAAAAAAA==",
+              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Components\\FormaPagoSelector.razor",
+              "RelativeToolTip": "Shared\\Components\\FormaPagoSelector.razor",
+              "ViewState": "AgIAAJQAAAAAAAAAAAAAALMAAAA6AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
               "WhenOpened": "2025-11-17T14:49:40.361Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "OrdenesTrabajo.razor",
-              "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\ServicioTecnico\\OrdenesTrabajo.razor",
-              "RelativeDocumentMoniker": "Pages\\ServicioTecnico\\OrdenesTrabajo.razor",
-              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\ServicioTecnico\\OrdenesTrabajo.razor",
-              "RelativeToolTip": "Pages\\ServicioTecnico\\OrdenesTrabajo.razor",
-              "ViewState": "AgIAAC4BAAAAAAAAAAAAACcBAAAjAAAAAAAAAA==",
+              "DocumentIndex": 5,
+              "Title": "ListadoCompras.razor",
+              "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Compras\\ListadoCompras.razor",
+              "RelativeDocumentMoniker": "Pages\\Compras\\ListadoCompras.razor",
+              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Compras\\ListadoCompras.razor",
+              "RelativeToolTip": "Pages\\Compras\\ListadoCompras.razor",
+              "ViewState": "AgIAABgAAAAAAAAAAAAAAC8AAAAlAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-11-17T13:25:00.358Z",
+              "WhenOpened": "2025-11-20T14:37:37.508Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 8,
               "Title": "ServicioTecnico.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\ServicioTecnico\\ServicioTecnico.razor",
               "RelativeDocumentMoniker": "Pages\\ServicioTecnico\\ServicioTecnico.razor",
               "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\ServicioTecnico\\ServicioTecnico.razor",
               "RelativeToolTip": "Pages\\ServicioTecnico\\ServicioTecnico.razor",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAABgAAAAAAAAAAAAAABQAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
               "WhenOpened": "2025-11-13T15:26:43.384Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 10,
               "Title": "VendedorMenu.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\VendedorMenu.razor",
               "RelativeDocumentMoniker": "Shared\\VendedorMenu.razor",
@@ -572,12 +619,23 @@
               "RelativeToolTip": "Shared\\VendedorMenu.razor",
               "ViewState": "AgIAAB4AAAAAAAAAAAAAADEAAAAeAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-11-10T14:57:36.564Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-10T14:57:36.564Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 11,
+              "Title": "OrdenesTrabajo.razor",
+              "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\ServicioTecnico\\OrdenesTrabajo.razor",
+              "RelativeDocumentMoniker": "Pages\\ServicioTecnico\\OrdenesTrabajo.razor",
+              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\ServicioTecnico\\OrdenesTrabajo.razor",
+              "RelativeToolTip": "Pages\\ServicioTecnico\\OrdenesTrabajo.razor",
+              "ViewState": "AgIAAC4BAAAAAAAAAAAAACcBAAAjAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-11-17T13:25:00.358Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 12,
               "Title": "DL_OrdenTrabajo.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_OrdenTrabajo.cs",
               "RelativeDocumentMoniker": "..\\DataLayer\\DL_OrdenTrabajo.cs",
@@ -590,7 +648,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 14,
               "Title": "ListadoVentas.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Ventas\\ListadoVentas.razor",
               "RelativeDocumentMoniker": "Pages\\Ventas\\ListadoVentas.razor",
@@ -603,7 +661,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 13,
               "Title": "OrdenTrabajoService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\OrdenTrabajoService.cs",
               "RelativeDocumentMoniker": "..\\Services\\OrdenTrabajoService.cs",
@@ -611,12 +669,11 @@
               "RelativeToolTip": "..\\Services\\OrdenTrabajoService.cs",
               "ViewState": "AgIAABsAAAAAAAAAAAAtwCsAAAAtAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-11-14T11:54:42.926Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-14T11:54:42.926Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 12,
+              "DocumentIndex": 18,
               "Title": "MDDetalleServicioTecnico.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDDetalleServicioTecnico.razor",
               "RelativeDocumentMoniker": "Shared\\Modals\\MDDetalleServicioTecnico.razor",
@@ -624,12 +681,11 @@
               "RelativeToolTip": "Shared\\Modals\\MDDetalleServicioTecnico.razor",
               "ViewState": "AgIAAJwAAAAAAAAAAAAAAB8AAABAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-11-14T15:23:19.885Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-14T15:23:19.885Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 15,
               "Title": "ConfirmarServicioTecnico.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\ConfirmarServicioTecnico.razor",
               "RelativeDocumentMoniker": "Shared\\Modals\\ConfirmarServicioTecnico.razor",
@@ -642,7 +698,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
+              "DocumentIndex": 17,
               "Title": "ServicioTecnicoService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\ServicioTecnicoService.cs",
               "RelativeDocumentMoniker": "..\\Services\\ServicioTecnicoService.cs",
@@ -650,12 +706,11 @@
               "RelativeToolTip": "..\\Services\\ServicioTecnicoService.cs",
               "ViewState": "AgIAAAQAAAAAAAAAAAAWwBYAAAA0AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-11-17T12:40:51.296Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-17T12:40:51.296Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 16,
               "Title": "DL_ServicioTecnico.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_ServicioTecnico.cs",
               "RelativeDocumentMoniker": "..\\DataLayer\\DL_ServicioTecnico.cs",
@@ -668,7 +723,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 14,
+              "DocumentIndex": 20,
               "Title": "MDAgregarReparacion.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDAgregarReparacion.razor",
               "RelativeDocumentMoniker": "Shared\\Modals\\MDAgregarReparacion.razor",
@@ -681,7 +736,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 15,
+              "DocumentIndex": 21,
               "Title": "ProductoNegocioService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\ProductoNegocioService.cs",
               "RelativeDocumentMoniker": "..\\Services\\ProductoNegocioService.cs",
@@ -689,12 +744,11 @@
               "RelativeToolTip": "..\\Services\\ProductoNegocioService.cs",
               "ViewState": "AgIAAAUAAAAAAAAAAADwvxYAAAA0AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-27T13:09:44.893Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-27T13:09:44.893Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 19,
               "Title": "Proveedores.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Proveedores\\Proveedores.razor",
               "RelativeDocumentMoniker": "Pages\\Proveedores\\Proveedores.razor",
@@ -702,12 +756,11 @@
               "RelativeToolTip": "Pages\\Proveedores\\Proveedores.razor",
               "ViewState": "AgIAAPoAAAAAAAAAAIAwwAwBAAA2AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-07-11T14:35:25.765Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-11T14:35:25.765Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 20,
+              "DocumentIndex": 25,
               "Title": "RMA.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\RMA\\RMA.razor",
               "RelativeDocumentMoniker": "Pages\\RMA\\RMA.razor",
@@ -715,12 +768,11 @@
               "RelativeToolTip": "Pages\\RMA\\RMA.razor",
               "ViewState": "AgIAAKEBAAAAAAAAAADwv8UBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-11-13T12:49:08.698Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-13T12:49:08.698Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 22,
+              "DocumentIndex": 27,
               "Title": "Categorias.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Productos\\Categorias.razor",
               "RelativeDocumentMoniker": "Pages\\Productos\\Categorias.razor",
@@ -728,12 +780,11 @@
               "RelativeToolTip": "Pages\\Productos\\Categorias.razor",
               "ViewState": "AgIAAMAAAAAAAAAAAAAAANIAAAAVAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-11-13T14:42:29.955Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-13T14:42:29.955Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 16,
+              "DocumentIndex": 22,
               "Title": "Productos.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Productos\\Productos.razor",
               "RelativeDocumentMoniker": "Pages\\Productos\\Productos.razor",
@@ -741,25 +792,11 @@
               "RelativeToolTip": "Pages\\Productos\\Productos.razor",
               "ViewState": "AgIAAGkCAAAAAAAAAAAAAFoCAABJAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-09-29T15:05:30.403Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-09-29T15:05:30.403Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 17,
-              "Title": "MDProducto.razor",
-              "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDProducto.razor",
-              "RelativeDocumentMoniker": "Shared\\Modals\\MDProducto.razor",
-              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDProducto.razor",
-              "RelativeToolTip": "Shared\\Modals\\MDProducto.razor",
-              "ViewState": "AgIAAKIAAAAAAAAAAAAAALUAAAAEAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-11-14T14:16:58.823Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 19,
+              "DocumentIndex": 24,
               "Title": "OrdenTraspasoService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\OrdenTraspasoService.cs",
               "RelativeDocumentMoniker": "..\\Services\\OrdenTraspasoService.cs",
@@ -767,12 +804,11 @@
               "RelativeToolTip": "..\\Services\\OrdenTraspasoService.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAAAgAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-01T14:01:58.976Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-01T14:01:58.976Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 21,
+              "DocumentIndex": 26,
               "Title": "OrdenTrabajo.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Entities\\OrdenTrabajo.cs",
               "RelativeDocumentMoniker": "..\\Entities\\OrdenTrabajo.cs",
@@ -780,12 +816,11 @@
               "RelativeToolTip": "..\\Entities\\OrdenTrabajo.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABAAAAA4AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-11-13T16:14:18.388Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-13T16:14:18.388Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 25,
+              "DocumentIndex": 30,
               "Title": "Reportes.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Reportes\\Reportes.razor",
               "RelativeDocumentMoniker": "Pages\\Reportes\\Reportes.razor",
@@ -798,7 +833,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 24,
+              "DocumentIndex": 29,
               "Title": "ProductoRMA.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Entities\\ProductoRMA.cs",
               "RelativeDocumentMoniker": "..\\Entities\\ProductoRMA.cs",
@@ -806,25 +841,11 @@
               "RelativeToolTip": "..\\Entities\\ProductoRMA.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABAAAAAYAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-11-13T14:07:55.164Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-13T14:07:55.164Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 27,
-              "Title": "DL_Cotizacion.cs",
-              "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_Cotizacion.cs",
-              "RelativeDocumentMoniker": "..\\DataLayer\\DL_Cotizacion.cs",
-              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_Cotizacion.cs",
-              "RelativeToolTip": "..\\DataLayer\\DL_Cotizacion.cs",
-              "ViewState": "AgIAABsAAAAAAAAAAAAowBQAAAAJAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-24T15:43:23.148Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 23,
+              "DocumentIndex": 28,
               "Title": "ProductoRMAService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\ProductoRMAService.cs",
               "RelativeDocumentMoniker": "..\\Services\\ProductoRMAService.cs",
@@ -832,12 +853,11 @@
               "RelativeToolTip": "..\\Services\\ProductoRMAService.cs",
               "ViewState": "AgIAAAsAAAAAAAAAAAD4vxsAAAApAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-11-13T13:02:09.351Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-13T13:02:09.351Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 26,
+              "DocumentIndex": 31,
               "Title": "DL_Producto.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_Producto.cs",
               "RelativeDocumentMoniker": "..\\DataLayer\\DL_Producto.cs",
@@ -845,12 +865,11 @@
               "RelativeToolTip": "..\\DataLayer\\DL_Producto.cs",
               "ViewState": "AgIAAGYBAAAAAAAAAAAkwIICAAAIAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-31T14:42:18.544Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-31T14:42:18.544Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 29,
+              "DocumentIndex": 33,
               "Title": "CajaDiaria.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\CajaRegistradora\\CajaDiaria.razor",
               "RelativeDocumentMoniker": "Pages\\CajaRegistradora\\CajaDiaria.razor",
@@ -863,7 +882,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 28,
+              "DocumentIndex": 32,
               "Title": "DL_CajaRegistradora.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_CajaRegistradora.cs",
               "RelativeDocumentMoniker": "..\\DataLayer\\DL_CajaRegistradora.cs",
@@ -876,7 +895,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 32,
+              "DocumentIndex": 35,
               "Title": "DetalleCaja.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\CajaRegistradora\\DetalleCaja.razor",
               "RelativeDocumentMoniker": "Pages\\CajaRegistradora\\DetalleCaja.razor",
@@ -889,7 +908,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 31,
+              "DocumentIndex": 34,
               "Title": "MDAperturaCaja.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDAperturaCaja.razor",
               "RelativeDocumentMoniker": "Shared\\Modals\\MDAperturaCaja.razor",
@@ -902,7 +921,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 33,
+              "DocumentIndex": 36,
               "Title": "Clientes.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Clientes\\Clientes.razor",
               "RelativeDocumentMoniker": "Pages\\Clientes\\Clientes.razor",
@@ -910,12 +929,11 @@
               "RelativeToolTip": "Pages\\Clientes\\Clientes.razor",
               "ViewState": "AgIAAGUBAAAAAAAAAAAcwGwBAAB5AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-07-07T15:39:51.954Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-07T15:39:51.954Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 35,
+              "DocumentIndex": 37,
               "Title": "DL_TransaccionCaja.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_TransaccionCaja.cs",
               "RelativeDocumentMoniker": "..\\DataLayer\\DL_TransaccionCaja.cs",
@@ -928,20 +946,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 34,
-              "Title": "ListadoCompras.razor",
-              "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Compras\\ListadoCompras.razor",
-              "RelativeDocumentMoniker": "Pages\\Compras\\ListadoCompras.razor",
-              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Compras\\ListadoCompras.razor",
-              "RelativeToolTip": "Pages\\Compras\\ListadoCompras.razor",
-              "ViewState": "AgIAABYBAAAAAAAAAADwvzoBAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-09-18T14:33:33.527Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 37,
+              "DocumentIndex": 39,
               "Title": "DL_ProductoDetalle.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_ProductoDetalle.cs",
               "RelativeDocumentMoniker": "..\\DataLayer\\DL_ProductoDetalle.cs",
@@ -949,12 +954,11 @@
               "RelativeToolTip": "..\\DataLayer\\DL_ProductoDetalle.cs",
               "ViewState": "AgIAAC4DAAAAAAAAAAAswE8DAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-27T16:02:22Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-27T16:02:22Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 36,
+              "DocumentIndex": 38,
               "Title": "Vendedores.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Configuraciones\\Vendedores.razor",
               "RelativeDocumentMoniker": "Pages\\Configuraciones\\Vendedores.razor",
@@ -962,12 +966,11 @@
               "RelativeToolTip": "Pages\\Configuraciones\\Vendedores.razor",
               "ViewState": "AgIAAK8AAAAAAAAAAAAAAB4AAAApAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-07-31T12:29:04.193Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-31T12:29:04.193Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 38,
+              "DocumentIndex": 40,
               "Title": "SerialesVendidos.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Productos\\SerialesVendidos.razor",
               "RelativeDocumentMoniker": "Pages\\Productos\\SerialesVendidos.razor",
@@ -975,12 +978,11 @@
               "RelativeToolTip": "Pages\\Productos\\SerialesVendidos.razor",
               "ViewState": "AgIAAAwBAAAAAAAAAAAcwCIBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-10-30T13:48:32.265Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-30T13:48:32.265Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 39,
+              "DocumentIndex": 41,
               "Title": "ProductosSerializados.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Productos\\ProductosSerializados.razor",
               "RelativeDocumentMoniker": "Pages\\Productos\\ProductosSerializados.razor",
@@ -988,12 +990,11 @@
               "RelativeToolTip": "Pages\\Productos\\ProductosSerializados.razor",
               "ViewState": "AgIAAL0BAAAAAAAAAAAAAMYBAAA/AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-10-13T13:03:14.19Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-13T13:03:14.19Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 40,
+              "DocumentIndex": 42,
               "Title": "HistoricoPagosParciales.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\PagosParciales\\HistoricoPagosParciales.razor",
               "RelativeDocumentMoniker": "Pages\\PagosParciales\\HistoricoPagosParciales.razor",
@@ -1001,12 +1002,11 @@
               "RelativeToolTip": "Pages\\PagosParciales\\HistoricoPagosParciales.razor",
               "ViewState": "AgIAAC8AAAAAAAAAAAAAAEsAAABfAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-11-07T12:29:14.216Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-07T12:29:14.216Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 41,
+              "DocumentIndex": 43,
               "Title": "PagoParcialService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\PagoParcialService.cs",
               "RelativeDocumentMoniker": "..\\Services\\PagoParcialService.cs",
@@ -1014,12 +1014,11 @@
               "RelativeToolTip": "..\\Services\\PagoParcialService.cs",
               "ViewState": "AgIAAAUAAAAAAAAAAAAowBYAAABEAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-09-26T13:27:42.724Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-09-26T13:27:42.724Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 44,
+              "DocumentIndex": 46,
               "Title": "DL_Reportes.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_Reportes.cs",
               "RelativeDocumentMoniker": "..\\DataLayer\\DL_Reportes.cs",
@@ -1032,7 +1031,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 42,
+              "DocumentIndex": 44,
               "Title": "PagosParciales.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\PagosParciales\\PagosParciales.razor",
               "RelativeDocumentMoniker": "Pages\\PagosParciales\\PagosParciales.razor",
@@ -1040,12 +1039,11 @@
               "RelativeToolTip": "Pages\\PagosParciales\\PagosParciales.razor",
               "ViewState": "AgIAAK8BAAAAAAAAAAAcwAMCAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-11-06T14:20:46.101Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-06T14:20:46.101Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 47,
+              "DocumentIndex": 49,
               "Title": "ReporteTop10.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Entities\\ReporteTop10.cs",
               "RelativeDocumentMoniker": "..\\Entities\\ReporteTop10.cs",
@@ -1053,12 +1051,11 @@
               "RelativeToolTip": "..\\Entities\\ReporteTop10.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAA8AAAAFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-11-03T11:58:35.329Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-03T11:58:35.329Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 45,
+              "DocumentIndex": 47,
               "Title": "ReporteService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\ReporteService.cs",
               "RelativeDocumentMoniker": "..\\Services\\ReporteService.cs",
@@ -1066,12 +1063,11 @@
               "RelativeToolTip": "..\\Services\\ReporteService.cs",
               "ViewState": "AgIAABYAAAAAAAAAAAAqwCQAAABaAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-11-03T12:03:58.334Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-03T12:03:58.334Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 43,
+              "DocumentIndex": 45,
               "Title": "MDFiltrosReportes.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDFiltrosReportes.razor",
               "RelativeDocumentMoniker": "Shared\\Modals\\MDFiltrosReportes.razor",
@@ -1079,12 +1075,11 @@
               "RelativeToolTip": "Shared\\Modals\\MDFiltrosReportes.razor",
               "ViewState": "AgIAACEAAAAAAAAAAAAAALQAAABKAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-11-03T12:40:24.077Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-03T12:40:24.077Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 46,
+              "DocumentIndex": 48,
               "Title": "AdminMenu.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\AdminMenu.razor",
               "RelativeDocumentMoniker": "Shared\\AdminMenu.razor",
@@ -1092,12 +1087,11 @@
               "RelativeToolTip": "Shared\\AdminMenu.razor",
               "ViewState": "AgIAAAkAAAAAAAAAAAAAACQAAAB5AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-10-27T11:49:21.085Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-27T11:49:21.085Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 48,
+              "DocumentIndex": 50,
               "Title": "OrdenesTraspaso.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Stock\\OrdenesTraspaso.razor",
               "RelativeDocumentMoniker": "Pages\\Stock\\OrdenesTraspaso.razor",
@@ -1105,12 +1099,11 @@
               "RelativeToolTip": "Pages\\Stock\\OrdenesTraspaso.razor",
               "ViewState": "AgIAADwAAAAAAAAAAAAAAEkAAAAEAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-10-27T14:25:30.397Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-27T14:25:30.397Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 52,
+              "DocumentIndex": 54,
               "Title": "DL_Compra.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_Compra.cs",
               "RelativeDocumentMoniker": "..\\DataLayer\\DL_Compra.cs",
@@ -1118,12 +1111,11 @@
               "RelativeToolTip": "..\\DataLayer\\DL_Compra.cs",
               "ViewState": "AgIAABAAAAAAAAAAAAA1wCsAAABLAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-09-19T11:34:26.882Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-09-19T11:34:26.882Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 53,
+              "DocumentIndex": 55,
               "Title": "DL_Concepto.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_Concepto.cs",
               "RelativeDocumentMoniker": "..\\DataLayer\\DL_Concepto.cs",
@@ -1131,12 +1123,11 @@
               "RelativeToolTip": "..\\DataLayer\\DL_Concepto.cs",
               "ViewState": "AgIAAA0AAAAAAAAAAAAjwBIAAAAJAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-01T15:08:27.702Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-01T15:08:27.702Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 50,
+              "DocumentIndex": 52,
               "Title": "DL_Venta.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_Venta.cs",
               "RelativeDocumentMoniker": "..\\DataLayer\\DL_Venta.cs",
@@ -1144,12 +1135,11 @@
               "RelativeToolTip": "..\\DataLayer\\DL_Venta.cs",
               "ViewState": "AgIAAIcCAAAAAAAAAAAgwJcCAAAnAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-31T14:43:55.721Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-31T14:43:55.721Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 49,
+              "DocumentIndex": 51,
               "Title": "VentaService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\VentaService.cs",
               "RelativeDocumentMoniker": "..\\Services\\VentaService.cs",
@@ -1157,12 +1147,11 @@
               "RelativeToolTip": "..\\Services\\VentaService.cs",
               "ViewState": "AgIAACkAAAAAAAAAAAAiwDkAAAAWAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-31T14:52:40.234Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-31T14:52:40.234Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 51,
+              "DocumentIndex": 53,
               "Title": "CompraService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\CompraService.cs",
               "RelativeDocumentMoniker": "..\\Services\\CompraService.cs",
@@ -1170,12 +1159,11 @@
               "RelativeToolTip": "..\\Services\\CompraService.cs",
               "ViewState": "AgIAAAMAAAAAAAAAAAAgwBoAAAA6AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-09-19T11:33:24.659Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-09-19T11:33:24.659Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 54,
+              "DocumentIndex": 56,
               "Title": "ConsultaProductos.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Consultas\\ConsultaProductos.razor",
               "RelativeDocumentMoniker": "Pages\\Consultas\\ConsultaProductos.razor",
@@ -1183,12 +1171,11 @@
               "RelativeToolTip": "Pages\\Consultas\\ConsultaProductos.razor",
               "ViewState": "AgIAANQAAAAAAAAAAAAUwOgAAAApAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-10-30T12:41:41.924Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-30T12:41:41.924Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 57,
+              "DocumentIndex": 59,
               "Title": "CotizacionDolar.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Finanzas\\CotizacionDolar.razor",
               "RelativeDocumentMoniker": "Pages\\Finanzas\\CotizacionDolar.razor",
@@ -1196,12 +1183,11 @@
               "RelativeToolTip": "Pages\\Finanzas\\CotizacionDolar.razor",
               "ViewState": "AgIAAHoAAAAAAAAAAAAowJQAAAAFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-07-24T15:31:06.49Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-24T15:31:06.49Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 56,
+              "DocumentIndex": 58,
               "Title": "Monedas.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Finanzas\\Monedas.razor",
               "RelativeDocumentMoniker": "Pages\\Finanzas\\Monedas.razor",
@@ -1209,12 +1195,11 @@
               "RelativeToolTip": "Pages\\Finanzas\\Monedas.razor",
               "ViewState": "AgIAAAoAAAAAAAAAAAAcwIsAAAAyAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-09-25T14:58:00.28Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-09-25T14:58:00.28Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 58,
+              "DocumentIndex": 60,
               "Title": "Stock.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Stock\\Stock.razor",
               "RelativeDocumentMoniker": "Pages\\Stock\\Stock.razor",
@@ -1222,12 +1207,11 @@
               "RelativeToolTip": "Pages\\Stock\\Stock.razor",
               "ViewState": "AgIAAEMAAAAAAAAAAAAMwE0AAAAyAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-10-20T12:29:48.182Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-20T12:29:48.182Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 55,
+              "DocumentIndex": 57,
               "Title": "FormasDePago.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Finanzas\\FormasDePago.razor",
               "RelativeDocumentMoniker": "Pages\\Finanzas\\FormasDePago.razor",
@@ -1235,12 +1219,11 @@
               "RelativeToolTip": "Pages\\Finanzas\\FormasDePago.razor",
               "ViewState": "AgIAAFcAAAAAAAAAAAAMwGgAAAApAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-10-30T15:52:22.8Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-30T15:52:22.8Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 59,
+              "DocumentIndex": 61,
               "Title": "site.js",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\wwwroot\\js\\site.js",
               "RelativeDocumentMoniker": "wwwroot\\js\\site.js",
@@ -1248,12 +1231,11 @@
               "RelativeToolTip": "wwwroot\\js\\site.js",
               "ViewState": "AgIAAEgAAAAAAAAAAAAAAGIAAAACAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
-              "WhenOpened": "2025-10-20T18:40:05.531Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-20T18:40:05.531Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 60,
+              "DocumentIndex": 62,
               "Title": "Producto.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Entities\\Producto.cs",
               "RelativeDocumentMoniker": "..\\Entities\\Producto.cs",
@@ -1261,25 +1243,11 @@
               "RelativeToolTip": "..\\Entities\\Producto.cs",
               "ViewState": "AgIAACMAAAAAAAAAAAAQwDIAAAA7AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-23T14:14:13.4Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-23T14:14:13.4Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 62,
-              "Title": "MDSeleccionSN.razor",
-              "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDSeleccionSN.razor",
-              "RelativeDocumentMoniker": "Shared\\Modals\\MDSeleccionSN.razor",
-              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDSeleccionSN.razor",
-              "RelativeToolTip": "Shared\\Modals\\MDSeleccionSN.razor",
-              "ViewState": "AgIAADMAAAAAAAAAAAAAAH4AAAAEAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-10-27T12:28:40.045Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 61,
+              "DocumentIndex": 63,
               "Title": "PrecioHelper.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Utils\\PrecioHelper.cs",
               "RelativeDocumentMoniker": "Utils\\PrecioHelper.cs",
@@ -1287,12 +1255,11 @@
               "RelativeToolTip": "Utils\\PrecioHelper.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABEAAAAFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-30T12:53:01.078Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-30T12:53:01.078Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 63,
+              "DocumentIndex": 64,
               "Title": "MDTraspasoSucursal.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDTraspasoSucursal.razor",
               "RelativeDocumentMoniker": "Shared\\Modals\\MDTraspasoSucursal.razor",
@@ -1300,12 +1267,11 @@
               "RelativeToolTip": "Shared\\Modals\\MDTraspasoSucursal.razor",
               "ViewState": "AgIAAFQAAAAAAAAAAAAAAGgAAAA5AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-10-27T12:53:02.549Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-27T12:53:02.549Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 64,
+              "DocumentIndex": 65,
               "Title": "TraspasoMercaderia.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Stock\\TraspasoMercaderia.razor",
               "RelativeDocumentMoniker": "Pages\\Stock\\TraspasoMercaderia.razor",
@@ -1313,12 +1279,11 @@
               "RelativeToolTip": "Pages\\Stock\\TraspasoMercaderia.razor",
               "ViewState": "AgIAAKUAAAAAAAAAAAASwMMAAAAxAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-10-27T11:49:04.066Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-27T11:49:04.066Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 65,
+              "DocumentIndex": 66,
               "Title": "ProductoDetalleService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\ProductoDetalleService.cs",
               "RelativeDocumentMoniker": "..\\Services\\ProductoDetalleService.cs",
@@ -1326,12 +1291,11 @@
               "RelativeToolTip": "..\\Services\\ProductoDetalleService.cs",
               "ViewState": "AgIAADQAAAAAAAAAAAAiwEIAAABGAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-09T14:56:25.088Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-09T14:56:25.088Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 66,
+              "DocumentIndex": 67,
               "Title": "ProductoService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\ProductoService.cs",
               "RelativeDocumentMoniker": "..\\Services\\ProductoService.cs",
@@ -1339,12 +1303,11 @@
               "RelativeToolTip": "..\\Services\\ProductoService.cs",
               "ViewState": "AgIAAC4AAAAAAAAAAAAkwD0AAAAoAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-01T12:18:07.153Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-01T12:18:07.153Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 67,
+              "DocumentIndex": 68,
               "Title": "site.css",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\wwwroot\\css\\site.css",
               "RelativeDocumentMoniker": "wwwroot\\css\\site.css",
@@ -1352,12 +1315,11 @@
               "RelativeToolTip": "wwwroot\\css\\site.css",
               "ViewState": "AgIAAOEAAAAAAAAAAAAAwAMBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003000|",
-              "WhenOpened": "2025-10-20T11:51:19.675Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-20T11:51:19.675Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 68,
+              "DocumentIndex": 69,
               "Title": "MDTraspasoStock.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDTraspasoStock.razor",
               "RelativeDocumentMoniker": "Shared\\Modals\\MDTraspasoStock.razor",
@@ -1365,12 +1327,11 @@
               "RelativeToolTip": "Shared\\Modals\\MDTraspasoStock.razor",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-10-20T12:53:14.597Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-20T12:53:14.597Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 69,
+              "DocumentIndex": 70,
               "Title": "Usuarios.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Usuarios\\Usuarios.razor",
               "RelativeDocumentMoniker": "Pages\\Usuarios\\Usuarios.razor",
@@ -1378,12 +1339,11 @@
               "RelativeToolTip": "Pages\\Usuarios\\Usuarios.razor",
               "ViewState": "AgIAADIAAAAAAAAAAAAMwEMAAAAsAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-10-17T14:47:51.366Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-17T14:47:51.366Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 70,
+              "DocumentIndex": 71,
               "Title": "FormaPago.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Entities\\FormaPago.cs",
               "RelativeDocumentMoniker": "..\\Entities\\FormaPago.cs",
@@ -1391,12 +1351,11 @@
               "RelativeToolTip": "..\\Entities\\FormaPago.cs",
               "ViewState": "AgIAAAkAAAAAAAAAAAAAAAgAAAAaAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-17T14:24:00.08Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-17T14:24:00.08Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 71,
+              "DocumentIndex": 72,
               "Title": "Cliente.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Entities\\Cliente.cs",
               "RelativeDocumentMoniker": "..\\Entities\\Cliente.cs",
@@ -1404,12 +1363,11 @@
               "RelativeToolTip": "..\\Entities\\Cliente.cs",
               "ViewState": "AgIAAAYAAAAAAAAAAAAqwAgAAAAYAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-09-22T16:19:47.458Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-09-22T16:19:47.458Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 72,
+              "DocumentIndex": 73,
               "Title": "DL_Moneda.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_Moneda.cs",
               "RelativeDocumentMoniker": "..\\DataLayer\\DL_Moneda.cs",
@@ -1421,7 +1379,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 74,
+              "DocumentIndex": 75,
               "Title": "DL_PrecioProducto.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_PrecioProducto.cs",
               "RelativeDocumentMoniker": "..\\DataLayer\\DL_PrecioProducto.cs",
@@ -1433,7 +1391,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 73,
+              "DocumentIndex": 74,
               "Title": "PrecioProductoService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\PrecioProductoService.cs",
               "RelativeDocumentMoniker": "..\\Services\\PrecioProductoService.cs",
@@ -1445,7 +1403,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 75,
+              "DocumentIndex": 76,
               "Title": "MonedaService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\MonedaService.cs",
               "RelativeDocumentMoniker": "..\\Services\\MonedaService.cs",
@@ -1457,7 +1415,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 76,
+              "DocumentIndex": 77,
               "Title": "Negocio.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\Configuraciones\\Negocio.razor",
               "RelativeDocumentMoniker": "Pages\\Configuraciones\\Negocio.razor",
@@ -1469,7 +1427,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 77,
+              "DocumentIndex": 78,
               "Title": "IModalLauncher.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\IModalLauncher.cs",
               "RelativeDocumentMoniker": "..\\Services\\IModalLauncher.cs",
@@ -1481,7 +1439,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 78,
+              "DocumentIndex": 79,
               "Title": "AperturaCaja.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\CajaRegistradora\\AperturaCaja.razor",
               "RelativeDocumentMoniker": "Pages\\CajaRegistradora\\AperturaCaja.razor",
@@ -1490,18 +1448,6 @@
               "ViewState": "AgIAAAkAAAAAAAAAAAAcwCMAAAAFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
               "WhenOpened": "2025-09-29T11:44:44.878Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 79,
-              "Title": "MDPagoParcial.razor",
-              "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDPagoParcial.razor",
-              "RelativeDocumentMoniker": "Shared\\Modals\\MDPagoParcial.razor",
-              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDPagoParcial.razor",
-              "RelativeToolTip": "Shared\\Modals\\MDPagoParcial.razor",
-              "ViewState": "AgIAAIQAAAAAAAAAAAAnwI8AAAAHAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-09-26T12:04:15.787Z"
             },
             {
               "$type": "Document",
@@ -1531,18 +1477,6 @@
             {
               "$type": "Document",
               "DocumentIndex": 82,
-              "Title": "MDCliente.razor",
-              "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDCliente.razor",
-              "RelativeDocumentMoniker": "Shared\\Modals\\MDCliente.razor",
-              "ToolTip": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Modals\\MDCliente.razor",
-              "RelativeToolTip": "Shared\\Modals\\MDCliente.razor",
-              "ViewState": "AgIAALQAAAAAAAAAAAAYwNUAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-09-25T11:58:10.733Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 83,
               "Title": "RegisterLayout.razor",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\RegisterLayout.razor",
               "RelativeDocumentMoniker": "Shared\\RegisterLayout.razor",
@@ -1554,7 +1488,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 84,
+              "DocumentIndex": 83,
               "Title": "DetalleVenta.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Entities\\DetalleVenta.cs",
               "RelativeDocumentMoniker": "..\\Entities\\DetalleVenta.cs",
@@ -1566,7 +1500,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 85,
+              "DocumentIndex": 84,
               "Title": "Compra.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Entities\\Compra.cs",
               "RelativeDocumentMoniker": "..\\Entities\\Compra.cs",
@@ -1578,7 +1512,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 86,
+              "DocumentIndex": 85,
               "Title": "DetalleCajaService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\DetalleCajaService.cs",
               "RelativeDocumentMoniker": "..\\Services\\DetalleCajaService.cs",
@@ -1590,7 +1524,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 87,
+              "DocumentIndex": 86,
               "Title": "ConceptoService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\ConceptoService.cs",
               "RelativeDocumentMoniker": "..\\Services\\ConceptoService.cs",
@@ -1602,7 +1536,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 88,
+              "DocumentIndex": 87,
               "Title": "CostoServicioTecnico.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Entities\\DTO\\CostoServicioTecnico.cs",
               "RelativeDocumentMoniker": "..\\Entities\\DTO\\CostoServicioTecnico.cs",
@@ -1614,7 +1548,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 89,
+              "DocumentIndex": 88,
               "Title": "DL_Negocio.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_Negocio.cs",
               "RelativeDocumentMoniker": "..\\DataLayer\\DL_Negocio.cs",
@@ -1626,7 +1560,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 90,
+              "DocumentIndex": 89,
               "Title": "EnumExtensions.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Utils\\EnumExtensions.cs",
               "RelativeDocumentMoniker": "Utils\\EnumExtensions.cs",
@@ -1638,7 +1572,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 92,
+              "DocumentIndex": 91,
               "Title": "Apple49Theme.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Shared\\Themes\\Apple49Theme.cs",
               "RelativeDocumentMoniker": "Shared\\Themes\\Apple49Theme.cs",
@@ -1650,7 +1584,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 93,
+              "DocumentIndex": 92,
               "Title": "DL_ClienteNegocio.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\DataLayer\\DL_ClienteNegocio.cs",
               "RelativeDocumentMoniker": "..\\DataLayer\\DL_ClienteNegocio.cs",
@@ -1663,7 +1597,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 91,
+              "DocumentIndex": 90,
               "Title": "CotizacionService.cs",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\Services\\CotizacionService.cs",
               "RelativeDocumentMoniker": "..\\Services\\CotizacionService.cs",
@@ -1675,7 +1609,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 94,
+              "DocumentIndex": 93,
               "Title": "_Host.cshtml",
               "DocumentMoniker": "C:\\Users\\jaalvarez\\Documents\\Joaco\\LPNEWSTORE_WEB\\LPNEWSTORE\\Pages\\_Host.cshtml",
               "RelativeDocumentMoniker": "Pages\\_Host.cshtml",

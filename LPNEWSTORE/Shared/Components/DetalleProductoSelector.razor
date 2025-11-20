@@ -1,0 +1,385 @@
+﻿@using Entities
+@using LPNEWSTORE.Shared.Modals
+@using MudBlazor
+@inject IDialogService DialogService
+
+<MudPaper Class="p-2 mb-3" Outlined="true">
+    <div class="groupbox">
+        <div class="groupbox-title">Información Producto</div>
+
+        <div class="groupbox-content">
+            <MudGrid GutterSize="2" AlignItems="Center">
+
+                <!-- Código -->
+                <MudItem xs="12" md="2">
+                    <MudText Typo="Typo.caption">Código Producto:</MudText>
+                    <MudTextField @bind-Value="_codigo"
+                                  ReadOnly="true"
+                                  Dense="true" />
+                </MudItem>
+
+                <!-- Producto + buscar -->
+                <MudItem xs="12" md="4">
+                    <MudText Typo="Typo.caption">Producto:</MudText>
+                    <MudTextField @bind-Value="_nombre"
+                                  ReadOnly="true"
+                                  Dense="true"
+                                  Placeholder="Doble clic o lupa para buscar…"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  AdornmentColor="Color.Primary"
+                                  OnAdornmentClick="AbrirMDProducto"
+                                  @ondblclick="AbrirMDProducto" />
+                </MudItem>
+
+                <!-- Precio -->
+                <MudItem xs="6" md="2">
+                    <MudText Typo="Typo.caption">Precio:</MudText>
+                    <MudNumericField T="decimal"
+                                     @bind-Value="_precio"
+                                     Dense="true"
+                                     Adornment="Adornment.Start"
+                                     AdornmentText="$" />
+                </MudItem>
+
+                <!-- Cotización U$S -->
+                <MudItem xs="6" md="2">
+                    <MudText Typo="Typo.caption">Cotización U$S:</MudText>
+                    <MudNumericField T="decimal"
+                                     @bind-Value="CotizacionInicialUsd"
+                                     Dense="true"
+                                     Adornment="Adornment.Start"
+                                     AdornmentText="U$S" />
+                </MudItem>
+
+                <!-- Stock -->
+                <MudItem xs="6" md="1">
+                    <MudText Typo="Typo.caption">Stock:</MudText>
+                    <MudNumericField T="int"
+                                     @bind-Value="_stock"
+                                     ReadOnly="true"
+                                     Dense="true" />
+                </MudItem>
+
+                <!-- Cantidad -->
+                <MudItem xs="6" md="1">
+                    <MudText Typo="Typo.caption">Cantidad:</MudText>
+                    <MudNumericField T="int"
+                                     @bind-Value="_cantidad"
+                                     Min="1"
+                                     Dense="true" />
+                </MudItem>
+
+                <!-- Botón Agregar -->
+                <MudItem xs="12" md="12" Class="d-flex justify-end mt-1">
+                    <MudButton Color="Color.Success"
+                               Variant="Variant.Filled"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="AgregarAsync">
+                        Agregar
+                    </MudButton>
+                </MudItem>
+
+            </MudGrid>
+        </div>
+    </div>
+</MudPaper>
+
+<!-- Grilla de detalle -->
+<MudTable Items="Items"
+          Dense="true"
+          Hover="true"
+          Elevation="0"
+          Bordered="true">
+    <HeaderContent>
+        <MudTh>PRODUCTO</MudTh>
+        <MudTh>MARCA</MudTh>
+        <MudTh>MODELO</MudTh>
+        <MudTh>COLOR</MudTh>
+        <MudTh>S/N</MudTh>
+        <MudTh class="text-end">PRECIO</MudTh>
+        <MudTh class="text-end">PRECIO LISTA</MudTh>
+        <MudTh class="text-end">CANTIDAD</MudTh>
+        <MudTh class="text-end">COTIZACIÓN</MudTh>
+        <MudTh class="text-end">SUB TOTAL</MudTh>
+        <MudTh>SERIALIZABLE</MudTh>
+        <MudTh>DOLARIZADO?</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="PRODUCTO">@context.Nombre</MudTd>
+        <MudTd DataLabel="MARCA">@context.Marca</MudTd>
+        <MudTd DataLabel="MODELO">@context.Modelo</MudTd>
+        <MudTd DataLabel="COLOR">@context.Color</MudTd>
+        <MudTd DataLabel="S/N">@context.SerialNumber</MudTd>
+        <MudTd DataLabel="PRECIO" Class="text-end">@context.Precio.ToString("N2")</MudTd>
+        <MudTd DataLabel="PRECIO LISTA" Class="text-end">@context.PrecioLista.ToString("N2")</MudTd>
+        <MudTd DataLabel="CANTIDAD" Class="text-end">@context.Cantidad</MudTd>
+        <MudTd DataLabel="COTIZACIÓN" Class="text-end">@context.Cotizacion.ToString("N2")</MudTd>
+        <MudTd DataLabel="SUB TOTAL" Class="text-end">@context.SubTotalPesos.ToString("N2")</MudTd>
+        <MudTd DataLabel="SERIALIZABLE">@((context.EsSerializable) ? "Sí" : "No")</MudTd>
+        <MudTd DataLabel="DOLARIZADO?">@((context.Dolarizado) ? "Sí" : "No")</MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code
+{
+
+    [Inject] ISnackbar? Snackbar { get; set; }
+
+    // ********** Parámetros públicos **********
+
+    /// <summary>
+    /// Detalle de productos (se puede usar bind-Items).
+    /// </summary>
+    [Parameter] public List<DetalleProductoItem> Items { get; set; } = new();
+    [Parameter] public EventCallback<List<DetalleProductoItem>> ItemsChanged { get; set; }
+
+    /// <summary>
+    /// Cotización inicial a usar al cargar el componente
+    /// (pasale la cotización activa desde la página padre).
+    /// </summary>
+    [Parameter] public decimal CotizacionInicialUsd { get; set; }
+
+    // Ej: id sucursal, si lo necesitás para MDProducto/MDSerial
+    [Parameter] public int? IdSucursal { get; set; }
+
+    // ********** Estado interno de la cabecera **********
+
+    private int _idProducto;
+    private string _codigo = string.Empty;
+    private string _nombre = string.Empty;
+    private string _marca = string.Empty;
+    private string _modelo = string.Empty;
+    private string _color = string.Empty;
+    private bool _esSerializable;
+    private bool _dolarizado;
+    private int _stock;
+    private decimal _precio;
+    private decimal _precioLista;
+    private decimal _cotizacionUsd;
+    private int _cantidad = 1;
+    private string? _serialNumber;
+
+    protected override void OnInitialized()
+    {
+        _cotizacionUsd = CotizacionInicialUsd;
+    }
+
+    // ----------- Buscar producto (MDProducto) -------------
+
+    private async Task AbrirMDProducto()
+    {
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            FullWidth = true,
+            MaxWidth = MaxWidth.Large
+        };
+
+        var parameters = new DialogParameters
+        {
+            // Ejemplo, por si MDProducto necesita la sucursal:
+            //{ "IdSucursal", IdSucursal }
+        };
+
+        // Cambia MDProducto por el nombre real de tu modal
+        var dialog = DialogService.Show<MDProducto>("Seleccionar producto", parameters, options);
+        var result = await dialog.Result;
+
+        if (result.Canceled) return;
+
+        // Acá casteás al tipo que devuelve tu MDProducto
+        // Ej: var prod = (ProductoNegocioDto)result.Data;
+        var prod = (Producto)result.Data; // <-- renombralo a tu tipo
+
+        CargarProducto(prod);
+    }
+
+    private void CargarProducto(Producto prod)
+    {
+        _idProducto = prod.IdProducto;
+        _codigo = prod.Codigo;
+        _nombre = prod.Nombre;
+        _marca = string.Empty;
+        _modelo = string.Empty;
+        _color = string.Empty;
+        _stock = prod.Stock;
+        _precio = prod.PrecioVenta;
+        _precioLista = prod.PrecioLista;
+        _esSerializable = prod.ProdSerializable;
+        _dolarizado = prod.ProductoDolar;
+        _cantidad = 1;
+        _serialNumber = string.Empty;
+
+        
+
+        StateHasChanged();
+    }
+
+    // ----------- Agregar a la grilla ----------------------
+
+    private async Task AgregarAsync()
+    {
+        if (_idProducto == 0)
+        {
+            Snackbar?.Add("Primero seleccioná un producto.", Severity.Warning);
+            return;
+        }
+
+        if (_cantidad <= 0)
+        {
+            Snackbar?.Add("La cantidad debe ser mayor a 0.", Severity.Warning);
+            return;
+        }
+
+        if (_dolarizado && _cotizacionUsd <= 0)
+        {
+            Snackbar?.Add("La cotización debe ser mayor a 0.", Severity.Warning);
+            return;
+        }
+
+        if (_esSerializable)
+        {
+            await AbrirMDSerialNumberAsync();
+        }
+        else
+        {
+            await AgregarLineaAsync(_serialNumber);
+        }
+    }
+
+    /// <summary>
+    /// Abre el modal de selección de serial numbers cuando el producto es serializable.
+    /// </summary>
+    private async Task AbrirMDSerialNumberAsync()
+    {
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            FullWidth = true,
+            MaxWidth = MaxWidth.Medium
+        };
+
+        var parameters = new DialogParameters
+        {
+            { "IdProducto", _idProducto },
+            
+            { "IdNegocio", IdSucursal }
+        };
+
+        // Cambia MDSeleccionSerial por el nombre real de tu modal de SN
+        var dialog = DialogService.Show<MDSeleccionSN>("Seleccionar número de serie", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is ProductoDetalle productoDetalle)
+        {
+            _marca = productoDetalle.Marca;
+            _modelo = productoDetalle.Modelo;
+            _color = productoDetalle.Color;
+            _serialNumber = productoDetalle.NumeroSerie;
+        } else
+        {
+            return;
+        }
+
+              
+
+        
+
+        await AgregarLineaAsync(_serialNumber);
+    }
+
+    private async Task AgregarLineaAsync(string? serial)
+    {
+        var item = new DetalleProductoItem
+        {
+            IdProducto = _idProducto,
+            Codigo = _codigo,
+            Nombre = _nombre,
+            Marca = _marca,
+            Modelo = _modelo,
+            Color = _color,
+            SerialNumber = serial,
+            Precio = _precio,
+            PrecioLista = _precioLista,
+            Cantidad = _cantidad,
+            Cotizacion = CotizacionInicialUsd,
+            EsSerializable = _esSerializable,
+            Dolarizado = _dolarizado
+        };
+
+        Items.Add(item);
+
+        if (ItemsChanged.HasDelegate)
+            await ItemsChanged.InvokeAsync(Items);
+
+        // Dejo el producto seleccionado pero reseteo cantidad y SN
+        _cantidad = 1;
+        _serialNumber = null;
+
+        StateHasChanged();
+    }
+
+    // ************* Clases auxiliares ******************
+
+    public class DetalleProductoItem
+    {
+        public int IdProducto { get; set; }
+        public string Codigo { get; set; } = string.Empty;
+        public string Nombre { get; set; } = string.Empty;
+        public string Marca { get; set; } = string.Empty;
+        public string Modelo { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;
+        public string? SerialNumber { get; set; }
+        public decimal Precio { get; set; }
+        public decimal PrecioLista { get; set; }
+        public int Cantidad { get; set; }
+        public decimal Cotizacion { get; set; }
+        public bool EsSerializable { get; set; }
+        public bool Dolarizado { get; set; }
+
+        // Si está dolarizado se multiplica por la cotización para el subtotal en pesos
+        public decimal SubTotalPesos => Dolarizado
+            ? PrecioLista * Cantidad * Cotizacion
+            : PrecioLista * Cantidad;
+    }
+
+    // DTO que devuelve MDProducto: cambiá nombres según tu modelo real
+    public class ProductoSeleccionadoDto
+    {
+        public int IdProducto { get; set; }
+        public string Codigo { get; set; } = string.Empty;
+        public string Nombre { get; set; } = string.Empty;
+        public string Marca { get; set; } = string.Empty;
+        public string Modelo { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;
+        public int StockActual { get; set; }
+        public decimal PrecioVenta { get; set; }
+        public decimal PrecioLista { get; set; }
+        public bool EsSerializable { get; set; }
+        public bool Dolarizado { get; set; }
+    }
+}
+<style>
+    .groupbox {
+        position: relative;
+        border: 1px solid var(--mud-palette-primary);
+        border-radius: 4px;
+        padding-top: 12px;
+    }
+
+    .groupbox-title {
+        position: absolute;
+        top: -10px;
+        left: 12px;
+        background-color: var(--mud-palette-surface);
+        padding: 0 6px;
+        font-weight: 600;
+        color: var(--mud-palette-primary);
+        font-size: 0.9rem;
+    }
+
+    .groupbox-content {
+        padding: 6px 8px 4px 8px;
+    }
+</style>
