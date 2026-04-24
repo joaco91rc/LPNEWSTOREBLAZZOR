@@ -1,11 +1,11 @@
 ﻿@using Entities
 @using MudBlazor
 
-<div class="p-2">
+<div class="p-2  mb-3">
     <MudGrid GutterSize="2">
         <!-- Bloque Información Venta / Compra -->
-        <MudItem xs="12" md="6">
-            <MudPaper Class="p-3 cabecera-paper" Outlined="true">
+        <MudItem xs="12" md="6" Class="cabecera-equal-col mb-1">
+            <MudPaper Class="p-3 px-2 cabecera-paper cabecera-equal-card" Outlined="true">
                 <MudText Typo="Typo.subtitle1" Color="Color.Primary" Class="cabecera-titulo">
                     @TituloOperacion
                 </MudText>
@@ -35,7 +35,7 @@
                         </MudSelect>
                     </MudItem>
 
-                    <MudItem xs="12" md="4">
+                    <MudItem xs="12" md="4" Class="mb-3">
                         <MudText Typo="Typo.caption">Vendedor:</MudText>
                         <MudSelect T="int?"
                                    @bind-Value="VendedorId"
@@ -57,8 +57,8 @@
         </MudItem>
 
         <!-- Bloque Información Cliente / Proveedor -->
-        <MudItem xs="12" md="6">
-            <MudPaper Class="p-3 cabecera-paper" Outlined="true">
+        <MudItem xs="12" md="6" Class="cabecera-equal-col mb-1">
+            <MudPaper Class="p-3 px-2 cabecera-paper cabecera-equal-card" Outlined="true">
                 <MudText Typo="Typo.subtitle1" Color="Color.Primary" Class="cabecera-titulo">
                     @TituloPersona
                 </MudText>
@@ -80,7 +80,7 @@
                                        OnClick="OnBuscarPersona" />
                     </MudItem>
 
-                    <MudItem xs="12" md="7">
+                    <MudItem xs="12" md="7" Class="mb-3">
                         <MudTextField Label="@NombreLabel"
                                       @bind-Value="NombrePersona"
                                       Dense="true"
@@ -157,5 +157,15 @@
 
     .cabecera-titulo {
         font-weight: 600;
+    }
+
+    .cabecera-equal-col {
+        display: flex;
+    }
+
+    .cabecera-equal-card {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
     }
 </style>

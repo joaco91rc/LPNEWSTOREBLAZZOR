@@ -13,6 +13,7 @@
 @code {
     private CajaRegistradora? _clienteSeleccionado;
     private int idNegocio;
+    private int idEmpresa;
 
 
     private async Task AbrirAperturaCaja()
@@ -29,7 +30,7 @@
         {
             _clienteSeleccionado = cliente;
 
-            await CajaService.AperturaCajaAsync(_clienteSeleccionado, idNegocio);
+            await CajaService.AperturaCajaAsync(_clienteSeleccionado, idNegocio,idEmpresa);
 
             StateHasChanged();
         }
@@ -44,6 +45,7 @@
             if (int.TryParse(sucursal, out int idSucursal))
             {
                 idNegocio = idSucursal;
+                
 
                 await AbrirAperturaCaja();
 

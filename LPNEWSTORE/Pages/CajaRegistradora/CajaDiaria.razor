@@ -1,189 +1,52 @@
 ﻿@page "/cajadiaria"
 @using ClosedXML.Excel
 @using MudBlazor
-@using Microsoft.AspNetCore.Identity
 @using Services
 @using Entities
-@using System.Security.Claims
 @using System.Text
+@using System.Security.Claims
 
-@inject CajaRegistradoraService CajaRegistradoraService
-@inject NavigationManager Navigation
-@inject TransaccionCajaService TransaccionCajaService
-@inject RolService rolService
+@inject CajaRegistradoraEmpresaService CajaRegistradoraEmpresaService
+@inject CajaRegistradoraEmpresaDetalleService CajaRegistradoraDetalleService
+@inject TransaccionCajaEmpresaService TransaccionCajaEmpresaService
 @inject FormaPagoService FormaPagoService
 @inject ConceptoService ConceptoService
 @inject VendedorService VendedorService
+@inject RolService rolService
+@inject CajaService CajaService
+@inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthenticationStateProvider
-@inject SesionNegocioService SesionNegocioService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
-
-<AbmLayout TEntity="TransaccionCaja"
+<AbmLayout TEntity="TransaccionCajaEmpresa"
            FormContent="@FormTransaccion"
            GridContent="@GridTransacciones"
            OnSearchChanged="HandleSearch"
-           OnExport="ExportarCajaRegistradoraesXlsx"
-           SearchPlaceholder="Buscar CajaRegistradora …" />
+           OnExport="ExportarTransaccionesXlsx"
+           SearchPlaceholder="Buscar movimiento de caja…" />
 
 @code {
     [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
-    List<TransaccionCaja> Transacciones = new();
-    TransaccionCaja TransaccionCajaActual = new();
-    CajaRegistradora CajaRegistradoraAct = new();
-    private List<Rol> listaRoles = new();
-    private int idRolSeleccionado = 0;
-    private string claseThead = "mi-th";
-    private MudForm? formTransaccion;
-    private bool esEdicion = false;
-    private string rolUsuarioActual = string.Empty;
-    private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+
+    List<TransaccionCajaEmpresa> Transacciones = new();
+    TransaccionCajaEmpresa TransaccionActual = new();
+
+    CajaRegistradoraEmpresa? CajaActual = null;
+    List<CajaRegistradoraEmpresaDetalle> DetallesCajaActual = new();
+
     private List<FormaPago> _formasPago = new();
     private List<Concepto> _conceptos = new();
     private List<Vendedor> _vendedores = new();
-    public class TotalesCaja
-    {
-        public decimal Total { get; set; }
-        public decimal TotalMP { get; set; }
-        public decimal TotalUSS { get; set; }
-        public decimal TotalGalicia { get; set; }
+    private List<Caja> _cajas = new();
+    private List<Rol> listaRoles = new();
 
-    }
-    private TotalesCaja TotalesActuales { get; set; } = new();
-    // Saldos apertura (desde la caja)
-    decimal SaldoAperturaEfectivo => CajaRegistradoraAct?.SaldoInicio ?? 0m;
-    decimal SaldoAperturaMP => CajaRegistradoraAct?.SaldoInicioMP ?? 0m;
-    decimal SaldoAperturaDolares => CajaRegistradoraAct?.SaldoInicioUSS ?? 0m;
-    decimal SaldoAperturaGalicia => CajaRegistradoraAct?.SaldoInicioGalicia ?? 0m;
+    private MudForm? formTransaccion;
+    private bool esEdicion = false;
+    private string rolUsuarioActual = string.Empty;
 
-
-
-
-
-    private TotalesCaja CalcularTotales(CajaRegistradora objCajaRegistradora)
-    {
-        decimal total = 0;
-        decimal totalMP = 0;
-        decimal totalUSS = 0;
-        decimal totalGalicia = 0;
-
-        // Usamos la lista que se muestra en la grilla (ya filtrada)
-        if (Transacciones is not null && Transacciones.Count > 0)
-        {
-            foreach (var t in TransaccionesFiltradas)
-            {
-                var cajaAsociada = (t.CajaAsociada ?? string.Empty).Trim().ToUpperInvariant();
-                decimal monto = t.Monto;
-
-                if (cajaAsociada == "EFECTIVO")
-                {
-                    total += monto;
-                }
-                else if (cajaAsociada == "DOLARES" || cajaAsociada == "DÓLARES")
-                {
-                    totalUSS += monto;
-                }
-                else if (cajaAsociada == "MERCADO PAGO")
-                {
-                    totalMP += monto;
-                }
-                else if (cajaAsociada == "GALICIA")
-                {
-                    totalGalicia += monto;
-                }
-            }
-        }
-
-        // Tomamos los saldos de apertura desde la caja registradora actual
-        var saldoInicioEfectivo = objCajaRegistradora?.SaldoInicio ?? 0m;
-        var saldoInicioMP = objCajaRegistradora?.SaldoInicioMP ?? 0m;
-        var saldoInicioUSS = objCajaRegistradora?.SaldoInicioUSS ?? 0m;
-        var saldoInicioGalicia = objCajaRegistradora?.SaldoInicioGalicia ?? 0m;
-
-        TotalesCaja totales = new TotalesCaja
-        {
-            Total = total + saldoInicioEfectivo,
-            TotalMP = totalMP + saldoInicioMP,
-            TotalUSS = totalUSS + saldoInicioUSS,
-            TotalGalicia = totalGalicia + saldoInicioGalicia
-        };
-
-        return totales;
-    }
-
-
-
-    private void RecalcularTotales()
-    {
-        TotalesActuales = CalcularTotales(CajaRegistradoraAct);
-    }
-
-    private string SimboloMoneda
-    {
-        get
-        {
-            var caja = TransaccionCajaActual?.CajaAsociada ?? string.Empty;
-
-            // Podés ajustar los textos según cómo los guardes ("Dolares", "Dólares", etc.)
-            if (caja.Equals("Dolares", StringComparison.OrdinalIgnoreCase) ||
-                caja.Equals("Dólares", StringComparison.OrdinalIgnoreCase) ||
-                caja.Equals("DOLARES", StringComparison.OrdinalIgnoreCase))
-            {
-                return "U$S";
-            }
-
-            return "$";
-        }
-    }
-
-    // Botón cerrar caja
-    private async Task CerrarCajaAsync()
-    {
-
-
-        if (CajaRegistradoraAct is null)
-        {
-            // No hay caja para cerrar
-            Snackbar.Add("No hay ninguna caja para cerrar.", Severity.Warning);
-            return;
-        }
-
-
-
-
-
-
-            CajaRegistradoraAct.FechaCierre = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-            CajaRegistradoraAct.Saldo = TotalesActuales.Total;
-            CajaRegistradoraAct.SaldoMP = TotalesActuales.TotalMP;
-            CajaRegistradoraAct.SaldoUSS = TotalesActuales.TotalUSS;
-            CajaRegistradoraAct.SaldoGalicia = TotalesActuales.TotalGalicia;
-        
-
-        var (resultado, mensaje) =
-            await CajaRegistradoraService.CerrarCajaAsync(CajaRegistradoraAct, sucursalSeleccionada);
-
-        if (resultado)
-        {
-            Snackbar.Add($"Caja registradora de la fecha {CajaRegistradoraAct.FechaApertura} cerrada.", Severity.Success);
-
-            // Dejamos la pantalla en estado “sin caja”
-            CajaRegistradoraAct = null;
-            Transacciones = new();
-            
-            TotalesActuales = new TotalesCaja();
-            Navigation.NavigateTo("/");
-        }
-        else
-        {
-            Snackbar.Add(mensaje, Severity.Error);
-        }
-    }
-
-
-    private IEnumerable<TransaccionCaja> TransaccionesFiltradas
+    private IEnumerable<TransaccionCajaEmpresa> TransaccionesFiltradas
     {
         get
         {
@@ -195,103 +58,122 @@
             bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
 
             return Transacciones.Where(p =>
-                Has(p.DocAsociado) ||
+                Has(p.Detalle) ||
                 Has(p.TipoTransaccion) ||
-                Has(p.Concepto) ||
-                Has(p.CajaAsociada) ||
-                Has(p.Concepto) ||
-                Has(p.FormaPago) ||
-                Has(p.UsuarioTransaccion) 
+                Has(p.TipoOperacion) ||
+                Has(p.DescripcionCaja) ||
+                Has(p.DescripcionFormaPago) ||
+                Has(p.UsuarioTransaccion)
             );
+        }
+    }
+
+    private string SimboloMonedaSeleccionada
+    {
+        get
+        {
+            var caja = _cajas.FirstOrDefault(x => x.IdCaja == TransaccionActual.IdCaja);
+            if (caja is null)
+                return "$";
+
+            return caja.IdMoneda == 2 ? "U$S" : "$";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            rolUsuarioActual = user.Claims
+                .FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+        }
+
+        _formasPago = await FormaPagoService.ListarFormasDePago();
+        _conceptos = await ConceptoService.ListarAsync();
+        _vendedores = await VendedorService.ListarVendedores();
+        _cajas = await CajaService.ListarCajas(true);
+        listaRoles = await rolService.Listar();
+
+        await CargarCajaActualAsync();
+    }
+
+    private async Task CargarCajaActualAsync()
+    {
+        CajaActual = await CajaRegistradoraEmpresaService.ObtenerCajaActual();
+
+        if (CajaActual is not null)
+        {
+            Transacciones = await TransaccionCajaEmpresaService
+                .ListarPorCajaRegistradoraAsync(CajaActual.IdCajaRegistradora);
+
+            DetallesCajaActual = await CajaRegistradoraDetalleService
+                .Listar(CajaActual.IdCajaRegistradora);
+        }
+        else
+        {
+            Transacciones = new();
+            DetallesCajaActual = new();
         }
     }
 
     private Task HandleSearch(string value)
     {
         GridSearch = value;
-        // StateHasChanged(); // opcional, normalmente no hace falta
         return Task.CompletedTask;
     }
 
-    private async Task ExportarCsv()
+    private async Task ExportarTransaccionesXlsx()
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("Fecha - Hora;Concepto;Movimiento;Monto;Forma de Pago;Caja Asociada;Detalle;Vendedor");
-        foreach (var p in TransaccionesFiltradas)
-        {
-            string[] cols = {
-                p.Hora,
-                p.Concepto,
-                p.TipoTransaccion,
-                p.Monto.ToString(),
-                p.FormaPago,
-                p.CajaAsociada,
-                p.DocAsociado,
-                p.UsuarioTransaccion
+        var fileName = $"CajaDiaria_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
 
-
-    };
-            sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
-        }
-        await JS.InvokeVoidAsync("downloadFileFromText", "CajaRegistradoraes.csv", sb.ToString(), "text/csv;charset=utf-8;");
-    }
-
-    private async Task ExportarCajaRegistradoraesXlsx()
-    {
-        var fileName = $"CajaRegistradoraes_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
-
-        // 1) Materializar primero (evita IQueryables/lazy durante el export)
         var rows = TransaccionesFiltradas.Select(p => new
         {
-            Hora = p.Hora ?? string.Empty,
-            Concepto = p.Concepto,
+            Fecha = p.FechaTransaccion.ToString("dd/MM/yyyy HH:mm"),
             Movimiento = p.TipoTransaccion,
+            Operacion = p.TipoOperacion,
+            Caja = p.DescripcionCaja,
+            FormaPago = p.DescripcionFormaPago,
             Monto = p.Monto,
-            FormaPago = p.FormaPago,
-            CajaAsociada = p.CajaAsociada,
-            Detalle = p.DocAsociado,
+            Detalle = p.Detalle,
             Vendedor = p.UsuarioTransaccion
         }).ToList();
 
-        await Task.Yield(); // ceder antes del trabajo CPU-bound
+        await Task.Yield();
 
-        // 2) Generar XLSX fuera del hilo del circuito
         byte[] bytes = await Task.Run(() =>
         {
             using var wb = new XLWorkbook();
-            var ws = wb.Worksheets.Add("CajaRegistradoraes");
+            var ws = wb.Worksheets.Add("CajaDiaria");
 
-            // Encabezados
             int r = 1, c = 1;
-            ws.Cell(r, c++).Value = "Fecha - Hora";
-            ws.Cell(r, c++).Value = "Concepto";
+            ws.Cell(r, c++).Value = "Fecha";
             ws.Cell(r, c++).Value = "Movimiento";
-            ws.Cell(r, c++).Value = "Monto";
+            ws.Cell(r, c++).Value = "Operación";
+            ws.Cell(r, c++).Value = "Caja";
             ws.Cell(r, c++).Value = "Forma de Pago";
-            ws.Cell(r, c++).Value = "Caja Asociada";
+            ws.Cell(r, c++).Value = "Monto";
             ws.Cell(r, c++).Value = "Detalle";
             ws.Cell(r, c++).Value = "Vendedor";
 
-
             int lastCol = c - 1;
             ws.Range(1, 1, 1, lastCol).Style.Font.SetBold();
-            ws.Range(1, 1, 1, lastCol).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+            ws.Range(1, 1, 1, lastCol).Style.Fill
+                .SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
             ws.SheetView.FreezeRows(1);
 
-            // Forzar columna DNI como texto
-            ws.Column(1).Style.NumberFormat.Format = "@";
-
-            // Datos
             r = 2;
             foreach (var p in rows)
             {
                 c = 1;
-                ws.Cell(r, c++).Value = p.Hora;     // texto
-                ws.Cell(r, c++).Value = p.Concepto;
+                ws.Cell(r, c++).Value = p.Fecha;
                 ws.Cell(r, c++).Value = p.Movimiento;
-                ws.Cell(r, c++).Value = p.Monto;
+                ws.Cell(r, c++).Value = p.Operacion;
+                ws.Cell(r, c++).Value = p.Caja;
                 ws.Cell(r, c++).Value = p.FormaPago;
-                ws.Cell(r, c++).Value = p.CajaAsociada;
+                ws.Cell(r, c++).Value = p.Monto;
                 ws.Cell(r, c++).Value = p.Detalle;
                 ws.Cell(r, c++).Value = p.Vendedor;
                 r++;
@@ -309,7 +191,6 @@
             return ms.ToArray();
         });
 
-        // 3) Descargar vía stream (SIN base64)
         using var msOut = new MemoryStream(bytes);
         using var streamRef = new DotNetStreamReference(msOut);
         await JS.InvokeVoidAsync("downloadFromStream",
@@ -318,98 +199,16 @@
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-
-
-            if (int.TryParse(sucursal, out int idSucursal))
-            {
-
-            }
-
-            StateHasChanged();
-        }
-
-
-
-    }
-
-
-
-    protected override async Task OnInitializedAsync()
-    {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        _formasPago  = await FormaPagoService.ListarFormasDePago();
-        _conceptos   = await ConceptoService.ListarAsync(sucursalSeleccionada);
-        _vendedores  = await VendedorService.ListarVendedores();
-        listaRoles   = await rolService.Listar();
-
-        if (user.Identity != null && user.Identity.IsAuthenticated)
-        {
-            rolUsuarioActual = user.Claims
-                                   .FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value
-                                   ?? string.Empty;
-        }
-
-        // Obtener caja abierta
-        var cajasAbiertas = await CajaRegistradoraService.ListarAsync(sucursalSeleccionada);
-
-        if (cajasAbiertas != null && cajasAbiertas.Any())
-        {
-            CajaRegistradoraAct = cajasAbiertas.First();
-
-            // Traer transacciones de esa caja
-            Transacciones = await TransaccionCajaService
-                .ListarAsync(CajaRegistradoraAct.IdCajaRegistradora, sucursalSeleccionada);
-
-
-
-            // Calcular totales en base a la caja + transacciones filtradas
-            TotalesActuales = CalcularTotales(CajaRegistradoraAct);
-        }
-        else
-        {
-            CajaRegistradoraAct     = null;
-            Transacciones           = new List<TransaccionCaja>();
-
-            TotalesActuales         = new TotalesCaja(); // todo en 0
-        }
-    }
-
-
-    private void Editar(TransaccionCaja c)
-    {
-        TransaccionCajaActual = new TransaccionCaja
-        {
-            IdCajaRegistradora = c.IdCajaRegistradora,
-            IdTransaccion = c.IdTransaccion,
-            Hora = c.Hora,
-            TipoTransaccion = c.TipoTransaccion,
-            Monto = c.Monto,
-            Concepto = c.Concepto,
-            FormaPago = c.FormaPago,
-            CajaAsociada = c.CajaAsociada,
-            DocAsociado = c.DocAsociado,
-            UsuarioTransaccion = c.UsuarioTransaccion,
-            IdCompra = c.IdCompra,
-            IdVenta = c.IdVenta,
-             IdPagoParcial = c.IdPagoParcial,
-            IdNegocio = c.IdNegocio,
-        };
-
-
-        esEdicion = true;
-    }
-
     private async Task Registrar()
     {
         if (formTransaccion is null)
             return;
+
+        if (CajaActual is null)
+        {
+            Snackbar.Add("No hay una caja abierta para registrar movimientos.", Severity.Warning);
+            return;
+        }
 
         await formTransaccion.Validate();
 
@@ -419,211 +218,143 @@
             return;
         }
 
-        string mensaje = string.Empty;
-        bool resultado = false;
-
         if (esEdicion)
         {
-            var (exito, msg) = await TransaccionCajaService.EditarMovimientoAsync(TransaccionCajaActual);
-            resultado = exito;
-            mensaje = msg;
-        }
-        else
-        {
-            TransaccionCajaActual.Hora = DateTime.Now.ToString();
-            TransaccionCajaActual.IdNegocio = sucursalSeleccionada;
-            TransaccionCajaActual.IdCajaRegistradora = CajaRegistradoraAct.IdCajaRegistradora;
-            var (idGenerado, msg) = await TransaccionCajaService.RegistrarMovimientoAsync(TransaccionCajaActual);
-            resultado = idGenerado > 0;
-
-            mensaje = msg;
+            Snackbar.Add("La edición de movimientos todavía no está implementada para el nuevo modelo.", Severity.Warning);
+            return;
         }
 
-        if (resultado)
+        TransaccionActual.IdCajaRegistradora = CajaActual.IdCajaRegistradora;
+        TransaccionActual.TipoOperacion = "MANUAL";
+
+        var (idGenerado, mensaje) = await TransaccionCajaEmpresaService.RegistrarMovimientoCompletoAsync(TransaccionActual);
+
+        if (idGenerado > 0)
         {
             Snackbar.Add(mensaje, Severity.Success);
-            TransaccionCajaActual = new TransaccionCaja();
-            esEdicion = false;
-            Transacciones = await TransaccionCajaService.ListarAsync(CajaRegistradoraAct.IdCajaRegistradora, sucursalSeleccionada);
-            RecalcularTotales();
-            await formTransaccion.ResetAsync(); // resetea el form
 
+            TransaccionActual = new TransaccionCajaEmpresa();
+
+            await CargarCajaActualAsync();
+            await formTransaccion.ResetAsync();
         }
         else
         {
-
             Snackbar.Add(mensaje, Severity.Error);
         }
     }
 
-    private string FormatearMonto(TransaccionCaja t)
+    private async Task CerrarCajaAsync()
     {
-        // Si la caja asociada es "Dolares" → símbolo dólares, sino pesos
-        var simbolo = string.Equals(t.CajaAsociada, "Dolares", StringComparison.OrdinalIgnoreCase)
-            ? "US$"
-            : "$";
-
-        // N2 → separador de miles + 2 decimales según cultura actual (AR: 1.234,56)
-        return $"{simbolo} {t.Monto:N2}";
-    }
-
-
-    private void OnFormaPagoChanged(string nuevaFormaPago)
-    {
-        // Actualizar la propiedad FormaPago de la transacción
-        TransaccionCajaActual.FormaPago = nuevaFormaPago;
-
-        // Buscar la forma de pago seleccionada en la lista
-        var fp = _formasPago.FirstOrDefault(x => x.Descripcion == nuevaFormaPago);
-
-        if (fp is not null)
+        if (CajaActual is null)
         {
-            // Copiar la CajaAsociada desde la forma de pago
-            TransaccionCajaActual.CajaAsociada = fp.CajaAsociada.ToString(); // o el nombre que tenga el campo
-            StateHasChanged();
+            Snackbar.Add("No hay ninguna caja para cerrar.", Severity.Warning);
+            return;
+        }
+
+        bool? confirmado = await DialogService.ShowMessageBox(
+            title: "Cerrar Caja",
+            markupMessage: (MarkupString)"<b>¿Está seguro que desea cerrar la caja actual?</b>",
+            yesText: "Sí",
+            cancelText: "Cancelar",
+            options: new DialogOptions() { MaxWidth = MaxWidth.Small });
+
+        if (confirmado != true)
+            return;
+
+        var (resultado, mensaje) = await CajaRegistradoraEmpresaService.CerrarCaja();
+
+        if (resultado)
+        {
+            Snackbar.Add("Caja cerrada correctamente.", Severity.Success);
+
+            CajaActual = null;
+            Transacciones = new();
+            DetallesCajaActual = new();
+
+            Navigation.NavigateTo("/");
         }
         else
         {
-            TransaccionCajaActual.CajaAsociada = string.Empty;
+            Snackbar.Add(mensaje, Severity.Error);
         }
     }
-
-
-    private async Task Eliminar(TransaccionCaja c)
-    {
-        bool? confirmado = await DialogService.ShowMessageBox(
-            title: "Eliminar CajaRegistradora",
-            markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar al la Transaccion {c.DocAsociado}?</b>",
-            yesText: "Sí", cancelText: "Cancelar", options: new DialogOptions() { MaxWidth = MaxWidth.Small }
-        );
-        // ver que borrar si tiene venta compra o pago parcial asociado
-        if (confirmado == true)
-        {
-            if (c.IdCompra.HasValue)
-            {
-                var (exito, mensaje) = await TransaccionCajaService.EliminarMovimientoCajaYCompraAsync(c.IdTransaccion);
-                if (exito)
-                {
-                    Snackbar.Add(mensaje, Severity.Success);
-                    Transacciones = await TransaccionCajaService.ListarAsync(CajaRegistradoraAct.IdCajaRegistradora, sucursalSeleccionada);
-                }
-                else
-                {
-                    Snackbar.Add(mensaje, Severity.Error);
-                }
-            } else if (c.IdVenta.HasValue)
-            {
-                var (exito, mensaje) = await TransaccionCajaService.EliminarMovimientoCajaYVentaAsync(c.IdTransaccion);
-                if (exito)
-                {
-                    Snackbar.Add(mensaje, Severity.Success);
-                    Transacciones = await TransaccionCajaService.ListarAsync(CajaRegistradoraAct.IdCajaRegistradora, sucursalSeleccionada);
-                }
-                else
-                {
-                    Snackbar.Add(mensaje, Severity.Error);
-                }
-            } else if (c.IdPagoParcial.HasValue)
-            {
-                var (exito, mensaje) = await TransaccionCajaService.EliminarMovimientoCajaYPagoParcialAsync(c.IdTransaccion);
-                if (exito)
-                {
-                    Snackbar.Add(mensaje, Severity.Success);
-                    Transacciones = await TransaccionCajaService.ListarAsync(CajaRegistradoraAct.IdCajaRegistradora, sucursalSeleccionada);
-                }
-                else
-                {
-                    Snackbar.Add(mensaje, Severity.Error);
-                }
-            } else {
-            var (exito, mensaje) = await TransaccionCajaService.EliminarMovimientoAsync(c.IdTransaccion);
-                if (exito)
-                {
-                    Snackbar.Add(mensaje, Severity.Success);
-                    Transacciones = await TransaccionCajaService.ListarAsync(CajaRegistradoraAct.IdCajaRegistradora, sucursalSeleccionada);
-                }
-                else
-                {
-                    Snackbar.Add(mensaje, Severity.Error);
-                }
-            }
-            
-        }
-    }
-
 
     private void CancelarEdicion()
     {
-        TransaccionCajaActual = new TransaccionCaja();
-        
-
+        TransaccionActual = new TransaccionCajaEmpresa();
         esEdicion = false;
+    }
+
+    private string FormatearMonto(TransaccionCajaEmpresa t)
+    {
+        var caja = _cajas.FirstOrDefault(x => x.IdCaja == t.IdCaja);
+        var simbolo = caja?.IdMoneda == 2 ? "U$S" : "$";
+        return $"{simbolo} {t.Monto:N2}";
     }
 
     RenderFragment FormTransaccion => @<div style="padding: 16px; padding-top:16px">
     <MudForm @ref="formTransaccion" OnValidSubmit="Registrar">
         <MudStack Spacing="2">
-            
-            <MudSelect T="string"
-                       Label="Concepto"
-                       @bind-Value="TransaccionCajaActual.Concepto"
-                       Required="true"
-                       Dense="true"
-                       FullWidth="true">
+
+            <MudSelect T="int?" Label="Concepto" @bind-Value="TransaccionActual.IdConcepto" Required="true" Dense="true" FullWidth="true">
                 @foreach (var c in _conceptos)
                                 {
-                <MudSelectItem Value="@c.Descripcion">@c.Descripcion</MudSelectItem>
+                <MudSelectItem T="int?" Value="@c.IdConcepto">@c.Descripcion</MudSelectItem>
                                 }
             </MudSelect>
 
             <MudSelect T="string"
                        Label="Movimiento"
-                       @bind-Value="TransaccionCajaActual.TipoTransaccion"
+                       @bind-Value="TransaccionActual.TipoTransaccion"
                        Required="true"
                        Dense="true"
                        FullWidth="true">
-                <MudSelectItem T="string" Value="@("Entrada")">Entrada</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Salida")">Salida</MudSelectItem>
+                <MudSelectItem T="string" Value="@("INGRESO")">Ingreso</MudSelectItem>
+                <MudSelectItem T="string" Value="@("EGRESO")">Egreso</MudSelectItem>
             </MudSelect>
 
-            
-
-
-            <MudSelect T="string"
+            <MudSelect T="int?"
                        Label="Forma de Pago"
-                       Value="@TransaccionCajaActual.FormaPago"
-                       ValueChanged="OnFormaPagoChanged"
-                       ValueExpression="@(() => TransaccionCajaActual.FormaPago)"
+                       @bind-Value="TransaccionActual.IdFormaPago"
                        Dense="true"
                        Required="true"
                        FullWidth="true">
                 @foreach (var fp in _formasPago)
                                 {
-                <MudSelectItem T="string" Value="@fp.Descripcion">
-                    @fp.Descripcion
+                <MudSelectItem T="int?" Value="@fp.IdFormaPago">@fp.Descripcion</MudSelectItem>
+                                }
+            </MudSelect>
+
+            <MudSelect T="int"
+                       Label="Caja"
+                       @bind-Value="TransaccionActual.IdCaja"
+                       Dense="true"
+                       Required="true"
+                       FullWidth="true">
+                @foreach (var caja in _cajas)
+                                {
+                <MudSelectItem T="int" Value="@caja.IdCaja">
+                    @caja.Descripcion (@(caja.IdMoneda == 1 ? "Principal" : "USD"))
                 </MudSelectItem>
                                 }
             </MudSelect>
 
-
-            <MudTextField Label="Caja Asociada" Required="true"  ReadOnly = "true" @bind-Value="TransaccionCajaActual.CajaAsociada" />
-
             <MudNumericField T="decimal"
                              Label="Monto"
-                             @bind-Value="TransaccionCajaActual.Monto"
+                             @bind-Value="TransaccionActual.Monto"
                              Required="true"
                              Dense="true"
                              FullWidth="true"
                              Adornment="Adornment.Start"
-                             AdornmentText="@SimboloMoneda"
+                             AdornmentText="@SimboloMonedaSeleccionada"
                              Format="N2" />
 
+            <MudTextField Label="Detalle" Required="true" @bind-Value="TransaccionActual.Detalle" />
 
-            <MudTextField Label="Detalle" Required="true" @bind-Value="TransaccionCajaActual.DocAsociado" />
-            
             <MudSelect T="string"
                        Label="Vendedor"
-                       @bind-Value="TransaccionCajaActual.UsuarioTransaccion"
+                       @bind-Value="TransaccionActual.UsuarioTransaccion"
                        Dense="true"
                        Required="true"
                        FullWidth="true">
@@ -633,232 +364,82 @@
                                 }
             </MudSelect>
 
-
-            
-
             <MudStack Direction="Row" Spacing="2">
                 <MudButton OnClick="Registrar" Variant="Variant.Filled" Color="Color.Primary">
-                    @(esEdicion ? "Actualizar" : "Guardar")
+                    Guardar
                 </MudButton>
-                @if (esEdicion)
-                                {
-                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CancelarEdicion">
-                    Cancelar
-                </MudButton>
-                                }
             </MudStack>
         </MudStack>
     </MudForm>
 </div>;
 
-
     RenderFragment GridTransacciones => @<div style="padding: 16px; padding-top:16px">
-    <!-- RECUADRO DE SUBTOTALES -->
-    <MudPaper Class="mt-3 p-3" Elevation="1">
-        <MudGrid GutterSize="2" AlignItems="Center">
 
-            <!-- Fila 1: Efectivo -->
-            <MudItem xs="12" md="6">
-                <MudText Typo="Typo.body2">Saldo Apertura Caja  $:</MudText>
-                <MudTextField Value="@SaldoAperturaEfectivo.ToString("N2")"
-                              ReadOnly="true"
-                              Dense="true"
-                              Class="ml-2"
-                              Style="max-width:120px;" />
-            </MudItem>
-            <MudItem xs="12" md="6">
-                <MudText Typo="Typo.body2" Color="Color.Success">Saldo Efectivo:</MudText>
-                <MudTextField Value="@TotalesActuales.Total.ToString("N2")"
-                              ReadOnly="true"
-                              Dense="true"
-                              Class="ml-2"
-                              Style="max-width:120px;" />
-            </MudItem>
+        <MudPaper Class="mt-3 p-3" Elevation="1">
+            <MudText Typo="Typo.h6" Class="mb-2">Saldos de Caja</MudText>
 
-            <!-- Fila 2: Mercado Pago -->
-            <MudItem xs="12" md="6">
-                <MudText Typo="Typo.body2">Saldo Apertura Caja MP:</MudText>
-                <MudTextField Value="@SaldoAperturaMP.ToString("N2")"
-                              ReadOnly="true"
-                              Dense="true"
-                              Class="ml-2"
-                              Style="max-width:120px;" />
-            </MudItem>
-            <MudItem xs="12" md="6">
-                <MudText Typo="Typo.body2" Color="Color.Success">Saldo Mercado Pago:</MudText>
-                <MudTextField Value="@TotalesActuales.TotalMP.ToString("N2")"
-                              ReadOnly="true"
-                              Dense="true"
-                              Class="ml-2"
-                              Style="max-width:120px;" />
-            </MudItem>
+            <MudTable Items="DetallesCajaActual" Dense="true" Hover="true" Bordered="true" Striped="true">
+                <HeaderContent>
+                    <MudTh>Caja</MudTh>
+                    <MudTh>Moneda</MudTh>
+                    <MudTh>Saldo Inicial</MudTh>
+                    <MudTh>Saldo Actual</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.DescripcionCaja</MudTd>
+                    <MudTd>@context.MonedaDescripcion</MudTd>
+                    <MudTd>@context.SaldoInicial.ToString("N2")</MudTd>
+                    <MudTd>@context.SaldoActual.ToString("N2")</MudTd>
+                </RowTemplate>
+            </MudTable>
 
-            <!-- Fila 3: Dólares -->
-            <MudItem xs="12" md="6">
-                <MudText Typo="Typo.body2">Saldo Apertura Caja US$:</MudText>
-                <MudTextField Value="@SaldoAperturaDolares.ToString("N2")"
-                              ReadOnly="true"
-                              Dense="true"
-                              Class="ml-2"
-                              Style="max-width:120px;" />
-            </MudItem>
-            <MudItem xs="12" md="6">
-                <MudText Typo="Typo.body2" Color="Color.Success">Saldo Dolares:</MudText>
-                <MudTextField Value="@TotalesActuales.TotalUSS.ToString("N2")"
-                              ReadOnly="true"
-                              Dense="true"
-                              Class="ml-2"
-                              Style="max-width:120px;" />
-            </MudItem>
-
-            <!-- Fila 4: Galicia -->
-            <MudItem xs="12" md="6">
-                <MudText Typo="Typo.body2">Saldo Apertura Caja Galicia:</MudText>
-                <MudTextField Value="@SaldoAperturaGalicia.ToString("N2")"
-                              ReadOnly="true"
-                              Dense="true"
-                              Class="ml-2"
-                              Style="max-width:120px;" />
-            </MudItem>
-            <MudItem xs="12" md="6">
-                <MudText Typo="Typo.body2" Color="Color.Success">Saldo Galicia:</MudText>
-                <MudTextField Value="@TotalesActuales.TotalGalicia.ToString("N2")"
-                              ReadOnly="true"
-                              Dense="true"
-                              Class="ml-2"
-                              Style="max-width:120px;" />
-            </MudItem>
-
-            <!-- Fila 5: espacio + botón Cerrar Caja -->
-            <MudItem xs="12" md="6">
-                @* vacío para mantener la grilla de 2 columnas *@
-            </MudItem>
-            <MudItem xs="12" md="6" Class="d-flex justify-end mt-4">
+            <MudStack Class="mt-3" AlignItems="AlignItems.End">
                 <MudButton Color="Color.Error"
                            Variant="Variant.Filled"
                            StartIcon="@Icons.Material.Filled.CheckBox"
                            OnClick="CerrarCajaAsync">
                     Cerrar Caja
                 </MudButton>
-            </MudItem>
-        </MudGrid>
-    </MudPaper>
+            </MudStack>
+        </MudPaper>
 
+        <MudTable Items="TransaccionesFiltradas"
+                  Dense="true"
+                  Hover="true"
+                  Bordered="true"
+                  Striped="true"
+                  Sortable="true"
+                  Breakpoint="Breakpoint.Sm"
+                  RowsPerPageOptions="new int[]{ 5, 10, 20,30,40,50 }"
+                  PagerAlwaysVisible="true"
+                  Elevation="1"
+                  Class="mt-2">
+            <HeaderContent>
+                <MudTh><MudTableSortLabel T="TransaccionCajaEmpresa" SortBy="@(c => c.FechaTransaccion)">Fecha</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="TransaccionCajaEmpresa" SortBy="@(c => c.TipoTransaccion)">Movimiento</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="TransaccionCajaEmpresa" SortBy="@(c => c.TipoOperacion)">Operación</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="TransaccionCajaEmpresa" SortBy="@(c => c.DescripcionCaja)">Caja</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="TransaccionCajaEmpresa" SortBy="@(c => c.DescripcionFormaPago)">Forma de Pago</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="TransaccionCajaEmpresa" SortBy="@(c => c.Monto)">Monto</MudTableSortLabel></MudTh>
+                <MudTh>Detalle</MudTh>
+                <MudTh>Vendedor</MudTh>
+            </HeaderContent>
 
-    <MudTable Items="TransaccionesFiltradas"
-              Dense="true"
-              Hover="true"
-              Bordered="true"
-              Striped="true"
-              Sortable="true"
-              Breakpoint="Breakpoint.Sm"
-              RowsPerPageOptions="new int[]{ 5, 10, 20,30,40,50 }"
-              PagerAlwaysVisible="true"
-              Elevation="1"
-              Class="mt-2">
-        <HeaderContent>
-            <!-- Fecha - Hora: más ancha -->
-            <MudTh Style="width: 180px;">
-                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.Hora)">Fecha - Hora</MudTableSortLabel>
-            </MudTh>
+            <RowTemplate>
+                <MudTd>@context.FechaTransaccion.ToString("dd/MM/yyyy HH:mm")</MudTd>
+                <MudTd>@context.TipoTransaccion</MudTd>
+                <MudTd>@context.TipoOperacion</MudTd>
+                <MudTd>@context.DescripcionCaja</MudTd>
+                <MudTd>@context.DescripcionFormaPago</MudTd>
+                <MudTd>@FormatearMonto(context)</MudTd>
+                <MudTd>@context.Detalle</MudTd>
+                <MudTd>@context.UsuarioTransaccion</MudTd>
+            </RowTemplate>
 
-            <!-- Concepto: más angosta -->
-            <MudTh Style="width: 130px;">
-                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.Concepto)">Concepto</MudTableSortLabel>
-            </MudTh>
-
-            <!-- Movimiento: más angosta -->
-            <MudTh Style="width: 110px;">
-                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.TipoTransaccion)">Movimiento</MudTableSortLabel>
-            </MudTh>
-
-            <!-- Monto: tamaño normal -->
-            <MudTh Style="width: 140px; text-align:right;">
-                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.Monto)">Monto</MudTableSortLabel>
-            </MudTh>
-
-            <!-- Forma de pago -->
-            <MudTh>
-                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.FormaPago)">Forma de Pago</MudTableSortLabel>
-            </MudTh>
-
-            <!-- Caja asociada: más angosta -->
-            <MudTh Style="width: 130px;">
-                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.CajaAsociada)">Caja Asociada</MudTableSortLabel>
-            </MudTh>
-
-            <!-- Detalle -->
-            <MudTh>
-                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.DocAsociado)">Detalle</MudTableSortLabel>
-            </MudTh>
-
-            <!-- Vendedor -->
-            <MudTh>
-                <MudTableSortLabel T="TransaccionCaja" SortBy="@(c => c.UsuarioTransaccion)">Vendedor</MudTableSortLabel>
-            </MudTh>
-
-            <!-- Acciones: más ancha -->
-            <MudTh Style="width: 150px; text-align:center;">
-                Acciones
-            </MudTh>
-        </HeaderContent>
-
-        <RowTemplate>
-            <MudTd DataLabel="Fecha - Hora" Style="width: 180px;">@context.Hora</MudTd>
-
-            <MudTd DataLabel="Concepto" Style="width: 130px;">
-                @context.Concepto
-            </MudTd>
-
-            <MudTd DataLabel="Movimiento" Style="width: 110px;">
-                @context.TipoTransaccion
-            </MudTd>
-
-            <!-- Monto formateado con moneda -->
-            <MudTd DataLabel="Monto" Style="width: 140px; text-align:right;">
-                @FormatearMonto(context)
-            </MudTd>
-
-            <MudTd DataLabel="Forma de Pago">
-                @context.FormaPago
-            </MudTd>
-
-            <MudTd DataLabel="Caja Asociada" Style="width: 130px;">
-                @context.CajaAsociada
-            </MudTd>
-
-            <MudTd DataLabel="Detalle">
-                @context.DocAsociado
-            </MudTd>
-
-            <MudTd DataLabel="Vendedor">
-                @context.UsuarioTransaccion
-            </MudTd>
-
-            <MudTd Style="width: 150px; text-align:center;">
-                <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                               Color="Color.Success"
-                               Size="Size.Small"
-                               OnClick="() => Editar(context)" />
-                <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                               Color="Color.Error"
-                               Size="Size.Small"
-                               OnClick="() => Eliminar(context)"
-                               Class="ms-2" />
-            </MudTd>
-        </RowTemplate>
-
-        <PagerContent>
-            <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
-                           RowsPerPageString="Registros por página">
-            </MudTablePager>
-        </PagerContent>
-    </MudTable>
-
-   
-
-</div>;
-
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
+                               RowsPerPageString="Registros por página" />
+            </PagerContent>
+        </MudTable>
+    </div>;
 }
-
-

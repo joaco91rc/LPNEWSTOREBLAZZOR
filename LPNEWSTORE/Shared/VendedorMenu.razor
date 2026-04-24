@@ -3,7 +3,7 @@
 @using MudBlazor
 @using Services
 @inject IModalLauncher Modal
-@inject CajaRegistradoraService CajaRegistradoraService
+@inject CajaRegistradoraEmpresaService CajaRegistradoraService
 @inject SesionNegocioService SesionNegocioService
 @inject ISnackbar Snackbar
 @inject NavigationManager Navigation
@@ -18,7 +18,7 @@
         </MudNavGroup>
 
         <MudNavGroup Title="Ventas" Icon="@Icons.Material.Filled.PointOfSale">
-    <MudNavLink Href="/registrarventa" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Registrar Venta</MudNavLink>
+    <MudNavLink Href="/cobrarservicio" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Registrar Venta</MudNavLink>
     <MudNavLink Href="/historicoventas" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Histórico Ventas</MudNavLink>
         </MudNavGroup>
 
@@ -72,10 +72,10 @@
         try
         {
             // Traer cajas de la sucursal actual (ajustá el id según tu contexto)
-            var cajas = await CajaRegistradoraService.ListarAsync(sucursalSeleccionada);
-            var hayCajaAbierta = cajas?.Any(c => c.Estado) == true;
+            var cajas = await CajaRegistradoraService.ObtenerCajaActual();
+            
 
-            if (hayCajaAbierta)
+            if (cajas is not null)
             {
                 Snackbar.Add("Ya existe una caja abierta. No es necesario abrir otra.", Severity.Info);
                 return;
@@ -99,11 +99,11 @@
     private async Task OnCajaDiariaClicked(MouseEventArgs args)
     {
         // Traer cajas de la sucursal actual
-        var cajas = await CajaRegistradoraService.ListarAsync(sucursalSeleccionada);
+        var cajas = await CajaRegistradoraService.ObtenerCajaActual();
 
-        var cajaAbierta = cajas?.FirstOrDefault(c => c.Estado); // o c.estado según tu entidad
+        
 
-        if (cajaAbierta is null)
+        if (cajas is null)
         {
             Snackbar.Add("No hay cajas abiertas. Por favor abra una caja para poder ver la Caja Diaria.",
                 Severity.Warning);

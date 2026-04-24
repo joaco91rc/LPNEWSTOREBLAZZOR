@@ -1,0 +1,139 @@
+﻿@using MudBlazor
+
+
+<MudDialog MaxWidth="MaxWidth.Small" FullWidth="true">
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.h6" Color="Color.Primary">
+                Descuento / Recargo
+            </MudText>
+
+            <MudRadioGroup T="string" @bind-Value="_operacion" Row="true" Required="true">
+                <MudRadio T="string" Value=@("DESCUENTO") Label="Descuento" />
+                <MudRadio T="string" Value=@("RECARGO") Label="Recargo" />
+            </MudRadioGroup>
+
+            <MudPaper Class="p-2">
+                <MudText Typo="Typo.subtitle2">Tipo</MudText>
+
+                <MudRadioGroup T="string" @bind-Value="_tipo" Row="true" Required="true">
+                    <MudRadio T="string" Value=@("PORCENTAJE") Label="Porcentual" />
+                    <MudRadio T="string" Value=@("MONTO_FIJO") Label="Monto Fijo" />
+                </MudRadioGroup>
+            </MudPaper>
+
+
+
+
+            <!-- Valor -->
+            <MudPaper Class="p-2">
+                <MudText Typo="Typo.subtitle2">
+                    @(_tipo == "MONTO_FIJO" ? "Monto fijo" : "Porcentaje (0 a 100)")
+                </MudText>
+
+                <MudNumericField @bind-Value="_valor"
+                                 Immediate="true"
+                                 Adornment="Adornment.End"
+                                 AdornmentText="@(_tipo == "PORCENTAJE" ? "%" : "$")"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense"
+                                 Validation="ValidarValor" />
+            </MudPaper>
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Agregar">
+            Agregar
+        </MudButton>
+        <MudButton Color="Color.Default" Variant="Variant.Outlined" OnClick="Cancel">
+            Cancelar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private string _operacion { get; set; }   // DESCUENTO / RECARGO
+    private string _tipo { get; set; }       // MONTO_FIJO / PORCENTAJE
+    private decimal? _valor;
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string ValidarValor(decimal? value)
+    {
+        if (value is null)
+            return "Debe ingresar un valor.";
+
+        if (_tipo == "PORCENTAJE")
+        {
+            if (value < 0 || value > 100)
+                return "El porcentaje debe estar entre 0 y 100.";
+        }
+        else // MONTO_FIJO
+        {
+            if (value <= 0)
+                return "El monto debe ser mayor a 0.";
+        }
+
+        return null;
+    }
+    private void Reset()
+    {
+
+        _operacion = null;
+        _tipo = null;
+    }
+
+    private void Agregar()
+    {
+        var error = ValidarValor(_valor);
+        if (error != null)
+        {
+            // fuerza la validación visual
+            StateHasChanged();
+            return;
+        }
+
+        var valor = _valor ?? 0;
+
+        string textoTipo;
+
+
+        if (_tipo == "MONTO_FIJO")
+        {
+            // "Descuento - Monto fijo" / "Recargo - Monto fijo"
+            textoTipo = $"{(_operacion == "DESCUENTO" ? "Descuento" : "Recargo")} - Monto fijo";
+        }
+        else
+        {
+            // "Descuento - Porcentual del X%" / "Recargo - Porcentual del X%"
+            textoTipo = $"{(_operacion == "DESCUENTO" ? "Descuento" : "Recargo")} - Porcentual del {valor:N2}%";
+        }
+
+        var result = new AjusteLinea
+        {
+            Operacion = _operacion,
+            Tipo = _tipo,
+            Valor = valor,
+            Descripcion = textoTipo
+        };
+
+        MudDialog.Close(DialogResult.Ok(result));
+    }
+    public class AjusteLinea
+    {
+        // "DESCUENTO" o "RECARGO"
+        public string Operacion { get; set; } = "";
+
+        // "PORCENTAJE" o "MONTO_FIJO"
+        public string Tipo { get; set; } = "";
+
+        public decimal Valor { get; set; }
+
+        // Texto armado para mostrar en la grilla
+        public string Descripcion { get; set; } = "";
+    }
+
+
+    private void Cancel() => MudDialog.Cancel();
+}
+

@@ -22,5 +22,7 @@ wwwroot\images\hitech-logo.png
 wwwroot\images\LOGO_LOGIN.png
 wwwroot\images\logo-apple-cafe.jpeg
 wwwroot\images\logo-hitech-blanco.png
+wwwroot\images\logoRoyalTech.png
+wwwroot\images\RoyalTechFondo.png
 wwwroot\js\Login.js
 wwwroot\js\site.js

@@ -35,7 +35,7 @@
     private bool esEdicion = false;
     private string rolUsuarioActual = string.Empty;
     private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
-
+    private string NombreEmpresa="";
     private IEnumerable<Vendedor> VendedoresFiltrados
     {
         get
@@ -83,7 +83,7 @@
 
     private async Task ExportarVendedoresXlsx()
     {
-        var fileName = $"Vendedores_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+        var fileName = $"Vendedores_Empresa_{NombreEmpresa}_Fecha_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
 
         // 1) Materializar primero (evita IQueryables/lazy durante el export)
         var rows = VendedoresFiltrados.Select(p => new
@@ -147,44 +147,30 @@
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-
-
-            if (int.TryParse(sucursal, out int idSucursal))
-            {
-                listaVendedores = await VendedorService.ListarVendedores();
-            }
-
-            StateHasChanged();
-        }
-
-
-
-    }
-
-
-
     protected override async Task OnInitializedAsync()
     {
-
-
-
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        if (user.Identity != null && user.Identity.IsAuthenticated)
+        try
         {
-            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity != null && user.Identity.IsAuthenticated)
+            {
+                rolUsuarioActual = user.Claims
+                    .FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+                NombreEmpresa = user.FindFirst("NombreEmpresa")?.Value ?? string.Empty;
+            }
+
+            listaRoles = await rolService.Listar();
+            VendedorActual.Estado = true;
+
+            listaVendedores = await VendedorService.ListarVendedores();
         }
-
-        listaRoles = await rolService.Listar();
-        VendedorActual.Estado = true;
-
-
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar vendedores: {ex.Message}", Severity.Error);
+            listaVendedores = new List<Vendedor>();
+        }
     }
 
     private void Editar(Vendedor c)

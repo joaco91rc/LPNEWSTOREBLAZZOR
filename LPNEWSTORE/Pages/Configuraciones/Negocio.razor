@@ -39,14 +39,7 @@
         <div style="padding-top: 16px;">
 
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Guardar">Guardar</MudButton>
-            <MudTextField @bind-Value="_idClienteInput"
-                          Label="Id Cliente"
-                          Variant="Variant.Outlined"
-                          Dense="true"
-                          Type="number" />
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AbrirSelectorCliente">
-                Seleccionar pago parcial
-            </MudButton>
+            
         </div>
     </div>
 
@@ -57,9 +50,15 @@
 
 
 
+
+
+
+
     private Entities.Negocio negocio = new();
     private string logoBase64 = string.Empty;
     private int idNegocio;
+
+    private int idEmpresa;
     private CajaRegistradora? _clienteSeleccionado;
     private PagoParcial? _pagoParcialSeleccionado;
     private int _idClienteInput;
@@ -77,7 +76,7 @@
         {
             _clienteSeleccionado = cliente;
 
-            await CajaService.AperturaCajaAsync(_clienteSeleccionado, idNegocio);
+            await CajaService.AperturaCajaAsync(_clienteSeleccionado, idNegocio,idEmpresa);
 
             StateHasChanged();
         }

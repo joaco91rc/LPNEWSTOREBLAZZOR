@@ -6,6 +6,7 @@
 @using System.Globalization
 @inject IJSRuntime JS
 @inject ProductoService ProductoService
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 
 
@@ -141,6 +142,7 @@
     private string _busqueda = string.Empty;
     private bool _verTodos;
     private int SucursalId;
+    private int IdEmpresa;
     private MudTextField<string>? _txtBusqueda;
 
 
@@ -151,30 +153,46 @@
 
     
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if (firstRender)
+        try
         {
-            // 1) leer sucursal (try/catch como ya tenés)
-            try
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity == null || !user.Identity.IsAuthenticated)
             {
-                var sucursal = await JS.InvokeAsync<string?>("getCookie", "sucursalSeleccionada");
-                if (int.TryParse(sucursal, out var idSucursal))
-                    SucursalId = idSucursal;
+                _items = new List<Producto>();
+                _error = "Usuario no autenticado.";
+                return;
             }
-            catch { SucursalId = 0; }
 
-            // 2) cargar datos
-            await CargarDatosAsync();
+            var idNegocioClaim = user.Claims.FirstOrDefault(c => c.Type == "IdNegocio")?.Value;
+            var idEmpresaClaim = user.Claims.FirstOrDefault(c => c.Type == "IdEmpresa")?.Value;
 
-            // 3) forzar un render y luego enfocar el textbox
-            StateHasChanged();
-            await InvokeAsync(async () =>
+            if (!int.TryParse(idNegocioClaim, out var idSucursal))
             {
-                await Task.Yield();              // garantiza que el render terminó
-                if (_txtBusqueda is not null)
-                    await _txtBusqueda.FocusAsync();
-            });
+                _items = new List<Producto>();
+                _error = "No se pudo obtener la sucursal actual.";
+                return;
+            }
+
+            if (!int.TryParse(idEmpresaClaim, out var idEmpresa))
+            {
+                _items = new List<Producto>();
+                _error = "No se pudo obtener la empresa actual.";
+                return;
+            }
+
+            SucursalId = idSucursal;
+            IdEmpresa = idEmpresa;
+
+            await CargarDatosAsync();
+        }
+        catch (Exception ex)
+        {
+            _items = new List<Producto>();
+            _error = $"No se pudieron cargar los productos: {ex.Message}";
         }
     }
 

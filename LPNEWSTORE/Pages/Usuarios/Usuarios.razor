@@ -13,7 +13,8 @@
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject Blazored.Toast.Services.IToastService toastService
-
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
 
 <AbmLayout TEntity="Usuario"
@@ -21,7 +22,7 @@
            GridContent="@GridUsuarios"
            OnSearchChanged="HandleSearch"
            OnExport="ExportarCsv"
-           SearchPlaceholder="Buscar Moneda …" />
+           SearchPlaceholder="Buscar Usuarios …" />
 
 @code {
     [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
@@ -76,23 +77,7 @@
         await JS.InvokeVoidAsync("downloadFileFromText", "Usuarios.csv", sb.ToString(), "text/csv;charset=utf-8;");
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-
-            claseThead = sucursal switch
-            {
-                "1" or "2" => "mi-th-hitech",
-                "3" => "mi-th-apple49",
-                "4" => "mi-th-cafe",
-                _ => "mi-th-default"
-            };
-
-            StateHasChanged();
-        }
-    }
+    
 
     protected override async Task OnInitializedAsync()
     {
@@ -124,6 +109,19 @@
 
         idRolSeleccionado = u.oRol?.Id ?? 0;
         esEdicion = true;
+    }
+
+    private async Task GuardarUsuario()
+    {
+        if (formUsuario is null)
+            return;
+
+        await formUsuario.Validate();
+
+        if (!formUsuario.IsValid)
+            return;
+
+        await Registrar();
     }
 
     private async Task Registrar()
@@ -186,25 +184,30 @@
     {
         if (rolUsuarioActual != "ADMIN")
         {
-            toastService.ShowError("No tiene permisos para eliminar usuarios.");
+            Snackbar.Add("No tiene permisos para eliminar usuarios.", Severity.Error);
             return;
         }
 
-        // Confirmación usando JS (confirm devuelve true o false)
-        bool confirmado = await JS.InvokeAsync<bool>("confirm", $"¿Está seguro que desea eliminar a {u.UserName}?");
+        bool? confirmado = await DialogService.ShowMessageBox(
+            title: "Eliminar Usuario",
+            markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar al usuario {u.UserName}?</b>",
+            yesText: "Sí",
+            cancelText: "Cancelar",
+            options: new DialogOptions() { MaxWidth = MaxWidth.Small }
+        );
 
-        if (confirmado)
+        if (confirmado == true)
         {
             var eliminado = await usuarioService.Eliminar(u.Id);
 
             if (eliminado)
             {
-                toastService.ShowSuccess("Usuario eliminado.");
-                listaUsuarios = await usuarioService.Listar(); // Refrescar lista
+                Snackbar.Add("Usuario eliminado.", Severity.Success);
+                listaUsuarios = await usuarioService.Listar();
             }
             else
             {
-                toastService.ShowError("Error al eliminar usuario.");
+                Snackbar.Add("Error al eliminar usuario.", Severity.Error);
             }
         }
     }
@@ -219,9 +222,9 @@
     }
 
     RenderFragment FormUsuario => @<div style="padding: 16px; padding-top:16px">
-    <MudForm @ref="formUsuario" OnValidSubmit="Registrar">
+    <MudForm @ref="formUsuario" >
         <MudStack Spacing="2">
-            <MudTextField @bind-Value="usuarioActual.UserName" Label="Nombre de Usuario" Required="true" />
+            <MudTextField @bind-Value="usuarioActual.UserName" Label="Usuario" Required="true" />
             <MudTextField @bind-Value="usuarioActual.NombreCompleto" Label="Nombre Completo" Required="true" />
             <MudTextField @bind-Value="usuarioActual.Email" Label="Email" Required="true" />
             <MudTextField @bind-Value="nuevaPassword" Label="Contraseña" InputType="InputType.Password" />
@@ -233,7 +236,7 @@
                                 }
             </MudSelect>
             <MudStack Direction="Row" Spacing="2">
-                <MudButton Type="Submit" Variant="Variant.Filled" Color="Color.Primary">
+                <MudButton OnClick="GuardarUsuario" Variant="Variant.Filled" Color="Color.Primary">
                     @(esEdicion ? "Actualizar" : "Guardar")
                 </MudButton>
                 @if (esEdicion)
@@ -263,7 +266,10 @@
               Class="mt-2">
         <HeaderContent>
             <MudTh>
-                <MudTableSortLabel T="Usuario" SortBy="@(c => c.UserName)">Nombre</MudTableSortLabel>
+                <MudTableSortLabel T="Usuario" SortBy="@(c => c.UserName)">Usuario</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Usuario" SortBy="@(c => c.NombreCompleto)">Nombre Completo</MudTableSortLabel>
             </MudTh>
             <MudTh>
                 <MudTableSortLabel T="Usuario" SortBy="@(c => c.Email)">Email</MudTableSortLabel>
@@ -271,7 +277,8 @@
             <MudTh>Acciones</MudTh>
         </HeaderContent>
         <RowTemplate>
-            <MudTd DataLabel="Nombre">@context.UserName</MudTd>
+            <MudTd DataLabel="Usuario">@context.UserName</MudTd>
+            <MudTd DataLabel="NombreCompleto">@context.NombreCompleto</MudTd>
             <MudTd DataLabel="Email">@context.Email</MudTd>
             <MudTd>
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Success" Size="Size.Small" OnClick="() => Editar(context)" />

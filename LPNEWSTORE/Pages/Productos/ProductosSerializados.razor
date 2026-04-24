@@ -79,6 +79,11 @@
         }
     }
 
+    private async Task CambiarModoOrigenAsync(bool verHistorico)
+    {
+        await CambiarOrigenAsync(verHistorico);
+    }
+
     private async Task CambiarOrigenAsync(bool usarHistorico)
     {
         Origen = usarHistorico ? OrigenDatos.Historico : OrigenDatos.Disponibles;
@@ -106,57 +111,55 @@
 
 
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-
-
-            if (int.TryParse(sucursal, out int idSucursal))
-            {
-                var disponibles = await ProductoDetalleService
-                    .ListarProductosConSerialNumberPorLocalDisponiblesAsync(idSucursal);
-
-                listaProductoDetallesDisponibles = disponibles?.ToList() ?? new List<ProductoDetalle>();
-                listaProductoDetalles = listaProductoDetallesDisponibles; // por defecto muestra disponibles
-            }
-
-            StateHasChanged();
-        }
-
-
-
-    }
-
-
-
     protected override async Task OnInitializedAsync()
     {
-
-
         EsAdmin = false;
+
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
 
-        if (user.Identity != null && user.Identity.IsAuthenticated)
+        if (user.Identity == null || !user.Identity.IsAuthenticated)
         {
-            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
-            if(rolUsuarioActual == "ADMIN")
-            {
-                EsAdmin = true;
-            }
-
+            Snackbar.Add("Usuario no autenticado.", Severity.Error);
+            return;
         }
 
-        
+        // Claims
+        rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
 
+        var idNegocioClaim = user.Claims.FirstOrDefault(c => c.Type == "IdNegocio")?.Value;
+        var idEmpresaClaim = user.Claims.FirstOrDefault(c => c.Type == "IdEmpresa")?.Value;
+
+        if (!int.TryParse(idNegocioClaim, out int idSucursal))
+        {
+            Snackbar.Add("No se pudo obtener la sucursal actual.", Severity.Error);
+            return;
+        }
+
+        if (!int.TryParse(idEmpresaClaim, out int idEmpresa))
+        {
+            Snackbar.Add("No se pudo obtener la empresa actual.", Severity.Error);
+            return;
+        }
+
+        // Rol
+        EsAdmin = rolUsuarioActual == "ADMIN";
+
+        // Datos auxiliares
         listaRoles = await rolService.Listar();
+
         ProductoDetalleActual.Estado = true;
         ProductoDetalleActual.Fecha = DateTime.Now.Date;
 
+        // Carga inicial de disponibles
+        var disponibles = await ProductoDetalleService
+            .ListarProductosConSerialNumberPorLocalDisponiblesAsync(idSucursal);
 
+        listaProductoDetallesDisponibles = disponibles?.ToList() ?? new List<ProductoDetalle>();
 
+        listaProductoDetalles = listaProductoDetallesDisponibles;
+
+        StateHasChanged();
     }
 
 
@@ -449,20 +452,27 @@ RenderFragment GridProductoDetalle => @<div style="padding: 16px;  padding-top :
 
 @if (EsAdmin)
 {
-        <MudStack Direction="Row" Spacing="1" Class="mb-2">
-            <MudButton Variant="@(Origen == OrigenDatos.Disponibles ? Variant.Filled : Variant.Outlined)"
-                       Color="Color.Primary"
-                       OnClick="async () => await CambiarOrigenAsync(false)">
-               Mostrar S/N Disponibles
-            </MudButton>
+        <MudPaper Class="pa-3 mb-3 filtro-box" Outlined="true">
+            <MudStack Spacing="2">
+                <MudText Typo="Typo.h6" Color="Color.Primary">
+                    Filtros
+                </MudText>
 
-            <MudButton Variant="@(Origen == OrigenDatos.Historico ? Variant.Filled : Variant.Outlined)"
-                       Color="Color.Primary"
-                       OnClick="async () => await CambiarOrigenAsync(true)">
-                Mostrar Histórico S/N
-            </MudButton>
-        </MudStack>
-}
+                <MudStack Direction="Row" AlignItems="AlignItems.Start" Spacing="2">
+                    <MudText Typo="Typo.body2">
+                        @(Origen == OrigenDatos.Historico
+                                            ? "Mostrando histórico de S/N"
+                                            : "Mostrando S/N disponibles")
+                </MudText>
+
+                    <MudSwitch T="bool"
+                               Value="@(Origen == OrigenDatos.Historico)"
+                               ValueChanged="CambiarModoOrigenAsync"
+                               Color="Color.Primary" />
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    }
 
     <MudTable @key="_itemsVersion"
     Items="ProductosDetalleFiltrados"
@@ -473,15 +483,15 @@ RenderFragment GridProductoDetalle => @<div style="padding: 16px;  padding-top :
               Class="mt-2 tabla-fija">
 
         <HeaderContent>
-            <MudTh  Class="col-90"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Fecha)">Fecha</MudTableSortLabel></MudTh>
+            <MudTh Class="col-90"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Fecha)">Fecha</MudTableSortLabel></MudTh>
             <MudTh Class="col-90"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Codigo)">Código</MudTableSortLabel></MudTh>
-            <MudTh Class="col-prod ellipsis"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Nombre)">Producto</MudTableSortLabel></MudTh>
-            <MudTh Class="col-90 ellipsis"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.NombreProveedor)">Proveedor</MudTableSortLabel></MudTh>
+            <MudTh Class="col-prod-sm ellipsis"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Nombre)">Producto</MudTableSortLabel></MudTh>
+            <MudTh Class="col-prov ellipsis"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.NombreProveedor)">Proveedor</MudTableSortLabel></MudTh>
             <MudTh Class="col-90"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Marca)">Marca</MudTableSortLabel></MudTh>
-            <MudTh Class="col-90"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Modelo)">Modelo</MudTableSortLabel></MudTh>
+            <MudTh Class="col-modelo ellipsis"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Modelo)">Modelo</MudTableSortLabel></MudTh>
             <MudTh Class="col-90"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Color)">Color</MudTableSortLabel></MudTh>
             <MudTh Class="col-sn ellipsis"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.NumeroSerie)">S/N</MudTableSortLabel></MudTh>
-            <MudTh Class="col-90"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.NombreLocal)">Local</MudTableSortLabel></MudTh>
+            <MudTh Class="col-local ellipsis"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.NombreLocal)">Local</MudTableSortLabel></MudTh>
             <MudTh Class="col-90"><MudTableSortLabel T="ProductoDetalle" SortBy="@(c => c.Estado)">Estado</MudTableSortLabel></MudTh>
             <MudTh Class="col-acciones">Acciones</MudTh>
         </HeaderContent>
@@ -489,13 +499,13 @@ RenderFragment GridProductoDetalle => @<div style="padding: 16px;  padding-top :
         <RowTemplate>
             <MudTd DataLabel="Fecha" Class="col-90 nowrap">@context.Fecha.ToString("dd/MM/yyyy")</MudTd>
             <MudTd DataLabel="Código" Class="col-90 nowrap">@context.Codigo</MudTd>
-            <MudTd DataLabel="Producto" Class="col-prod ellipsis" title="@context.Nombre">@context.Nombre</MudTd>
-            <MudTd DataLabel="Proveedor" Class="col-90 ellipsis" title="@context.NombreProveedor">@context.NombreProveedor</MudTd>
-            <MudTd DataLabel="Marca" Class="col-120 nowrap">@context.Marca</MudTd>
-            <MudTd DataLabel="Modelo" Class="col-90 nowrap">@context.Modelo</MudTd>
+            <MudTd DataLabel="Producto" Class="col-prod-sm ellipsis" title="@context.Nombre">@context.Nombre</MudTd>
+            <MudTd DataLabel="Proveedor" Class="col-prov ellipsis" title="@context.NombreProveedor">@context.NombreProveedor</MudTd>
+            <MudTd DataLabel="Marca" Class="col-90 nowrap">@context.Marca</MudTd>
+            <MudTd DataLabel="Modelo" Class="col-modelo ellipsis" title="@context.Modelo">@context.Modelo</MudTd>
             <MudTd DataLabel="Color" Class="col-90 nowrap">@context.Color</MudTd>
             <MudTd DataLabel="S/N" Class="col-sn ellipsis" title="@context.NumeroSerie">@context.NumeroSerie</MudTd>
-            <MudTd DataLabel="Local" Class="col-90 nowrap">@context.NombreLocal</MudTd>
+            <MudTd DataLabel="Local" Class="col-local ellipsis" title="@context.NombreLocal">@context.NombreLocal</MudTd>
             <MudTd DataLabel="Estado" Class="col-90 nowrap">@((context.Estado == true) ? "En stock" : "Vendido")</MudTd>
             <MudTd Class="col-acciones nowrap">
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Success" Size="Size.Small" OnClick="() => Editar(context)" />
@@ -522,40 +532,57 @@ RenderFragment GridProductoDetalle => @<div style="padding: 16px;  padding-top :
         width: 100%;
     }
 
-        /* Columna ancha para Producto (350px) */
-        .col-prod {
-            width: 350px;
-        }
-
-        /* S/N a 150px */
-        .col-sn {
-            width: 150px;
-        }
-
-        /* Genérica para columnas ~90px */
-        .col-90 {
-            width: 90px;
-        }
-
-    .col-120 {
-        width: 120px;
+    .col-90 {
+        width: 90px;
+        min-width: 90px;
+        max-width: 90px;
     }
 
-        /* Acciones un poquito más ancha para dos íconos */
-        .col-acciones {
-            width: 120px;
-        }
+    .col-prod-sm {
+        width: 180px;
+        min-width: 180px;
+        max-width: 180px;
+    }
 
-        /* Utilidades */
-        .nowrap {
-            white-space: nowrap;
-        }
+    .col-prov {
+        width: 140px;
+        min-width: 140px;
+        max-width: 140px;
+    }
 
-        .ellipsis {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+    .col-modelo {
+        width: 170px;
+        min-width: 170px;
+        max-width: 170px;
+    }
+
+    .col-local {
+        width: 150px;
+        min-width: 150px;
+        max-width: 150px;
+    }
+
+    .col-sn {
+        width: 170px;
+        min-width: 170px;
+        max-width: 170px;
+    }
+
+    .col-acciones {
+        width: 90px;
+        min-width: 90px;
+        max-width: 90px;
+    }
+
+    .ellipsis {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .nowrap {
+        white-space: nowrap;
+    }
     </style>
 
 

@@ -2,6 +2,8 @@
 @using System.ComponentModel.DataAnnotations
 @using Entities
 @using Services
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ISnackbar Snackbar
 @inject SesionNegocioService SesionNegocioService
 @inject ProductoService ProductoService
@@ -85,6 +87,7 @@
     private string? _serialNumber;
     private bool _cantidadBloqueada;
     private int _sucursalOrigenId; // GlobalSettings.SucursalId en tu WinForms
+    private int IdEmpresa;
     private List<Negocio> _sucursales = new();
     private string _fechaTraspasoTxt = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
     private readonly TraspasoVM _model = new()
@@ -95,17 +98,33 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Origen (sucursal actual)
-        var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-        
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
 
-        if (int.TryParse(sucursal, out int idSucursal))
+        if (user.Identity == null || !user.Identity.IsAuthenticated)
         {
-            _sucursalOrigenId = idSucursal;
-            _model.IdSucursalDestino = _sucursalOrigenId;
-
+            Snackbar.Add("El usuario no está autenticado.", Severity.Error);
+            return;
         }
-         ;
+
+        var idNegocioClaim = user.Claims.FirstOrDefault(c => c.Type == "idNegocio")?.Value;
+        var idEmpresaClaim = user.Claims.FirstOrDefault(c => c.Type == "idEmpresa")?.Value;
+
+        if (!int.TryParse(idNegocioClaim, out int idSucursal))
+        {
+            Snackbar.Add("No se pudo obtener la sucursal del usuario.", Severity.Error);
+            return;
+        }
+
+        if (!int.TryParse(idEmpresaClaim, out int idEmpresa))
+        {
+            Snackbar.Add("No se pudo obtener la empresa del usuario.", Severity.Error);
+            return;
+        }
+
+        _sucursalOrigenId = idSucursal;
+        _model.IdSucursalDestino = _sucursalOrigenId;
+        IdEmpresa = idEmpresa;
 
         // Setea serial y comportamiento de cantidad
         _serialNumber = SerialNumber;
@@ -113,11 +132,12 @@
         if (_cantidadBloqueada)
             _model.Cantidad = 1;
 
-        // Fecha (igual que txtFechaTraspaso = DateTime.Now.Date)
+        // Fecha
         _model.FechaTraspaso = DateTime.Today;
 
-        // Carga stock actual en sucursal de origen
-        _stockActual = await ProductoNegocioService.ObtenerStockProductoEnSucursalAsync(IdProducto, _sucursalOrigenId);
+        // 🔥 Ahora ya tenés IdEmpresa desde claims
+        _stockActual = await ProductoNegocioService
+            .ObtenerStockProductoEnSucursalAsync(IdProducto,  _sucursalOrigenId);
 
         // Cargar sucursales
         _sucursales = (await NegocioService.ListarNegocios())?.ToList() ?? new();

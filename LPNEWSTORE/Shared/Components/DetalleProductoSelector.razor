@@ -3,14 +3,14 @@
 @using MudBlazor
 @inject IDialogService DialogService
 
-<MudPaper Class="p-2 mb-3" Outlined="true">
+<MudPaper Class="p-2 mb-4" Outlined="true">
     <div class="groupbox">
         <div class="groupbox-title">Información Producto</div>
 
         <div class="groupbox-content">
             <MudGrid GutterSize="2" AlignItems="Center">
 
-                <!-- Código -->
+                <!-- Código (2) -->
                 <MudItem xs="12" md="2">
                     <MudText Typo="Typo.caption">Código Producto:</MudText>
                     <MudTextField @bind-Value="_codigo"
@@ -18,8 +18,8 @@
                                   Dense="true" />
                 </MudItem>
 
-                <!-- Producto + buscar -->
-                <MudItem xs="12" md="4">
+                <!-- Producto (3) -->
+                <MudItem xs="12" md="3">
                     <MudText Typo="Typo.caption">Producto:</MudText>
                     <MudTextField @bind-Value="_nombre"
                                   ReadOnly="true"
@@ -32,7 +32,7 @@
                                   @ondblclick="AbrirMDProducto" />
                 </MudItem>
 
-                <!-- Precio -->
+                <!-- Precio (2) -->
                 <MudItem xs="6" md="2">
                     <MudText Typo="Typo.caption">Precio:</MudText>
                     <MudNumericField T="decimal"
@@ -42,17 +42,26 @@
                                      AdornmentText="$" />
                 </MudItem>
 
-                <!-- Cotización U$S -->
+                <!-- Cotización U$S (2) -->
                 <MudItem xs="6" md="2">
                     <MudText Typo="Typo.caption">Cotización U$S:</MudText>
-                    <MudNumericField T="decimal"
-                                     @bind-Value="CotizacionInicialUsd"
-                                     Dense="true"
-                                     Adornment="Adornment.Start"
-                                     AdornmentText="U$S" />
+
+                    @if (_cotizacionCargada)
+                    {
+                        <MudNumericField T="decimal"
+                                         @key="_campoCotizacionKey"
+                                         @bind-Value="_cotizacionUsd"
+                                         Dense="true"
+                                         Adornment="Adornment.Start"
+                                         AdornmentText="U$S" />
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2">Cargando...</MudText>
+                    }
                 </MudItem>
 
-                <!-- Stock -->
+                <!-- Stock (1) -->
                 <MudItem xs="6" md="1">
                     <MudText Typo="Typo.caption">Stock:</MudText>
                     <MudNumericField T="int"
@@ -61,8 +70,8 @@
                                      Dense="true" />
                 </MudItem>
 
-                <!-- Cantidad -->
-                <MudItem xs="6" md="1">
+                <!-- Cantidad (1) -->
+                <MudItem xs="6" md="1" Class="mb-3">
                     <MudText Typo="Typo.caption">Cantidad:</MudText>
                     <MudNumericField T="int"
                                      @bind-Value="_cantidad"
@@ -70,12 +79,14 @@
                                      Dense="true" />
                 </MudItem>
 
-                <!-- Botón Agregar -->
-                <MudItem xs="12" md="12" Class="d-flex justify-end mt-1">
+                <!-- Botón Agregar (1) -->
+                <MudItem xs="12" md="1" Class="d-flex align-end justify-end mb-3">
                     <MudButton Color="Color.Success"
                                Variant="Variant.Filled"
+                               Size="Size.Small"
                                StartIcon="@Icons.Material.Filled.Add"
-                               OnClick="AgregarAsync">
+                               OnClick="AgregarAsync"
+                               FullWidth="true">
                         Agregar
                     </MudButton>
                 </MudItem>
@@ -85,11 +96,12 @@
     </div>
 </MudPaper>
 
+
 <!-- Grilla de detalle -->
 <MudTable Items="Items"
           Dense="true"
           Hover="true"
-          Elevation="0"
+          Elevation="2"
           Bordered="true">
     <HeaderContent>
         <MudTh>PRODUCTO</MudTh>
@@ -146,6 +158,7 @@
     // ********** Estado interno de la cabecera **********
 
     private int _idProducto;
+    private int _idProductoDetalle;
     private string _codigo = string.Empty;
     private string _nombre = string.Empty;
     private string _marca = string.Empty;
@@ -154,15 +167,26 @@
     private bool _esSerializable;
     private bool _dolarizado;
     private int _stock;
+    private decimal _precioCompra;
     private decimal _precio;
-    private decimal _precioLista;
-    private decimal _cotizacionUsd;
+    private decimal _precioLista;       
     private int _cantidad = 1;
     private string? _serialNumber;
 
-    protected override void OnInitialized()
+    private decimal _cotizacionUsd;
+    private decimal _ultimaCotizacionInicial;
+    private bool _cotizacionCargada;
+    private int _campoCotizacionKey;
+
+    protected override void OnParametersSet()
     {
-        _cotizacionUsd = CotizacionInicialUsd;
+        if (CotizacionInicialUsd > 0 && CotizacionInicialUsd != _ultimaCotizacionInicial)
+        {
+            _ultimaCotizacionInicial = CotizacionInicialUsd;
+            _cotizacionUsd = CotizacionInicialUsd;
+            _cotizacionCargada = true;
+            _campoCotizacionKey++;
+        }
     }
 
     // ----------- Buscar producto (MDProducto) -------------
@@ -198,6 +222,7 @@
     private void CargarProducto(Producto prod)
     {
         _idProducto = prod.IdProducto;
+
         _codigo = prod.Codigo;
         _nombre = prod.Nombre;
         _marca = string.Empty;
@@ -210,8 +235,9 @@
         _dolarizado = prod.ProductoDolar;
         _cantidad = 1;
         _serialNumber = string.Empty;
+        _precioCompra = prod.PrecioCompra;
 
-        
+
 
         StateHasChanged();
     }
@@ -246,6 +272,32 @@
         {
             await AgregarLineaAsync(_serialNumber);
         }
+
+        LimpiarCabecera();
+        StateHasChanged();
+    }
+
+
+    private void LimpiarCabecera()
+    {
+        _idProducto = 0;
+        _idProductoDetalle = 0;
+        _codigo = string.Empty;
+        _nombre = string.Empty;
+        _marca = string.Empty;
+        _modelo = string.Empty;
+        _color = string.Empty;
+        _stock = 0;
+        _precio = 0;
+        _precioLista = 0;
+        _esSerializable = false;
+        _dolarizado = false;
+        _serialNumber = null;
+        _precioCompra = 0;
+        // Cantidad vuelve a 1
+        _cantidad = 1;
+
+        // NO tocamos _cotizacionUsd para que quede igual
     }
 
     /// <summary>
@@ -263,7 +315,7 @@
         var parameters = new DialogParameters
         {
             { "IdProducto", _idProducto },
-            
+
             { "IdNegocio", IdSucursal }
         };
 
@@ -273,6 +325,7 @@
 
         if (!result.Canceled && result.Data is ProductoDetalle productoDetalle)
         {
+            _idProductoDetalle = productoDetalle.IdProductoDetalle;
             _marca = productoDetalle.Marca;
             _modelo = productoDetalle.Modelo;
             _color = productoDetalle.Color;
@@ -291,9 +344,40 @@
 
     private async Task AgregarLineaAsync(string? serial)
     {
+        // 1) Si el producto NO es serializable, intento acumular en una fila existente
+        if (!_esSerializable)
+        {
+            // Buscamos una fila del mismo producto no serializable
+            var existente = Items
+                .FirstOrDefault(x => x.IdProducto == _idProducto && !x.EsSerializable);
+
+            if (existente is not null)
+            {
+                // Sumamos la cantidad
+                existente.Cantidad += _cantidad;
+
+                // Opcional: actualizamos precio / cotización por si cambiaron
+                existente.Precio = _precio;
+                existente.PrecioLista = _precioLista;
+                existente.Cotizacion = CotizacionInicialUsd;
+
+                if (ItemsChanged.HasDelegate)
+                    await ItemsChanged.InvokeAsync(Items);
+
+                // Reseteo de cabecera
+                _cantidad = 1;
+                _serialNumber = null;
+
+                StateHasChanged();
+                return; // 👈 IMPORTANTE: no agregamos nueva fila
+            }
+        }
+
+        // 2) Si es serializable o no había fila previa, agregamos una nueva línea
         var item = new DetalleProductoItem
         {
             IdProducto = _idProducto,
+            IdProductoDetalle = _idProductoDetalle,
             Codigo = _codigo,
             Nombre = _nombre,
             Marca = _marca,
@@ -302,10 +386,12 @@
             SerialNumber = serial,
             Precio = _precio,
             PrecioLista = _precioLista,
-            Cantidad = _cantidad,
+            Cantidad = _esSerializable? 1: _cantidad,
             Cotizacion = CotizacionInicialUsd,
             EsSerializable = _esSerializable,
-            Dolarizado = _dolarizado
+            Dolarizado = _dolarizado,
+            PrecioCompra = _precioCompra
+            
         };
 
         Items.Add(item);
@@ -320,19 +406,24 @@
         StateHasChanged();
     }
 
+
     // ************* Clases auxiliares ******************
 
     public class DetalleProductoItem
     {
         public int IdProducto { get; set; }
+        public int IdEmpresa { get; set; }
+        public int IdProductoDetalle { get; set; }
         public string Codigo { get; set; } = string.Empty;
         public string Nombre { get; set; } = string.Empty;
         public string Marca { get; set; } = string.Empty;
         public string Modelo { get; set; } = string.Empty;
         public string Color { get; set; } = string.Empty;
         public string? SerialNumber { get; set; }
+        
         public decimal Precio { get; set; }
         public decimal PrecioLista { get; set; }
+        public decimal PrecioCompra { get; set; }
         public int Cantidad { get; set; }
         public decimal Cotizacion { get; set; }
         public bool EsSerializable { get; set; }
@@ -363,7 +454,7 @@
 <style>
     .groupbox {
         position: relative;
-        border: 1px solid var(--mud-palette-primary);
+       
         border-radius: 4px;
         padding-top: 12px;
     }

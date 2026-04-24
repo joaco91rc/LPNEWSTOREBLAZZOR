@@ -51,7 +51,7 @@
             _idSucursal = idSucursal;
             var desde = DateTime.Now.AddDays(-15);
             var hasta = DateTime.Now;
-            _PagoParciales = await PagoParcialService.ListarPorLocal(idSucursal);
+            _PagoParciales = await PagoParcialService.ListarPorLocal();
             _PagoParcialesFiltradas = new List<PagoParcial>(_PagoParciales);
             StateHasChanged();
         }
@@ -66,14 +66,14 @@
 
     private async Task CargarActivos()
     {
-        _PagoParcialesActivos = await PagoParcialService.ListarActivos(_idSucursal.Value);
+        _PagoParcialesActivos = await PagoParcialService.ListarActivos();
         _PagoParcialesFiltradas = _PagoParcialesActivos;
         StateHasChanged();
     }
 
     private async Task CargarUtilizados()
     {
-        _PagoParcialesUtilizados = await PagoParcialService.ListarInactivos(_idSucursal.Value);
+        _PagoParcialesUtilizados = await PagoParcialService.ListarInactivos();
         _PagoParcialesFiltradas = _PagoParcialesUtilizados;
         StateHasChanged();
     }
@@ -89,7 +89,7 @@
             var fechaInicio = args.from ?? DateFrom ?? DateTime.Now.AddDays(-15);
             var fechaFin = args.to ?? DateTo ?? DateTime.Now;
 
-            _PagoParciales = await PagoParcialService.ListarPagosParcialesEntreFechasPorLocalAsync(_idSucursal.Value, fechaInicio, fechaFin);
+            _PagoParciales = await PagoParcialService.ListarPagosParcialesEntreFechasPorLocalAsync( fechaInicio, fechaFin);
 
             DateFrom = fechaInicio;
             DateTo = fechaFin;
@@ -106,7 +106,7 @@
     {
         DateFrom = null;
         DateTo = null;
-        _PagoParciales = await PagoParcialService.ListarPorLocal(_idSucursal.Value);
+        _PagoParciales = await PagoParcialService.ListarPorLocal();
         _PagoParcialesFiltradas = _PagoParciales;
 
     }

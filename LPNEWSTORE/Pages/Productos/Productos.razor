@@ -34,6 +34,7 @@
 
 @code {
     [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
+    private int? IdEmpresa { get; set; }
     List<Producto> listaProductos = new();
     Producto ProductoActual = new();
     private int IdGenerado;
@@ -71,34 +72,37 @@
     private readonly CultureInfo _culture = new("es-AR");
     private bool CostoVentaEnDolares { get; set; }
 
-   
-
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-
-
-            if (int.TryParse(sucursal, out int idSucursal))
-            {
-                IdSucursal = idSucursal;
-                listaProductos = await ProductoService.ListarPorNegocioAsync(IdSucursal);
-
-            }
-
-            StateHasChanged();
-        }
 
 
 
-    }
+
 
 
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+
+            var idEmpresaClaim = user.Claims.FirstOrDefault(c => c.Type == "IdEmpresa")?.Value;
+            var idNegocioClaim = user.Claims.FirstOrDefault(c => c.Type == "IdNegocio")?.Value;
+
+            if (int.TryParse(idEmpresaClaim, out int idEmpresa))
+                IdEmpresa = idEmpresa;
+
+            if (int.TryParse(idNegocioClaim, out int idNegocio))
+                IdSucursal = idNegocio;
+        }
+
+
+        if (IdSucursal > 0)
+        {
+            listaProductos = await ProductoService.ListarPorNegocioAsync(IdSucursal);
+        }
 
         ListaMonedas = await MonedaService.ListarMonedas();
         MonedaSeleccionada = ListaMonedas.FirstOrDefault();
@@ -108,19 +112,15 @@
 
         CotizacionActiva = await CotizacionService.CotizacionActiva();
 
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        if (user.Identity != null && user.Identity.IsAuthenticated)
-        {
-            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
-        }
-
         listaRoles = await rolService.Listar();
         ProductoActual.Estado = true;
 
-
-
+        if (!IdEmpresa.HasValue)
+        {
+            Snackbar.Add("No se pudo obtener el id de empresa del usuario autenticado.", Severity.Error);
+            return;
+        }
+        ProductoActual.IdEmpresa = IdEmpresa.Value;
     }
 
     private IEnumerable<Producto> ProductosFiltrados =>
@@ -275,11 +275,18 @@
     private async Task RegistrarPrecioProducto(Producto ProductoActual, int idGenerado)
 
     {
+        if (!IdEmpresa.HasValue)
+        {
+            Snackbar.Add("No se pudo obtener el id de empresa del usuario autenticado.", Severity.Error);
+            return;
+        }
+
         ProductoActual.IdProducto = idGenerado;
         if (MonedaSeleccionada?.Simbolo == "ARS")
         {
             PrecioProducto objPrecioProductoPesos = new PrecioProducto()
             {
+                IdEmpresa = IdEmpresa.Value,
                 IdProducto = ProductoActual.IdProducto,
                 IdMoneda = 1,
                 PrecioCompra = Math.Round(ProductoActual.CostoPesos, 2),
@@ -291,6 +298,7 @@
             var (idPrecioPesos, msgPesos) = await PrecioProductoService.RegistrarPrecioProductoAsync(objPrecioProductoPesos);
             PrecioProducto objPrecioProductoDolar = new PrecioProducto()
             {
+                IdEmpresa = IdEmpresa.Value,
                 IdProducto = ProductoActual.IdProducto,
                 IdMoneda = 2,
                 PrecioCompra = Math.Round((ProductoActual.CostoPesos / CotizacionActiva.Importe), 2),
@@ -306,6 +314,7 @@
 
             PrecioProducto objPrecioProductoPesos = new PrecioProducto()
             {
+                IdEmpresa = IdEmpresa.Value,
                 IdProducto = ProductoActual.IdProducto,
                 IdMoneda = 1,
                 PrecioCompra = Math.Round((ProductoActual.CostoPesos * CotizacionActiva.Importe), 2),
@@ -317,6 +326,7 @@
             var (idPrecioPesos, msgPesos) = await PrecioProductoService.RegistrarPrecioProductoAsync(objPrecioProductoPesos);
             PrecioProducto objPrecioProductoDolar = new PrecioProducto()
             {
+                IdEmpresa = IdEmpresa.Value,
                 IdProducto = ProductoActual.IdProducto,
                 IdMoneda = 2,
                 PrecioCompra = Math.Round(ProductoActual.CostoPesos, 2),
@@ -333,7 +343,12 @@
 
     private async Task ModificarPrecioProducto(Producto ProductoActual)
     {
-        PrecioProducto? precioPesos = await PrecioProductoService.ObtenerPreciosPorProductoYMonedaAsync(ProductoActual.IdProducto, 1);
+        if (!IdEmpresa.HasValue)
+        {
+            Snackbar.Add("No se pudo obtener el id de empresa del usuario autenticado.", Severity.Error);
+            return;
+        }
+        PrecioProducto? precioPesos = await PrecioProductoService.ObtenerPreciosPorProductoYMonedaAsync(ProductoActual.IdProducto,  1);
         PrecioProducto? precioDolar = await PrecioProductoService.ObtenerPreciosPorProductoYMonedaAsync(ProductoActual.IdProducto, 2);
         if (precioPesos is null || precioDolar is null)
         {
@@ -344,6 +359,7 @@
         {
             PrecioProducto objPrecioProductoPesos = new PrecioProducto()
             {
+                IdEmpresa = IdEmpresa.Value,
                 IdProducto = ProductoActual.IdProducto,
                 IdPrecioProducto = precioPesos.IdPrecioProducto,
                 IdMoneda = 1,
@@ -357,6 +373,7 @@
 
             PrecioProducto objPrecioProductoDolar = new PrecioProducto()
             {
+                IdEmpresa = IdEmpresa.Value,
                 IdProducto = ProductoActual.IdProducto,
                 IdPrecioProducto = precioDolar.IdPrecioProducto,
                 IdMoneda = 2,
@@ -375,6 +392,7 @@
 
             PrecioProducto objPrecioProductoPesos = new PrecioProducto()
             {
+                IdEmpresa = IdEmpresa.Value,
                 IdProducto = ProductoActual.IdProducto,
                 IdPrecioProducto = precioPesos.IdPrecioProducto,
                 IdMoneda = 1,
@@ -388,6 +406,7 @@
 
             PrecioProducto objPrecioProductoDolar = new PrecioProducto()
             {
+                IdEmpresa = IdEmpresa.Value,
                 IdProducto = ProductoActual.IdProducto,
                 IdPrecioProducto = precioDolar.IdPrecioProducto,
                 IdMoneda = 2,
@@ -631,6 +650,12 @@
 
 
 RenderFragment GridProducto => @<div style="padding: 16px;  padding-top : 16px">
+    <MudText Typo="Typo.h6"
+             Color="Color.Primary"
+             Align="Align.Center"
+             Class="mb-3">
+        Listado de Productos
+    </MudText>
     <MudTable Items="ProductosFiltrados"
               Dense="true"
               Hover="true"

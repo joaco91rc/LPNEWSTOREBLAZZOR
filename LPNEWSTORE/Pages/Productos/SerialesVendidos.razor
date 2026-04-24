@@ -37,19 +37,46 @@
 
 
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if (!firstRender) return;
-
-        var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-        if (int.TryParse(sucursal, out var idSucursal))
+        try
         {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity == null || !user.Identity.IsAuthenticated)
+            {
+                Snackbar.Add("Usuario no autenticado.", Severity.Error);
+                return;
+            }
+
+            var idNegocioClaim = user.Claims.FirstOrDefault(c => c.Type == "IdNegocio")?.Value;
+            var idEmpresaClaim = user.Claims.FirstOrDefault(c => c.Type == "IdEmpresa")?.Value;
+
+            if (!int.TryParse(idNegocioClaim, out var idSucursal))
+            {
+                Snackbar.Add("No se pudo obtener la sucursal actual.", Severity.Error);
+                return;
+            }
+
+            if (!int.TryParse(idEmpresaClaim, out var idEmpresa))
+            {
+                Snackbar.Add("No se pudo obtener la empresa actual.", Severity.Error);
+                return;
+            }
+
             _idSucursal = idSucursal;
+            
+
             var desde = DateTime.Now.AddDays(-15);
             var hasta = DateTime.Now;
-            _ProductoDetalles = await ProductoDetalleService.ListarProductosVendidosAsync(idSucursal);
+
+            _ProductoDetalles = await ProductoDetalleService.ListarProductosVendidosAsync();
             _ProductoDetallesFiltradas = new List<ProductoDetalle>(_ProductoDetalles);
-            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar productos vendidos: {ex.Message}", Severity.Error);
         }
     }
 
@@ -81,7 +108,7 @@
     {
         DateFrom = null;
         DateTo = null;
-        _ProductoDetalles = await ProductoDetalleService.ListarProductosVendidosAsync(_idSucursal.Value);
+        _ProductoDetalles = await ProductoDetalleService.ListarProductosVendidosAsync();
         _ProductoDetallesFiltradas = _ProductoDetalles;
          
     }

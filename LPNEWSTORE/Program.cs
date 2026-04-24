@@ -1,4 +1,3 @@
-
 using Blazored.Toast;
 using DataLayer;
 using Entities;
@@ -15,7 +14,6 @@ using Services.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Agregar DbContext con cadena de conexión
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("cadena_conexion")));
 
@@ -25,8 +23,6 @@ builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 builder.Services.AddScoped<SesionNegocioService>();
 builder.Services.AddScoped<IModalLauncher, ModalLauncher>();
 
-
-// Agregar Identity con soporte para roles
 builder.Services.AddIdentity<Usuario, Rol>(options =>
 {
     options.Password.RequireDigit = false;
@@ -35,34 +31,30 @@ builder.Services.AddIdentity<Usuario, Rol>(options =>
     options.Password.RequireUppercase = false;
     options.Password.RequiredLength = 6;
 })
-    .AddEntityFrameworkStores<ApplicationDbContext>()
-    .AddDefaultTokenProviders()
-    .AddSignInManager(); // opcional, ya está incluido normalmente
+.AddEntityFrameworkStores<ApplicationDbContext>()
+.AddDefaultTokenProviders()
+.AddSignInManager();
 
-// Configurar la cookie y el path de login así:
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.LoginPath = "/login"; // tu página de login Razor Page
+    options.LoginPath = "/Login";
 });
 
-
-// Add services to the container.
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddSingleton<WeatherForecastService>();
-// Agrego los servicios por DI
 builder.Services.AddApplicationServices();
 
 builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<UsuarioSessionService>();
+
 builder.Services.AddRazorPages().AddRazorPagesOptions(options =>
 {
-    options.Conventions.ConfigureFilter(new IgnoreAntiforgeryTokenAttribute()); // para test
+    options.Conventions.ConfigureFilter(new IgnoreAntiforgeryTokenAttribute());
 });
 
-
-builder.Services.AddBlazoredToast();
 builder.Services.AddMudServices(config =>
 {
     config.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.TopRight;
@@ -75,22 +67,13 @@ builder.Services.AddMudServices(config =>
     config.SnackbarConfiguration.SnackbarVariant = Variant.Filled;
 });
 
-
 var app = builder.Build();
 
-
-
-// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
-
-
-
-
 
 //app.UseHttpsRedirection();
 
@@ -98,11 +81,11 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-app.UseAuthentication();   // <--- Mueve esto acá, antes de MapControllers
+app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();      // Los controladores deben mapearse después de authentication/authorization
-
+app.MapControllers();
+app.MapRazorPages();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 

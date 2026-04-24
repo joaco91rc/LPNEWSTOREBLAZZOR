@@ -8,7 +8,10 @@ html, body {
     padding: 0;
 }
 
-
+.fila-no-sucursal {
+    background: linear-gradient( 90deg, rgba(220, 53, 69, 0.10) 0%, rgba(220, 53, 69, 0.03) 100% );
+    border-left: 4px solid #ff4d6d;
+}
 
 /* Solo cambian las imágenes, NO el tamaño */
 .logo-hitech {
@@ -231,12 +234,16 @@ table.table tbody tr:hover {
 .drawer-logo-box {
     width: 170px;
     height: 110px;
-    display: block;
-    margin-inline: auto; /* centra horizontalmente */
-    background-position: center center;
-    background-repeat: no-repeat;
-    background-size: contain;
-    /* no agregues padding-left aquí */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-inline: auto;
+}
+
+.drawer-logo-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
 }
 
 .kbd-active {

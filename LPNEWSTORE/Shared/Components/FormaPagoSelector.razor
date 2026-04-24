@@ -1,16 +1,19 @@
 ﻿@typeparam TProducto
 @using System.ComponentModel.DataAnnotations
 @using Entities
+@using LPNEWSTORE.Shared.Modals
 @using MudBlazor
 @using Services
-
+@using static LPNEWSTORE.Shared.Modals.MDRecargoDescuento
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
 @inject CotizacionService CotizacionService
-
-<MudGrid Class="mt-2" GutterSize="2">
+<div class="mt-4 pago-wrapper">
+<MudGrid >
 
     <!-- COLUMNA 1: AGREGAR PAGO -->
     <MudItem xs="12" md="4">
-        <MudPaper Class="p-3 pago-paper" Elevation="1">
+        <MudPaper Class="p-3 px-2 pago-paper" Elevation="1">
             <MudText Typo="Typo.subtitle1" Color="Color.Success">Agregar Pago</MudText>
 
             <MudGrid Class="mt-2" GutterSize="2">
@@ -61,9 +64,9 @@
                 </MudItem>
 
                 <!-- Aplicar descuento / recargo -->
-                <MudItem xs="12">
+                <MudItem xs="12" Class="mb-3">
                     <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
-                        <MudText>Aplicar descuento o recargo</MudText>
+                        
 
                         <MudButton Variant="Variant.Outlined"
                                    Color="Color.Primary"
@@ -80,10 +83,10 @@
 
     <!-- COLUMNA 2: GRILLA FORMAS DE PAGO -->
     <MudItem xs="12" md="4">
-        <MudPaper Class="p-3 pago-paper" Elevation="1">
+        <MudPaper Class="p-3 px-2 pago-paper" Elevation="1">
             <MudText Typo="Typo.subtitle1" Color="Color.Success">Formas de Pago</MudText>
 
-            <MudTable Items="@_pagos" Dense="true" Hover="true" Bordered="true" Elevation="0" Class="mt-2">
+            <MudTable Items="@_pagos" Dense="true" Hover="true" Bordered="true" Elevation="0" Class="mt-2 mb-3">
                 <HeaderContent>
                     <MudTh>FORMA DE PAGO</MudTh>
                     <MudTh class="text-right">IMPORTE</MudTh>
@@ -107,7 +110,7 @@
 
     <!-- COLUMNA 3: DETALLE PAGO -->
     <MudItem xs="12" md="4">
-        <MudPaper Class="p-3 pago-paper" Elevation="1">
+        <MudPaper Class="p-3 px-2 pago-paper" Elevation="1">
             <MudText Typo="Typo.subtitle1" Color="Color.Success">Detalle Pago</MudText>
 
             <MudGrid Class="mt-2" GutterSize="2">
@@ -146,7 +149,7 @@
                                      />
                 </MudItem>
 
-                <MudItem xs="12">
+                <MudItem xs="12" Class="mb-3">
                     <MudNumericField T="decimal"
                                      Label="Cambio"
                                      Value="@Cambio"
@@ -159,9 +162,12 @@
     </MudItem>
 
 </MudGrid>
+    
+</div>
 
 
 @code {
+
     // ---------- Parámetros públicos ----------
 
     /// <summary>Lista de formas de pago (llenada desde la página).</summary>
@@ -179,7 +185,9 @@
     /// <summary>Callback para abrir el modal de pagos parciales.</summary>
     [Parameter] public EventCallback OnPagoParcial { get; set; }
 
-    [Parameter] public EventCallback OnAbrirDescuentoRecargo { get; set; }
+
+
+
 
     // ---------- Estado interno ----------
     private int _formaPagoId;
@@ -191,7 +199,10 @@
     private decimal _porcentaje;
     private decimal _montoDescRec;
 
+    
+
     private readonly List<PagoDetalle> _pagos = new();
+    public IReadOnlyList<PagoDetalle> Pagos => _pagos;
 
     // ---------- Ciclo de vida ----------
     protected override async Task OnInitializedAsync()
@@ -203,43 +214,159 @@
             _cotizacionActual = 1m;
     }
 
+    public async Task LimpiarAsync()
+    {
+        _pagos.Clear();
+        // avisás al padre que se limpiaron los pagos (para que recalcule totales, etc.)
+        await PagosChanged.InvokeAsync(_pagos);
+        StateHasChanged();
+    }
+
+
+   
+
     private async Task OnDescuentoRecargoClick()
     {
-        if (OnAbrirDescuentoRecargo.HasDelegate)
-            await OnAbrirDescuentoRecargo.InvokeAsync();
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+
+        // Abrimos el modal MDRecargoDescuento
+        var dialog = DialogService.Show<MDRecargoDescuento>(
+            "Agregar descuento / recargo",
+            options
+        );
+
+        var result = await dialog.Result;
+
+        if (result.Canceled || result.Data is not AjusteLinea ajuste)
+            return;
+
+        // ----- Flags internos -----
+        _esDescuento = ajuste.Operacion == "DESCUENTO";
+        _esRecargo = ajuste.Operacion == "RECARGO";
+
+        if (ajuste.Tipo == "PORCENTAJE")
+        {
+            _porcentaje = ajuste.Valor; // 0 a 100
+            _montoDescRec = 0;
+        }
+        else // MONTO_FIJO
+        {
+            _montoDescRec = ajuste.Valor;
+            _porcentaje = 0;
+        }
+
+        // ----- Texto para la grilla -----
+        var textoOperacion = _esDescuento ? "Descuento" : "Recargo";
+        string textoTipo = ajuste.Tipo == "MONTO_FIJO"
+            ? "Monto fijo"
+            : $"Porcentual del {ajuste.Valor:N2} %";
+
+        var nombreFormaPago = $"{textoOperacion} - {textoTipo}";
+
+        // ----- Calcular importe del ajuste en pesos -----
+        decimal totalBase = TotalVenta;
+
+        // 1) calculamos el monto base (siempre positivo)
+        decimal importeAjuste = CalcularImporteDescuentoRecargo(totalBase, ajuste);
+
+        // 2) aplicamos el signo según si es DESCUENTO o RECARGO
+        //    DESCUENTO  -> +monto  (resta del saldo)
+        //    RECARGO    -> -monto  (aumenta el saldo)
+        importeAjuste = _esDescuento
+            ? importeAjuste
+            : -importeAjuste;
+
+        // 3) redondeamos a 2 decimales
+        importeAjuste = Math.Round(importeAjuste, 2, MidpointRounding.AwayFromZero);
+
+        // Id especial para identificar que es un ajuste
+        int formaPagoId = _esDescuento ? -1 : -2;
+
+        var pagoDetalle = new PagoDetalle
+        {
+            FormaPagoId = formaPagoId,
+            FormaPagoNombre = nombreFormaPago,
+            Importe = importeAjuste,   // ojo: recargo va NEGATIVO
+            Moneda = "PESOS"
+        };
+
+        // Agregamos el ajuste como si fuera una "forma de pago" más
+        _pagos.Add(pagoDetalle);
+
+        // Notificamos al padre y refrescamos totales
+        await NotificarCambiosAsync();
     }
+
+
+
 
     // ---------- Cálculos ----------
 
+    private decimal CalcularImporteDescuentoRecargo(decimal totalBase, AjusteLinea ajuste)
+    {
+        if (ajuste.Tipo == "MONTO_FIJO")
+            return ajuste.Valor; // ya viene en pesos
+
+        // tipo porcentual: aplico % sobre el total base
+        var importe = totalBase * (ajuste.Valor / 100m);
+        return Math.Round(importe, 2);
+    }
+
+
     /// <summary>Total de la venta en PESOS: suma de PrecioLista de los productos.</summary>
     private decimal TotalVenta =>
-        Productos != null && GetPrecioLista != null
+    Math.Round(
+        (Productos != null && GetPrecioLista != null)
             ? Productos.Sum(p => GetPrecioLista(p))
-            : 0m;
+            : 0m,
+        2,
+        MidpointRounding.AwayFromZero
+    );
 
-    /// <summary>Total pagado en pesos (suma de la columna Importe de la "grilla").</summary>
     private decimal TotalPagadoPesos =>
-     _pagos.Sum(p =>
-         (p.SimboloMoneda?.Trim().ToUpper() is "USD" )
-             ? p.Importe * _cotizacionActual
-             : p.Importe
-     );
+        Math.Round(
+            _pagos.Sum(p =>
+                (p.SimboloMoneda?.Trim().ToUpper() == "USD")
+                    ? p.Importe * _cotizacionActual
+                    : p.Importe
+            ),
+            2,
+            MidpointRounding.AwayFromZero
+        );
 
-
-    /// <summary>Total de la venta en dólares (equivalencia del total de productos).</summary>
     private decimal TotalUsd =>
-        _cotizacionActual > 0 ? TotalVenta / _cotizacionActual : 0m;
+        Math.Round(
+            _cotizacionActual > 0 ? TotalVenta / _cotizacionActual : 0m,
+            2,
+            MidpointRounding.AwayFromZero
+        );
 
-    /// <summary>Cuánto resta pagar en pesos.</summary>
-    private decimal RestanPesos => TotalVenta - TotalPagadoPesos;
+    private decimal RestanPesos =>
+        Math.Round(
+            TotalVenta - TotalPagadoPesos,
+            2,
+            MidpointRounding.AwayFromZero
+        );
 
-    /// <summary>Cuánto resta pagar en dólares equivalentes.</summary>
     private decimal RestanUsd =>
-        _cotizacionActual > 0 ? RestanPesos / _cotizacionActual : 0m;
+        Math.Round(
+            _cotizacionActual > 0 ? RestanPesos / _cotizacionActual : 0m,
+            2,
+            MidpointRounding.AwayFromZero
+        );
 
-    /// <summary>Cambio en pesos (si pagaron de más).</summary>
     private decimal Cambio =>
-        RestanPesos < 0 ? Math.Abs(RestanPesos) : 0m;
+        Math.Round(
+            RestanPesos < 0 ? Math.Abs(RestanPesos) : 0m,
+            2,
+            MidpointRounding.AwayFromZero
+        );
+
 
 
     // ---------- Clases auxiliares ----------
@@ -271,7 +398,15 @@
 
     private async Task AgregarPago()
     {
-        if (_formaPagoId == 0 || _importe <= 0) return;
+        // ✅ Si ya no hay nada pendiente en pesos, no dejo agregar más pagos
+        if (RestanPesos <= 0m)
+        {
+            Snackbar.Add("La venta ya está totalmente pagada. No podés agregar más pagos.", Severity.Warning);
+            return;
+        }
+
+        if (_formaPagoId == 0 || _importe <= 0)
+            return;
 
         var forma = FormasPago.FirstOrDefault(f => f.IdFormaPago == _formaPagoId);
 
@@ -280,7 +415,7 @@
             FormaPagoId = _formaPagoId,
             FormaPagoNombre = forma?.Descripcion ?? "",
             Importe = _importe,
-            Moneda = forma?.Descripcion == "DOLAR EFECTIVO" ? "USD": "$"
+            Moneda = forma?.Descripcion == "DOLAR EFECTIVO" ? "USD" : "$"
         };
 
         _pagos.Add(pago);
@@ -289,8 +424,10 @@
         _importe = 0;
         _porcentaje = 0;
         _montoDescRec = 0;
+
         StateHasChanged();
     }
+
 
     private async Task EliminarPago(PagoDetalle pago)
     {
@@ -311,3 +448,14 @@
         await NotificarCambiosAsync();
     }
 }
+<style>
+    .pago-wrapper {
+        border: 1px solid var(--mud-palette-primary);
+        border-radius: 6px;
+        padding: 12px; /* un poco de aire interno */
+        margin-bottom: 16px; /* por si viene algo debajo */
+        background-color: var(--mud-palette-background);
+    }
+
+    
+</style>

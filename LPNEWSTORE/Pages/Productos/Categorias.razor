@@ -8,7 +8,8 @@
 @using System.Security.Claims
 @using System.ComponentModel.DataAnnotations
 @using System.Text
-
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 
 @inject CategoriaService CategoriaService
@@ -38,7 +39,8 @@
     private MudForm? formCategoria;
     private bool esEdicion = false;
     private string rolUsuarioActual = string.Empty;
-    private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+    private int IdSucursal;
+    private int IdEmpresa;
     private DateTime fecha = DateTime.Now;
 
     private IEnumerable<Categoria> CategoriasFiltradas
@@ -58,45 +60,34 @@
     }
 
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-
-
-            if (int.TryParse(sucursal, out int idSucursal))
-            {
-                listaCategorias = await CategoriaService.ListarCategorias();
-            }
-
-            StateHasChanged();
-        }
-
-
-
-    }
-
-
-
     protected override async Task OnInitializedAsync()
     {
-
-
-
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
 
         if (user.Identity != null && user.Identity.IsAuthenticated)
         {
             rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+
+            var idNegocioClaim = user.Claims.FirstOrDefault(c => c.Type == "IdNegocio")?.Value;
+            var idEmpresaClaim = user.Claims.FirstOrDefault(c => c.Type == "IdEmpresa")?.Value;
+
+            if (int.TryParse(idNegocioClaim, out int idSucursal))
+            {
+                IdSucursal = idSucursal;
+            }
+
+            if (int.TryParse(idEmpresaClaim, out int idEmpresa))
+            {
+                IdEmpresa = idEmpresa;
+            }
         }
 
+        listaCategorias = await CategoriaService.ListarCategorias();
         listaRoles = await rolService.Listar();
+
         CategoriaActual.Estado = true;
-
-
-
+        CategoriaActual.IdEmpresa = IdEmpresa;
     }
 
     private Task HandleSearch(string value)
@@ -115,7 +106,7 @@
             string[] cols = {
                 p.Descripcion,
                 p.Estado?"Activo":"Inactivo"
-                
+
     };
             sb.AppendLine(string.Join(";", cols.Select(c => c?.Replace(";", ",") ?? "")));
         }
@@ -128,7 +119,7 @@
             filename,
             streamRef,
             "text/csv;charset=utf-8");
-        
+
     }
 
     private async Task ExportarCategoriasXlsx()
@@ -177,7 +168,7 @@
     private void Editar(Categoria c)
     {
         CategoriaActual = new Categoria
-        {
+        {   IdEmpresa = c.IdEmpresa,
             IdCategoria = c.IdCategoria,
             Descripcion = c.Descripcion,
             Estado = c.Estado,
@@ -225,6 +216,7 @@
             Snackbar.Add(mensaje, Severity.Success);
             CategoriaActual = new Categoria();
             CategoriaActual.Estado = true;
+            CategoriaActual.IdEmpresa = IdEmpresa;
             esEdicion = false;
             listaCategorias = await CategoriaService.ListarCategorias();
             await formCategoria.ResetAsync(); // resetea el form
@@ -305,6 +297,12 @@
 
 
 RenderFragment GridCategoria => @<div style="padding: 16px;  padding-top : 16px">
+    <MudText Typo="Typo.h6"
+             Color="Color.Primary"
+             Align="Align.Center"
+             Class="mb-3">
+        Listado de Categorias
+    </MudText>
     <MudTable Items="CategoriasFiltradas"
               Dense="true"
               Hover="true"

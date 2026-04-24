@@ -5,10 +5,13 @@
 @using System.Reflection
 @using Entities <!-- Ajustá este using si tus modelos viven en otro namespace -->
 @using Services
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject ProductoNegocioService StockService
 @inject ProductoDetalleService ProductoDetalleService
+@inject ProductoService ProductoService
 @inject IJSRuntime JS
 <!--
   Página: Serializar Producto (Blazor + MudBlazor)
@@ -36,36 +39,68 @@
         <MudPaper Class="py-3 px-3" Outlined="true" Elevation="6">
     <MudGrid GutterSize="1" AlignItems="AlignItems.End">
         <!-- Código -->
-        <MudItem xs="12" md="2">
-            <MudTextField @bind-Value="Model.Codigo"
-                          Label="Código"
-                          Dense="true"
-                          FullWidth="true"
-                          Adornment="Adornment.End"
-                          AdornmentIcon="@Icons.Material.Filled.Search"
-                          AdornmentColor="Color.Primary"
-                          OnAdornmentClick="BuscarProductoAsync" />
-        </MudItem>
+                <MudItem xs="12" md="2">
+                    <MudText Typo="Typo.caption" Color="Color.Primary" Class="fw-bold mb-1">
+                        Código
+                    </MudText>
 
-        <!-- Producto -->
-        <MudItem xs="12" md="3">
-            <MudTextField Value="@Model.Nombre" Label="Producto" ReadOnly="true" Dense="true" FullWidth="true" />
-        </MudItem>
+                    <MudTextField @bind-Value="Model.Codigo"
+                                  Placeholder="Buscar producto..."
+                                  Dense="true"
+                                  FullWidth="true"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  AdornmentColor="Color.Primary"
+                                  OnAdornmentClick="BuscarProductoAsync" />
+                </MudItem>
 
-        <!-- Stock -->
-        <MudItem xs="6" md="1">
-            <MudTextField Value="@_stockActual.ToString()" Label="Stock" ReadOnly="true" Dense="true" FullWidth="true" />
-        </MudItem>
+                <!-- Producto -->
+                <MudItem xs="12" md="3">
+                    <MudText Typo="Typo.caption" Color="Color.Primary" Class="fw-bold mb-1">
+                        Producto
+                    </MudText>
+                    <MudTextField Value="@Model.Nombre"
+                                  ReadOnly="true"
+                                  Dense="true"
+                                  FullWidth="true" />
+                </MudItem>
 
-        <!-- Pendientes Serialización -->
-        <MudItem xs="6" md="2">
-            <MudTextField Value="@_disponiblesASerializar.ToString()" Label="Pendientes Serialización" ReadOnly="true" Dense="true" FullWidth="true" />
-        </MudItem>
+                <!-- Stock -->
+                <MudItem xs="6" md="1">
+                    <MudText Typo="Typo.caption" Color="Color.Primary" Class="fw-bold mb-1">
+                        Stock
+                    </MudText>
+                    <MudTextField Value="@_stockActual.ToString()"
+                                  ReadOnly="true"
+                                  Dense="true"
+                                  FullWidth="true" />
+                </MudItem>
 
-        <!-- Cantidad -->
-        <MudItem xs="6" md="2">
-            <MudNumericField T="int" @bind-Value="_cantidad" Label="Cantidad" Dense="true" Min="1" Required="true" FullWidth="true" />
-        </MudItem>
+                <!-- Pendientes Serialización -->
+                <MudItem xs="6" md="2">
+                    <MudText Typo="Typo.caption" Color="Color.Primary" Class="fw-bold mb-1">
+                        Pendientes Serialización
+                    </MudText>
+                    <MudNumericField T="int"
+                                     @bind-Value="_disponiblesASerializar"
+                                     ReadOnly="true"
+                                     HideSpinButtons="true"
+                                     Dense="true"
+                                     FullWidth="true" />
+                </MudItem>
+
+                <!-- Cantidad -->
+                <MudItem xs="6" md="2">
+                    <MudText Typo="Typo.caption" Color="Color.Primary" Class="fw-bold mb-1">
+                        Cantidad
+                    </MudText>
+                    <MudNumericField T="int"
+                                     @bind-Value="_cantidad"
+                                     Dense="true"
+                                     Min="1"
+                                     Required="true"
+                                     FullWidth="true" />
+                </MudItem>
 
         <!-- Botón Agregar -->
         <MudItem xs="6" md="2">
@@ -166,6 +201,7 @@
     private int _disponiblesASerializar = 0;
     private int _cantidad = 1;
     public int IdSucursal { get; set; } // opcional: sucursal/negocio actual para cálculo de stock
+    public int IdEmpresa { get; set; }
     // ===== Modelo principal de tu proyecto =====
     // Ajustá los nombres de propiedades si difieren en tu class ProductoDetalle
     public ProductoDetalle Model { get; set; } = new();
@@ -202,25 +238,31 @@
         public string Nombre { get; set; } = string.Empty;
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if (firstRender)
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
         {
-            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
+            var idNegocioClaim = user.Claims.FirstOrDefault(c => c.Type == "IdNegocio")?.Value;
+            var idEmpresaClaim = user.Claims.FirstOrDefault(c => c.Type == "IdEmpresa")?.Value;
 
-
-            if (int.TryParse(sucursal, out int idSucursal))
+            if (!int.TryParse(idNegocioClaim, out var idNegocio))
             {
-                IdSucursal = idSucursal;
-
-
+                Snackbar.Add("No se pudo obtener el IdNegocio desde los claims.", Severity.Error);
+                return;
             }
 
-            StateHasChanged();
+            if (!int.TryParse(idEmpresaClaim, out var idEmpresa))
+            {
+                Snackbar.Add("No se pudo obtener el IdEmpresa desde los claims.", Severity.Error);
+                return;
+            }
+
+            IdSucursal = idNegocio;
+            IdEmpresa = idEmpresa;
         }
-
-
-
     }
 
     // ===== Acciones =====
@@ -229,12 +271,15 @@
         if (Model.IdProducto == 0)
         {
             _stockActual = 0;
+            _disponiblesASerializar = 0;
             return;
         }
+
         try
-        {   var serializados =  await ProductoDetalleService.ContarProductosSerializadosAsync(Model.IdProducto, IdSucursal);
+        {
+            var serializados = await ProductoDetalleService.ContarProductosSerializadosAsync(Model.IdProducto, IdSucursal);
             _stockActual = await StockService.ObtenerStockProductoEnSucursalAsync(Model.IdProducto, IdSucursal);
-            _disponiblesASerializar = _stockActual - serializados;
+            _disponiblesASerializar = Math.Max(0, _stockActual - serializados);
         }
         catch
         {
@@ -243,6 +288,7 @@
             Snackbar.Add("No se pudo obtener el stock actual.", Severity.Warning);
         }
     }
+
     private async Task RecalcularDisponiblesActualizar()
     {
         if (Model.IdProducto == 0)
@@ -262,13 +308,9 @@
         }
         catch
         {
-            // Podés avisar si querés: Snackbar.Add("No se pudo obtener serializados.", Severity.Error);
         }
 
-        // total que queda por serializar (según BD)
         var totalDisponibles = Math.Max(0, _stockActual - serializadosDB);
-
-        // disponibles reales para agregar ahora (restando lo ya puesto en grilla)
         _disponiblesASerializar = Math.Max(0, totalDisponibles - pendientesEnGrilla);
 
         StateHasChanged();
@@ -330,14 +372,43 @@
         await SeleccionarProductoYStockAsync(id, codigo, nombre);
     }
 
-    private async Task SeleccionarProductoYStockAsync(int id, string codigo, string nombre)
+    private async Task SeleccionarProductoYStockAsync(int id, string? codigo = null, string? nombre = null)
     {
-        Model.IdProducto = id;
-        Model.Codigo = codigo;
-        Model.Nombre = nombre;
-        if (_cantidad <= 0) _cantidad = 1;
-        await CargarStockActualAsync();
-        StateHasChanged();
+        if (id == 0)
+        {
+            Model.IdProducto = 0;
+            Model.Codigo = string.Empty;
+            Model.Nombre = string.Empty;
+            _stockActual = 0;
+            _disponiblesASerializar = 0;
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            // Volvé a traer el producto completo desde origen confiable
+            var productos = await ProductoService.ListarSerializablesAsync( IdSucursal);
+            var prod = productos.FirstOrDefault(p => p.IdProducto == id);
+
+            Model.IdProducto = id;
+            Model.Codigo = prod?.Codigo ?? codigo ?? string.Empty;
+            Model.Nombre = prod?.Nombre ?? nombre ?? string.Empty;
+
+            if (_cantidad <= 0)
+                _cantidad = 1;
+
+                
+
+            await CargarStockActualAsync();
+            await RecalcularDisponiblesActualizar();
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"No se pudo cargar el producto seleccionado: {ex.Message}", Severity.Error);
+        }
     }
 
     private async Task AgregarFilas()
@@ -348,20 +419,22 @@
             Snackbar.Add("Primero seleccioná un producto.", Severity.Info);
             return;
         }
+
         if (_cantidad <= 0)
         {
             Snackbar.Add("La cantidad debe ser mayor a 0.", Severity.Info);
             return;
         }
 
-        // 2) Datos de stock (ya lo tenés en _stockActual si lo cargás al seleccionar producto)
-        var stockDisponible = _stockActual; // int
-        
-        // 3) Cuántos ya están serializados en BD (persistidos)
+        // 2) Datos de stock
+        var stockDisponible = _stockActual;
+
+        // 3) Serializados en BD
         int productosSerializadosDb;
         try
         {
-            productosSerializadosDb = await ProductoDetalleService.ContarProductosSerializadosAsync(Model.IdProducto, IdSucursal);
+            productosSerializadosDb = await ProductoDetalleService
+                .ContarProductosSerializadosAsync(Model.IdProducto, IdSucursal);
         }
         catch
         {
@@ -369,10 +442,11 @@
             return;
         }
 
-        // 4) Cuántas filas “pendientes” tenés en la grilla para este mismo producto
+        // 4) Pendientes en grilla
         var pendientesEnGrilla = _lineas.Count(l => l.IdProducto == Model.IdProducto);
-        
-        await RecalcularDisponiblesActualizar();  // deja _disponiblesASerializar al día
+
+        // 5) Recalcular disponibles correctamente
+        await RecalcularDisponiblesActualizar();
 
         if (_disponiblesASerializar <= 0)
         {
@@ -384,14 +458,15 @@
 
         if (aAgregar < _cantidad)
         {
-            Snackbar.Add($"Ingresaste {_cantidad}, pero sólo hay {_disponiblesASerializar} disponibles. Se agregarán {aAgregar}.",
-                         Severity.Info);
+            Snackbar.Add(
+                $"Ingresaste {_cantidad}, pero sólo hay {_disponiblesASerializar} disponibles. Se agregarán {aAgregar}.",
+                Severity.Info);
         }
 
-        // 1) actualizar contador *antes* de agregar, así la UI ya muestra el número post-agregado
-        _disponiblesASerializar = Math.Max(0, _disponiblesASerializar - aAgregar);
+        // 🚫 ELIMINADO: cálculo manual incorrecto
+        // _disponiblesASerializar = Math.Max(0, _disponiblesASerializar - aAgregar);
 
-        // 2) agregar filas
+        // 6) Agregar filas
         for (int i = 0; i < aAgregar; i++)
         {
             _lineas.Add(new LineaSerializacion
@@ -402,8 +477,10 @@
             });
         }
 
-        StateHasChanged();
+        // ✅ recalcular correctamente después de agregar
+        await RecalcularDisponiblesActualizar();
 
+        StateHasChanged();
     }
 
 
@@ -525,9 +602,20 @@
         }
 
         Snackbar.Add($"Se guardaron {exitos} seriales.", Severity.Success);
-        _lineas.Clear(); // o eliminá solo las que guardaste
-        _form.ResetAsync();
+        _lineas.Clear();
+
+        await _form.ResetAsync();
+
+        // limpiar TODO el estado de selección actual
         Model.IdProducto = 0;
+        Model.Codigo = string.Empty;
+        Model.Nombre = string.Empty;
+
+        _stockActual = 0;
+        _disponiblesASerializar = 0;
+        _cantidad = 1;
+
+        StateHasChanged();
     }
 
     private void OnValidated() { /* Hook opcional si querés reaccionar al resultado de validación */ }

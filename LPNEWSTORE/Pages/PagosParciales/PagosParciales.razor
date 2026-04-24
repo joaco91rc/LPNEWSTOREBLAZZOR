@@ -185,48 +185,30 @@
 
 
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-
-
-            if (int.TryParse(sucursal, out int idSucursal))
-            {
-                listaPagoParciales = await PagoParcialService.Listar();
-            }
-
-            StateHasChanged();
-        }
-
-
-
-    }
-
-
-
     protected override async Task OnInitializedAsync()
     {
-
-
-
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
 
         if (user.Identity != null && user.Identity.IsAuthenticated)
         {
-            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+            rolUsuarioActual = user.Claims
+                .FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
         }
 
         listaRoles = await rolService.Listar();
         listaVendedores = await VendedoresService.ListarVendedores();
         listaMonedas = await MonedasService.ListarMonedas();
+
+        listaPagoParciales = await PagoParcialService.Listar();
+
         PagoParcialActual.Estado = true;
-        PagoParcialActual.Moneda = listaMonedas[0].Nombre;
         PagoParcialActual.FechaRegistro = DateTime.Now.Date;
 
-
+        if (listaMonedas.Any())
+        {
+            PagoParcialActual.Moneda = listaMonedas[0].Nombre;
+        }
     }
 
     private void Editar(PagoParcial c)

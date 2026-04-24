@@ -1,0 +1,332 @@
+﻿@page "/cajas"
+@using ClosedXML.Excel
+@using MudBlazor
+@using Services
+@using Entities
+@using System.Text
+
+@inject CajaService CajaService
+@inject IJSRuntime JS
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<AbmLayout TEntity="Caja"
+           FormContent="@FormCaja"
+           GridContent="@GridCaja"
+           OnSearchChanged="HandleSearch"
+           OnExport="ExportarCajasXlsx"
+           SearchPlaceholder="Buscar caja…" />
+
+@code {
+    [CascadingParameter(Name = "GridSearch")] public string GridSearch { get; set; } = string.Empty;
+
+    List<Caja> listaCajas = new();
+    Caja CajaActual = new();
+
+    private MudForm? formCaja;
+    private bool esEdicion = false;
+
+    private bool soloActivas = true;
+
+    
+
+    private IEnumerable<Caja> CajasFiltradas
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(GridSearch))
+                return listaCajas;
+
+            var term = GridSearch.Trim();
+
+            bool Has(string? s) => s?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
+
+            return listaCajas.Where(p =>
+                Has(p.Descripcion) ||
+                Has(p.MonedaDescripcion));
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        CajaActual.Activa = true;
+        await CargarCajasAsync();
+    }
+
+    private async Task OnSoloActivasChanged(bool value)
+    {
+        soloActivas = value;
+        await CargarCajasAsync();
+        StateHasChanged();
+    }
+
+    private async Task CargarCajasAsync()
+    {
+        if (soloActivas)
+            listaCajas = await CajaService.ListarCajas(true);
+        else
+            listaCajas = await CajaService.ListarCajas(false);
+    }
+
+    private Task HandleSearch(string value)
+    {
+        GridSearch = value;
+        return Task.CompletedTask;
+    }
+
+    private async Task ExportarCajasXlsx()
+    {
+        var fileName = $"Cajas_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Cajas");
+
+        int r = 1, c = 1;
+        ws.Cell(r, c++).Value = "Descripción";
+        ws.Cell(r, c++).Value = "Moneda";
+        ws.Cell(r, c++).Value = "Permite negativo";
+        ws.Cell(r, c++).Value = "Activa";
+
+        ws.Range(1, 1, 1, 4).Style.Font.SetBold();
+        ws.Range(1, 1, 1, 4).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+        ws.SheetView.FreezeRows(1);
+
+        r = 2;
+        foreach (var p in CajasFiltradas)
+        {
+            c = 1;
+            ws.Cell(r, c++).Value = p.Descripcion ?? string.Empty;
+            ws.Cell(r, c++).Value = p.MonedaDescripcion;
+            ws.Cell(r, c++).Value = p.PermiteNegativo ? "Sí" : "No";
+            ws.Cell(r, c++).Value = p.Activa ? "Sí" : "No";
+            r++;
+        }
+
+        ws.Columns().AdjustToContents();
+        ws.RangeUsed()?.SetAutoFilter();
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        using var streamRef = new DotNetStreamReference(ms);
+        await JS.InvokeVoidAsync("downloadFromStream",
+            fileName,
+            streamRef,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    private void Editar(Caja c)
+    {
+        CajaActual = new Caja
+        {
+            IdCaja = c.IdCaja,
+            IdEmpresa = c.IdEmpresa,
+            Descripcion = c.Descripcion,
+            IdMoneda = c.IdMoneda,
+            PermiteNegativo = c.PermiteNegativo,
+            Activa = c.Activa,
+            FechaRegistro = c.FechaRegistro
+        };
+
+        esEdicion = true;
+    }
+
+    private async Task Registrar()
+    {
+        if (formCaja is null)
+            return;
+
+        await formCaja.Validate();
+
+        if (!formCaja.IsValid)
+        {
+            Snackbar.Add("Por favor completá todos los campos requeridos.", Severity.Error);
+            return;
+        }
+
+        string mensaje = string.Empty;
+        bool resultado = false;
+
+        if (esEdicion)
+        {
+            var (exito, msg) = await CajaService.EditarCaja(CajaActual);
+            resultado = exito;
+            mensaje = msg;
+        }
+        else
+        {
+            var (idGenerado, msg) = await CajaService.RegistrarCaja(CajaActual);
+            resultado = idGenerado > 0;
+            mensaje = msg;
+        }
+
+        if (resultado)
+        {
+            Snackbar.Add(mensaje, Severity.Success);
+            CajaActual = new Caja();
+            CajaActual.Activa = true;
+            esEdicion = false;
+            listaCajas = await CajaService.ListarCajas(soloActivas);
+            await formCaja.ResetAsync();
+        }
+        else
+        {
+            Snackbar.Add(mensaje, Severity.Error);
+        }
+    }
+
+    private async Task Eliminar(Caja c)
+    {
+        bool? confirmado = await DialogService.ShowMessageBox(
+            title: "Eliminar Caja",
+            markupMessage: (MarkupString)$"<b>¿Está seguro que desea eliminar la caja {c.Descripcion}?</b>",
+            yesText: "Sí",
+            cancelText: "Cancelar",
+            options: new DialogOptions() { MaxWidth = MaxWidth.Small }
+        );
+
+        if (confirmado == true)
+        {
+            var (exito, mensaje) = await CajaService.EliminarCaja(c);
+
+            if (exito)
+            {
+                Snackbar.Add(mensaje, Severity.Success);
+                listaCajas = await CajaService.ListarCajas(soloActivas);
+            }
+            else
+            {
+                Snackbar.Add(mensaje, Severity.Error);
+            }
+        }
+    }
+
+    private void CancelarEdicion()
+    {
+        CajaActual = new Caja();
+        CajaActual.Activa = true;
+        esEdicion = false;
+    }
+
+    RenderFragment FormCaja => @<div style="padding: 16px; padding-top: 16px">
+    <MudForm @ref="formCaja" OnValidSubmit="Registrar">
+        <MudStack Spacing="2">
+
+            <MudTextField Label="Descripción"
+                          @bind-Value="CajaActual.Descripcion"
+                          Required="true" />
+
+            <MudSelect T="int" Label="Moneda" @bind-Value="CajaActual.IdMoneda" Required="true">
+                <MudSelectItem Value="1">Principal</MudSelectItem>
+                <MudSelectItem Value="2">USD</MudSelectItem>
+            </MudSelect>
+
+            <MudSelect T="bool" Label="Permite saldo negativo" @bind-Value="CajaActual.PermiteNegativo" Required="true">
+                <MudSelectItem Value="true">Sí</MudSelectItem>
+                <MudSelectItem Value="false">No</MudSelectItem>
+            </MudSelect>
+
+            <MudSelect T="bool" Label="Estado" @bind-Value="CajaActual.Activa" Required="true">
+                <MudSelectItem Value="true">Activa</MudSelectItem>
+                <MudSelectItem Value="false">Inactiva</MudSelectItem>
+            </MudSelect>
+
+            <MudStack Direction="Row" Spacing="2">
+                <MudButton OnClick="Registrar" Variant="Variant.Filled" Color="Color.Primary">
+                    @(esEdicion ? "Actualizar" : "Guardar")
+                </MudButton>
+
+                @if (esEdicion)
+                                {
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CancelarEdicion">
+                    Cancelar
+                </MudButton>
+                                }
+            </MudStack>
+        </MudStack>
+    </MudForm>
+</div>;
+
+RenderFragment ToolbarCajas => @<MudPaper Class="px-3 py-2 d-inline-flex mb-2" Elevation="0" Outlined="true">
+        <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="1">
+
+            <MudText Typo="Typo.body2">
+                @(soloActivas ? "Solo cajas activas" : "Todas las cajas")
+            </MudText>
+
+            <MudSwitch T="bool"
+                       Value="soloActivas"
+                       ValueChanged="OnSoloActivasChanged"
+                       Color="Color.Primary" />
+
+        </MudStack>
+    </MudPaper>;
+
+    RenderFragment GridCaja => @<div style="padding: 16px; padding-top: 16px">
+
+    <MudStack Direction="Row" Justify="Justify.FlexEnd" Class="mb-2">
+        @ToolbarCajas
+    </MudStack>
+    <MudText Typo="Typo.h6"
+             Color="Color.Primary"
+             Align="Align.Center"
+             Class="mb-3">
+        Listado de Cajas
+    </MudText>
+
+    <MudTable Items="CajasFiltradas"
+              Dense="true"
+              Hover="true"
+              Bordered="true"
+              Striped="true"
+              Sortable="true"
+              Breakpoint="Breakpoint.Sm"
+              RowsPerPageOptions="new int[]{ 5, 10, 20, 30, 40, 50 }"
+              PagerAlwaysVisible="true"
+              Elevation="1"
+              Class="mt-2">
+        <HeaderContent>
+            <MudTh>
+                <MudTableSortLabel T="Caja" SortBy="@(c => c.Descripcion)">Descripción</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Caja" SortBy="@(c => c.IdMoneda)">Moneda</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Caja" SortBy="@(c => c.PermiteNegativo)">Permite Negativo</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel T="Caja" SortBy="@(c => c.Activa)">Estado</MudTableSortLabel>
+            </MudTh>
+            <MudTh>Acciones</MudTh>
+        </HeaderContent>
+
+        <RowTemplate>
+            <MudTd DataLabel="Descripción">@context.Descripcion</MudTd>
+            <MudTd DataLabel="Moneda">@context.MonedaDescripcion</MudTd>
+            <MudTd DataLabel="Permite Negativo">@(context.PermiteNegativo ? "Sí" : "No")</MudTd>
+            <MudTd DataLabel="Estado">@(context.Activa ? "Activa" : "Inactiva")</MudTd>
+
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                               Color="Color.Success"
+                               Size="Size.Small"
+                               OnClick="() => Editar(context)" />
+
+                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                               Color="Color.Error"
+                               Size="Size.Small"
+                               OnClick="() => Eliminar(context)"
+                               Class="ms-2" />
+            </MudTd>
+        </RowTemplate>
+
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 20, 50, 100, 200 }"
+                           RowsPerPageString="Registros por página">
+            </MudTablePager>
+        </PagerContent>
+    </MudTable>
+</div>;
+}

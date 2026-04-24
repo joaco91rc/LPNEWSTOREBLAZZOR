@@ -58,45 +58,32 @@
     }
 
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-
-
-            if (int.TryParse(sucursal, out int idSucursal))
-            {
-                listaConceptos = await ConceptoService.ListarAsync(sucursalSeleccionada);
-            }
-
-            StateHasChanged();
-        }
-
-
-
-    }
-
-
-
     protected override async Task OnInitializedAsync()
     {
-
-
-
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        if (user.Identity != null && user.Identity.IsAuthenticated)
+        try
         {
-            rolUsuarioActual = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity != null && user.Identity.IsAuthenticated)
+            {
+                rolUsuarioActual = user.Claims
+                    .FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? string.Empty;
+            }
+
+            listaRoles = await rolService.Listar();
+            listaConceptos = await ConceptoService.ListarAsync();
+
+            ConceptoActual = new Concepto
+            {
+                Estado = true
+            };
         }
-
-        listaRoles = await rolService.Listar();
-        ConceptoActual.Estado = true;
-
-
-
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar conceptos: {ex.Message}", Severity.Error);
+            listaConceptos = new List<Concepto>();
+        }
     }
 
     private Task HandleSearch(string value)
@@ -232,8 +219,9 @@
             ConceptoActual = new Concepto();
             ConceptoActual.Estado = true;
             esEdicion = false;
-            listaConceptos = await ConceptoService.ListarAsync(sucursalSeleccionada);
+            listaConceptos = await ConceptoService.ListarAsync();
             await formConcepto.ResetAsync(); // resetea el form
+            ConceptoActual.Estado = true;
 
         }
         else
@@ -259,7 +247,7 @@
             if (exito)
             {
                 Snackbar.Add(mensaje, Severity.Success);
-                listaConceptos = await ConceptoService.ListarAsync(sucursalSeleccionada);
+                listaConceptos = await ConceptoService.ListarAsync();
             }
             else
             {

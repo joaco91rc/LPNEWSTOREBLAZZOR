@@ -1,0 +1,115 @@
+﻿@using Entities
+@using MudBlazor
+@using Services
+
+@inject CajaRegistradoraEmpresaDetalleService CajaRegistradoraDetalleService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h5" Class="mb-3">Saldos iniciales de cajas</MudText>
+
+        <MudText Typo="Typo.body2" Class="mb-4">
+            Cargá el saldo inicial para cada caja activa. Se muestra como referencia el saldo final de la última caja cerrada.
+        </MudText>
+
+        <MudForm @ref="_form">
+            <MudTable Items="_cajas" Dense="true" Hover="true" Bordered="true" Striped="true">
+                <HeaderContent>
+                    <MudTh>Caja</MudTh>
+                    <MudTh>Moneda</MudTh>
+                    <MudTh>Último saldo</MudTh>
+                    <MudTh>Saldo inicial</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Caja">@context.Descripcion</MudTd>
+                    <MudTd DataLabel="Moneda">@context.MonedaDescripcion</MudTd>
+                    <MudTd DataLabel="Último saldo">
+                        @context.UltimoSaldo?.ToString("N2")
+                    </MudTd>
+                    <MudTd DataLabel="Saldo Inicial">
+                        <MudNumericField T="decimal?"
+                                         @bind-Value="context.SaldoInicial"
+                                         Variant="Variant.Outlined"
+                                         Dense="true"
+                                         Min="0"
+                                         Required="true"
+                                         RequiredError="Saldo requerido" />
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudForm>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancelar">
+            Cancelar
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="Guardar"
+                   Disabled="_guardando">
+            Guardar saldos
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public int IdCajaRegistradora { get; set; }
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private MudForm? _form;
+    private bool _guardando;
+    private List<CajaSaldoInicialVm> _cajas = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _cajas = await CajaRegistradoraDetalleService.ObtenerCajasActivasConUltimoSaldo();
+    }
+
+    private void Cancelar()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task Guardar()
+    {
+        if (_form is not null)
+        {
+            await _form.Validate();
+
+            if (!_form.IsValid)
+            {
+                Snackbar.Add("Completá todos los saldos iniciales.", Severity.Warning);
+                return;
+            }
+        }
+
+        try
+        {
+            _guardando = true;
+
+            var (ok, mensaje) = await CajaRegistradoraDetalleService.RegistrarSaldosIniciales(IdCajaRegistradora, _cajas);
+
+            if (ok)
+            {
+                Snackbar.Add(mensaje, Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add(mensaje, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al guardar saldos: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+}

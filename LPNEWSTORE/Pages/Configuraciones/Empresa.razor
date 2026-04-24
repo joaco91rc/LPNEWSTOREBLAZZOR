@@ -1,0 +1,293 @@
+﻿@page "/empresa"
+@using LPNEWSTORE.Shared.Modals
+@using MudBlazor
+@using MudBlazor.Utilities
+@using Services
+@using Entities
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject EmpresaService EmpresaService
+@inject EmpresaTemaService EmpresaTemaService
+@inject NegocioService NegocioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.False" Class="mt-6">
+
+    <MudGrid Spacing="3">
+
+        <!-- BLOQUE EMPRESA -->
+        <MudItem xs="12" md="7">
+            <MudPaper Elevation="3" Class="pa-6 h-100">
+                <MudText Typo="Typo.h5" Class="mb-4">Datos de la empresa</MudText>
+
+                <MudGrid>
+                    <MudItem xs="12" md="4">
+                        <div class="d-flex flex-column align-center gap-4">
+                            @if (!string.IsNullOrEmpty(logoBase64))
+                            {
+                                <img src="@logoBase64" style="width:173px;height:184px;object-fit:contain;" />
+                            }
+
+                            <label class="mud-button mud-button-filled mud-button-filled-primary" style="cursor:pointer; width:173px;text-align:center">
+                                Cargar logo
+                                <InputFile OnChange="OnLogoSelected" style="display:none" />
+                            </label>
+                        </div>
+                    </MudItem>
+
+                    <MudItem xs="12" md="8">
+                        <MudTextField T="string" Label="CUIT" @bind-Value="empresa.Cuit" Margin="Margin.Dense" />
+                        <MudTextField Label="Razón social" @bind-Value="empresa.Nombre" Margin="Margin.Dense" />
+                        <MudTextField Label="Dirección" @bind-Value="empresa.Direccion" Margin="Margin.Dense" />
+                        <MudTextField Label="Teléfono" @bind-Value="empresa.Telefono" Margin="Margin.Dense" />
+                        <MudTextField Label="Mail" @bind-Value="empresa.Mail" Margin="Margin.Dense" />
+                        <MudTextField Label="Instagram" @bind-Value="empresa.Instagram" Margin="Margin.Dense" />
+
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   OnClick="GuardarEmpresa"
+                                   Class="mt-4">
+                            Guardar empresa
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+
+        <!-- BLOQUE TEMA -->
+        <MudItem xs="12" md="5">
+            <MudPaper Elevation="3" Class="pa-6 h-100">
+                <MudText Typo="Typo.h5" Class="mb-4">Tema visual</MudText>
+
+                <MudStack Spacing="2">
+                    <MudColorPicker Label="Color principal" @bind-Value="_primaryColor" />
+                    <MudColorPicker Label="Color secundario" @bind-Value="_secondaryColor" />
+                    <MudColorPicker Label="Color AppBar" @bind-Value="_appBarColor" />
+                    <MudColorPicker Label="Color Drawer" @bind-Value="_drawerColor" />
+
+                    <MudSwitch @bind-Value="_modoOscuro" Color="Color.Primary" Label="Modo oscuro" />
+
+                    <MudPaper Outlined="true" Class="pa-4 mt-2">
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">Vista previa</MudText>
+
+                        <div style="@($"height:48px;border-radius:8px;background:{_appBarColor?.ToString(MudColorOutputFormats.Hex) ?? "#1E3A8A"};margin-bottom:8px;")"></div>
+
+                        <div class="d-flex" style="gap:8px;">
+                            <div style="@($"width:90px;height:90px;border-radius:8px;background:{_drawerColor?.ToString(MudColorOutputFormats.Hex) ?? "#0F172A"};")"></div>
+                            <div style="flex:1;">
+                                <div style="@($"height:16px;border-radius:6px;background:{_primaryColor?.ToString(MudColorOutputFormats.Hex) ?? "#2563EB"};margin-bottom:10px;")"></div>
+                                <div style="@($"height:16px;width:70%;border-radius:6px;background:{_secondaryColor?.ToString(MudColorOutputFormats.Hex) ?? "#64748B"};")"></div>
+                            </div>
+                        </div>
+                    </MudPaper>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               OnClick="GuardarTema"
+                               Class="mt-2">
+                        Guardar tema
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <!-- BLOQUE SUCURSALES -->
+        <MudItem xs="12">
+            <MudPaper Elevation="3" Class="pa-6">
+                <div class="d-flex justify-space-between align-center mb-4">
+                    <MudText Typo="Typo.h5">Sucursales</MudText>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Success"
+                               OnClick="AbrirModalSucursal">
+                        Agregar sucursal
+                    </MudButton>
+                </div>
+
+                <MudTable Items="sucursales" Hover="true" Dense="true" Striped="true">
+                    <HeaderContent>
+                        <MudTh>ID</MudTh>
+                        <MudTh>Nombre</MudTh>
+                        <MudTh>Dirección</MudTh>
+                        <MudTh>Teléfono</MudTh>
+                        
+                        <MudTh>Acciones</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.IdNegocio</MudTd>
+                        <MudTd>@context.Nombre</MudTd>
+                        <MudTd>@context.Direccion</MudTd>
+                        <MudTd>@context.Telefono</MudTd>
+                        
+                        <MudTd>
+                            <MudButton Size="Size.Small"
+                                       Variant="Variant.Text"
+                                       OnClick="@(() => EditarSucursal(context.IdNegocio))">
+                                Editar
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+
+    </MudGrid>
+
+</MudContainer>
+
+
+@code {
+    private Entities.Empresa empresa = new();
+    private List<Entities.Negocio> sucursales = new();
+    private string logoBase64 = string.Empty;
+
+    private int idEmpresa;
+
+    private MudColor _primaryColor = new MudColor("#2563eb");
+    private MudColor _secondaryColor = new MudColor("#64748b");
+    private MudColor _appBarColor = new MudColor("#0f172a");
+    private MudColor _drawerColor = new MudColor("#111827");
+    private bool _modoOscuro;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated != true)
+            return;
+
+        var idEmpresaClaim = user.FindFirst("idEmpresa")?.Value;
+        if (!int.TryParse(idEmpresaClaim, out idEmpresa))
+        {
+            Snackbar.Add("No se pudo obtener la empresa del usuario logueado.", Severity.Error);
+            return;
+        }
+
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        empresa = await EmpresaService.ObtenerDatosEmpresa(idEmpresa);
+
+        var (logoBytes, obtenido) = await EmpresaService.ObtenerLogo(idEmpresa);
+        if (obtenido && logoBytes?.Length > 0)
+            logoBase64 = $"data:image/jpeg;base64,{Convert.ToBase64String(logoBytes)}";
+
+        sucursales = await NegocioService.ListarSucursalesPorEmpresa(idEmpresa);
+
+        var tema = await EmpresaTemaService.ObtenerTemaPorEmpresa(idEmpresa);
+        if (tema is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(tema.PrimaryColor))
+                _primaryColor = new MudColor(tema.PrimaryColor);
+
+            if (!string.IsNullOrWhiteSpace(tema.SecondaryColor))
+                _secondaryColor = new MudColor(tema.SecondaryColor);
+
+            if (!string.IsNullOrWhiteSpace(tema.AppbarColor))
+                _appBarColor = new MudColor(tema.AppbarColor);
+
+            if (!string.IsNullOrWhiteSpace(tema.DrawerColor))
+                _drawerColor = new MudColor(tema.DrawerColor);
+
+            _modoOscuro = tema.ModoOscuro;
+        }
+    }
+
+    private async Task GuardarEmpresa()
+    {
+        var (ok, mensaje) = await EmpresaService.ActualizarDatosEmpresa(empresa);
+
+        if (ok)
+            Snackbar.Add("Empresa guardada correctamente.", Severity.Success);
+        else
+            Snackbar.Add($"Error: {mensaje}", Severity.Error);
+    }
+
+    private async Task GuardarTema()
+    {
+        var tema = new EmpresaTema
+        {
+            IdEmpresa = idEmpresa,
+            PrimaryColor = _primaryColor.ToString(MudColorOutputFormats.Hex),
+            SecondaryColor = _secondaryColor.ToString(MudColorOutputFormats.Hex),
+            AppbarColor = _appBarColor.ToString(MudColorOutputFormats.Hex),
+            DrawerColor = _drawerColor.ToString(MudColorOutputFormats.Hex),
+            ModoOscuro = _modoOscuro
+        };
+
+        var (ok, mensaje) = await EmpresaTemaService.GuardarTemaEmpresa(tema);
+
+        if (ok)
+            Snackbar.Add("Tema guardado correctamente.", Severity.Success);
+        else
+            Snackbar.Add($"Error al guardar tema: {mensaje}", Severity.Error);
+    }
+
+    private async Task OnLogoSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+
+        var buffer = new byte[file.Size];
+        await file.OpenReadStream().ReadAsync(buffer);
+
+        var (ok, mensaje) = await EmpresaService.ActualizarLogo(buffer, idEmpresa);
+
+        if (ok)
+        {
+            logoBase64 = await EmpresaService.ObtenerLogoBase64Async(idEmpresa);
+            Snackbar.Add("Logo actualizado correctamente.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add($"Error al actualizar logo: {mensaje}", Severity.Error);
+        }
+    }
+
+    private async Task AbrirModalSucursal()
+    {
+        var parameters = new DialogParameters
+        {
+            ["IdEmpresa"] = idEmpresa,
+            ["NombreEmpresa"] = empresa.Nombre
+        };
+
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseButton = true
+        };
+
+        var dialog = DialogService.Show<MDSucursal>("Alta Sucursal", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+            sucursales = await NegocioService.ListarSucursalesPorEmpresa(idEmpresa);
+    }
+
+    private async Task EditarSucursal(int idNegocio)
+    {
+        var parameters = new DialogParameters
+        {
+            ["IdEmpresa"] = idEmpresa,
+            ["IdNegocio"] = idNegocio
+        };
+
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseButton = true
+        };
+
+        var dialog = DialogService.Show<MDSucursal>("Editar sucursal", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+            sucursales = await NegocioService.ListarSucursalesPorEmpresa(idEmpresa);
+    }
+}

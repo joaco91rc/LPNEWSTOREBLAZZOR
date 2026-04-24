@@ -20,6 +20,7 @@
 <AbmLayout TEntity="Cliente"
            FormContent="@FormCliente"
            GridContent="@GridClientes" 
+           
            OnSearchChanged="HandleSearch"
            OnExport="ExportarClientesXlsx"
            SearchPlaceholder="Buscar Cliente …" />
@@ -40,7 +41,7 @@
     private bool esEdicion = false;
     private string rolUsuarioActual = string.Empty;
     private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
-
+    private bool soloSucursalActual = false;
     
     private MudTable<Cliente> _table;
     private string filterString = string.Empty;
@@ -222,27 +223,21 @@
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private async Task CargarClientesAsync()
     {
-        // if (firstRender)
-        // {
-        //     var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-
-            
-        //     if (int.TryParse(sucursal, out int idSucursal))
-        //     {
-        //         listaClientes = await clienteService.ListarClientesPorNegocio(idSucursal);
-        //     }
-
-        //     StateHasChanged();
-        // }
-
-
-
+        if (soloSucursalActual)
+            listaClientes = await clienteService.ListarClientesPorNegocio(sucursalSeleccionada);
+        else
+            listaClientes = await clienteService.Listar();
     }
    
 
-
+    private async Task OnSoloSucursalChanged(bool value)
+    {
+        soloSucursalActual = value;
+        await CargarClientesAsync();
+        StateHasChanged();
+    }
 
 
 
@@ -263,12 +258,9 @@
         listaRoles = await rolService.Listar();
         clienteActual.Estado = true;
 
-        var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-        if (int.TryParse(sucursal, out int idSucursal))
-        {
-            listaClientes = await clienteService.ListarClientesPorNegocio(idSucursal);
-        }
-
+        
+        await CargarClientesAsync();
+        
     }
 
     private void Editar(Cliente c)
@@ -329,7 +321,7 @@
             Snackbar.Add(mensaje, Severity.Success);
             clienteActual = new Cliente();
             esEdicion = false;
-            listaClientes = await clienteService.Listar();
+            await CargarClientesAsync();
             await formCliente.ResetAsync(); // resetea el form
             clienteActual.Estado = true;
         }
@@ -357,7 +349,7 @@
             if (exito)
             {
                 Snackbar.Add(mensaje, Severity.Success);
-                listaClientes = await clienteService.ListarClientesPorNegocio(sucursalSeleccionada);
+                await CargarClientesAsync();
             }
             else
             {
@@ -421,9 +413,55 @@
     </MudForm>
 </div>;
 
+RenderFragment ToolbarClientes => @<MudPaper Class="px-3 py-2 d-inline-flex" Elevation="0" Outlined="true">
+        <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="1">
+            <MudText Typo="Typo.body2">
+                @(soloSucursalActual ? "Clientes de Sucursal actual" : "Todos los Clientes de la Empresa")
+            </MudText>
+
+            <MudSwitch T="bool"
+                       Value="soloSucursalActual"
+                       ValueChanged="OnSoloSucursalChanged"
+                       Color="Color.Primary" />
+        </MudStack>
+    </MudPaper>;
 
     
     RenderFragment GridClientes => @<div style="padding: 16px; padding-top : 16px">
+
+    <MudPaper Class="pa-3 mb-3" Outlined="true" Style="border-left: 4px solid var(--mud-palette-primary);">
+        <MudStack Spacing="2">
+
+            <MudText Typo="Typo.h6" Color="Color.Primary">
+                Filtros
+            </MudText>
+
+            <MudStack Direction="Row"
+                      AlignItems="AlignItems.Start"
+                      Spacing="2">
+
+                <MudText Typo="Typo.body2">
+                    @(soloSucursalActual
+                        ? "Mostrando clientes de la sucursal actual"
+                        : "Mostrando todos los clientes de la empresa")
+                </MudText>
+
+                <MudSwitch T="bool"
+                           Value="soloSucursalActual"
+                           ValueChanged="OnSoloSucursalChanged"
+                           Color="Color.Primary" />
+
+            </MudStack>
+
+        </MudStack>
+    </MudPaper>
+    
+    <MudText Typo="Typo.h6"
+             Color="Color.Primary"
+             Align="Align.Center"
+             Class="mb-3">
+        Listado de Clientes
+    </MudText>
     <MudTable T="Cliente"
               Items="ClientesFiltrados"
               Dense="true"

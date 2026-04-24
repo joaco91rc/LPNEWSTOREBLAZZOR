@@ -4,79 +4,577 @@
 @using LPNEWSTORE.Shared.Modals
 @using MudBlazor
 @using Services
+@using System.Data
+@using System.Text
 @using static LPNEWSTORE.Shared.Components.CabeceraSelector
 @inject FormaPagoService FormaPagoService  
 @inject VendedorService VendedorService
 @inject CotizacionService CotizacionService
+@inject VentaService VentaService
+@inject PagoParcialService PagoParcialService
+@inject ClienteService ClienteNegocioService
+@inject ProductoNegocioService ProductoNegocioService
+@inject ProductoService ProductoService
+@inject ProductoDetalleService ProductoDetalleService
+
+@inject TransaccionCajaEmpresaService TransaccionCajaEmpresaService
+@inject CajaRegistradoraEmpresaService CajaRegistradoraEmpresaService
+@inject CajaRegistradoraEmpresaDetalleService CajaRegistradoraDetalleService
+@inject FormaPagoService FormaPagoService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject IJSRuntime JS
 
+<div class="venta-container">
 
-<CabeceraSelector EsVenta="true"
-                   @bind-Fecha="vm.Fecha"
-                   TiposDocumento="vm.TiposDocumento"
-                  @bind-TipoDocumento="vm.TipoDocumento"
-                   Vendedores="vm.Vendedores"
-                  @bind-VendedorId="vm.VendedorId"
-                   @bind-DocumentoPersona="vm.DniCliente"
-                   @bind-NombrePersona="vm.NombreCliente"
-                   OnBuscarPersona="AbrirMDCliente" />
+    <div class="venta-content">
+        <CabeceraSelector EsVenta="true"
+                          @bind-Fecha="vm.Fecha"
+                          TiposDocumento="vm.TiposDocumento"
+                          @bind-TipoDocumento="vm.TipoDocumento"
+                          Vendedores="vm.Vendedores"
+                          @bind-VendedorId="vm.VendedorId"
+                          @bind-DocumentoPersona="vm.DniCliente"
+                          @bind-NombrePersona="vm.NombreCliente"
+                          OnBuscarPersona="AbrirMDCliente" />
 
-                   <DetalleProductoSelector @bind-Items="_detalle"
-                  CotizacionInicialUsd="_cotizacionActual"
-                  IdSucursal="_idSucursal" 
-                  />
+        <DetalleProductoSelector @bind-Items="_detalle"
+                                 CotizacionInicialUsd="_cotizacionActual"
+                                 IdSucursal="_idSucursal" />
+    </div>
 
-<FormaPagoSelector TProducto="Producto"
-                   @ref="_formaPagoSelector"
-                FormasPago="@_formasPago"
-                Productos="@_productos"
-                GetPrecioLista="@(p => p.PrecioLista)"
-                PagosChanged="OnPagosChanged"
-                OnPagoParcial="AbrirModalPagosParciales" />
+    <div class="venta-footer">
+        <FormaPagoSelector TProducto="DetalleProductoSelector.DetalleProductoItem"
+                           @ref="_formaPagoSelector"
+                           FormasPago="@_formasPago"
+                           Productos="@_detalle"
+                           GetPrecioLista="@(p => p.SubTotalPesos)"
+                           PagosChanged="OnPagosChanged"
+                           OnPagoParcial="AbrirModalPagosParciales" />
+    </div>
+    <div class="registrar-btn-container">
+        <MudButton Color="Color.Success"
+                   Variant="Variant.Filled"
+                   OnClick="RegistrarVenta"
+                   Size="Size.Large"
+                   StartIcon="@Icons.Material.TwoTone.MonetizationOn">
+            Registrar
+        </MudButton>
+    </div>
+
+</div>
+
+
+
 
 
 @code {
 
 
     private List<FormaPago> _formasPago = new(); 
-    private FormaPagoSelector<Producto>? _formaPagoSelector;
+    private FormaPagoSelector<DetalleProductoSelector.DetalleProductoItem>? _formaPagoSelector;
+
     private VentaViewModel vm = new();
     private List<Producto> _productos = new(); // la lista que ya usás en la venta
     private List<DetalleProductoSelector.DetalleProductoItem> _detalle = new();
     private decimal _cotizacionActual;
     private int _idSucursal;
+    private Usuario _usuarioLogueado;
 
     protected override async Task OnInitializedAsync()
     {
-        var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-        if (int.TryParse(sucursal, out var idSucursal))
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        // 👉 Usuario logueado
+        string? idUsuarioString = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (int.TryParse(idUsuarioString, out var idParsed))
+        {
+            _usuarioLogueado ??= new Usuario();
+            _usuarioLogueado.Id = idParsed;
+            _usuarioLogueado.UserName = user.Identity?.Name;
+        }
+
+        // 👉 Sucursal desde CLAIM (reemplaza getCookie)
+        string? idSucursalClaim = user.FindFirst("IdNegocio")?.Value;
+        if (int.TryParse(idSucursalClaim, out var idSucursal))
         {
             _idSucursal = idSucursal;
         }
-        var cotizacion = await CotizacionService.CotizacionActiva();
-        _cotizacionActual = cotizacion.Importe;
-        _formasPago = await FormaPagoService.ListarFormasDePago();
-        vm.Vendedores = await VendedorService.ListarVendedores();
-        vm.TiposDocumento = new List<OpcionDocumento>
-            {
-                new() { Valor = "Factura A", Texto = "Factura A" },
-                new() { Valor = "Factura B", Texto = "Factura B" },
-                new() { Valor = "Factura C", Texto = "Factura C" },
-                new() { Valor = "Remito R",  Texto = "Remito R" },
-                new() { Valor = "Presupuesto", Texto = "Presupuesto" }
-            };
 
+        // Lanzás todas las tareas en paralelo
+        var cotizacionTask = CotizacionService.CotizacionActiva();
+        var formasPagoTask = FormaPagoService.ListarFormasDePago();
+        var vendedoresTask = VendedorService.ListarVendedores();
+
+        // Esperás todas juntas
+        await Task.WhenAll(cotizacionTask, formasPagoTask, vendedoresTask);
+
+        // Asignás resultados
+        _cotizacionActual = cotizacionTask.Result?.Importe ?? 0;
+        _formasPago = formasPagoTask.Result ?? new List<FormaPago>();
+        vm.Vendedores = vendedoresTask.Result ?? new List<Vendedor>();
+
+        
+        // 👉 Tipos de documento
+        vm.TiposDocumento = new List<OpcionDocumento>
+    {
+        new() { Valor = "Factura A", Texto = "Factura A" },
+        new() { Valor = "Factura B", Texto = "Factura B" },
+        new() { Valor = "Factura C", Texto = "Factura C" },
+        new() { Valor = "Remito R",  Texto = "Remito R" },
+        new() { Valor = "Presupuesto", Texto = "Presupuesto" }
+    };
+
+        // 👉 Defaults
         if (vm.Vendedores is { Count: > 0 })
             vm.VendedorId = vm.Vendedores[0].IdVendedor;
 
-        
         if (vm.TiposDocumento is { Count: > 0 })
             vm.TipoDocumento = vm.TiposDocumento[0].Valor;
-            
     }
 
-    private void OnPagosChanged(List<FormaPagoSelector<Producto>.PagoDetalle> pagos)
+    private async Task RegistrarVenta()
+    {
+        // 1) Validaciones
+        if (!ValidarFormulario())
+            return;
+
+        // 2) Crear detalle de venta desde la grilla de Blazor (_detalle)
+        var detalleVenta = CrearDetalleVenta();
+
+        // 3) Crear la entidad Venta a partir del VM + formas de pago
+        var venta = await CrearVenta(detalleVenta);
+
+        // 4) Procesar la venta (registrar en BD)
+        
+        var resultado = await ProcesarVentaAsync(venta, detalleVenta);
+
+        bool respuesta = resultado.exito;
+        string mensaje = resultado.mensaje;
+        int idVentaGenerado = resultado.idVentaGenerado;
+
+        if (!respuesta)
+        {
+            Snackbar.Add($"Error al procesar la venta: {mensaje}", Severity.Error);
+            return;
+        }
+
+        try
+        {
+            // 5) Dar de baja pagos parciales (si los hubiera)
+            await DarDeBajaPagosParcialesAsync(idVentaGenerado);
+
+            // 6) Asignar cliente al negocio si no está asignado
+            if (vm.ClienteId.HasValue)
+            {
+                var perteneceANegocio = await ClienteNegocioService.ClienteAsignadoANegocio(vm.ClienteId.Value, _idSucursal);
+
+                if (!perteneceANegocio)
+                {
+                    await ClienteNegocioService.AsignarClienteANegocio(vm.ClienteId.Value, _idSucursal);
+                }
+            }
+
+            // 7) Actualizar Stock (y números de serie)
+            string stockActualizado = await ActualizarStockAsync(detalleVenta, idVentaGenerado);
+
+            // 8) Registrar transacciones en caja
+            string mensajeTransaccion = await RegistrarTransaccionesCajaAsync(venta, idVentaGenerado);
+
+            // 9) Mensaje final
+            Snackbar.Add(
+                $"Venta registrada correctamente. Número: {idVentaGenerado}. {stockActualizado} {mensajeTransaccion}",
+                Severity.Success);
+
+            // 10) Limpiar pantalla
+            await LimpiarVentaAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error en el proceso: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private bool ValidarFormulario()
+    {
+        // Documento cliente
+        if (string.IsNullOrWhiteSpace(vm.DniCliente))
+        {
+            Snackbar.Add("Debe ingresar el documento del cliente", Severity.Error);
+            return false;
+        }
+
+        // Nombre cliente
+        if (string.IsNullOrWhiteSpace(vm.NombreCliente))
+        {
+            Snackbar.Add("Debe ingresar el nombre del cliente", Severity.Error);
+            return false;
+        }
+
+        // Productos (detalle)
+        if (_detalle is null || !_detalle.Any())
+        {
+            Snackbar.Add("Debe ingresar productos en la venta", Severity.Error);
+            return false;
+        }
+
+        // Descuento (cuando lo tengas implementado en Blazor, ajustás esto)
+        /*
+        if (vm.AplicarDescuento && (vm.PorcentajeDescuento is null || vm.PorcentajeDescuento <= 0))
+        {
+            Snackbar.Add("Debe ingresar un porcentaje de descuento", Severity.Error);
+            return false;
+        }
+        */
+
+        // Formas de pago
+        var pagos = _formaPagoSelector?.Pagos
+                    ?? new List<FormaPagoSelector<DetalleProductoSelector.DetalleProductoItem>.PagoDetalle>();
+
+        if (!pagos.Any())
+        {
+            Snackbar.Add("Debe agregar al menos una forma de pago al detalle de la venta", Severity.Error);
+            return false;
+        }
+
+        // Vendedor
+        if (!vm.VendedorId.HasValue || vm.VendedorId.Value <= 0)
+        {
+            Snackbar.Add("Debe seleccionar el Vendedor", Severity.Error);
+            return false;
+        }
+
+        return true;
+    }
+
+
+    private async Task LimpiarVentaAsync()
+    {
+        // --- Cliente ---
+        vm.ClienteId = null;
+        vm.DniCliente = string.Empty;
+        vm.NombreCliente = string.Empty;
+
+        // Podés mantener la fecha o volver a hoy
+        vm.Fecha = DateTime.Today;
+
+        // --- Detalle de productos ---
+        _detalle.Clear();
+
+        // --- Formas de pago ---
+        if (_formaPagoSelector is not null)
+        {
+            // Método que vas a agregar en el componente hijo
+            await _formaPagoSelector.LimpiarAsync();
+        }
+
+        // --- Datos “extra” de la venta (observaciones, descuentos, etc.) ---
+        // Si después agregás estos campos al ViewModel o a la página,
+        // los reseteás acá. Ejemplos:
+        //
+        // vm.Observaciones = string.Empty;
+        // DescuentoPorcentaje = 0;
+        // MontoDescuento = 0;
+        // PagaCon = 0;
+        // CambioCliente = 0;
+        // TotalPesos = 0;
+        // TotalDolares = 0;
+        // RestaPagarPesos = 0;
+        // RestaPagarDolares = 0;
+        // IdPagoParcial = 0;
+        // _isUpdated = false;
+        // AplicaDescuento = false;
+
+        // --- Vendedor y tipo de documento (los dejo en el primer ítem) ---
+        if (vm.Vendedores is { Count: > 0 })
+            vm.VendedorId = vm.Vendedores[0].IdVendedor;
+
+        if (vm.TiposDocumento is { Count: > 0 })
+            vm.TipoDocumento = vm.TiposDocumento[0].Valor;
+
+        StateHasChanged();
+    }
+
+
+    private DataTable CrearDetalleVenta()
+    {
+        var detalleVenta = new DataTable();
+        detalleVenta.Columns.Add("idProducto", typeof(int));
+        detalleVenta.Columns.Add("precioVenta", typeof(decimal));
+        detalleVenta.Columns.Add("cantidad", typeof(decimal));
+        detalleVenta.Columns.Add("subTotal", typeof(decimal));
+        detalleVenta.Columns.Add("precioCompra", typeof(decimal));
+
+        foreach (var item in _detalle)
+        {
+            
+
+            detalleVenta.Rows.Add(
+                item.IdProducto,
+                item.PrecioLista,
+                item.Cantidad,
+                item.SubTotalPesos,
+                item.PrecioCompra
+            );
+        }
+
+        return detalleVenta;
+    }
+
+    private async Task<Venta> CrearVenta(DataTable detalleVenta)
+    {
+        // Inicializar montos y formas de pago
+        decimal montoPagoFP1 = 0, montoPagoFP2 = 0, montoPagoFP3 = 0, montoPagoFP4 = 0;
+        string formaPagoFP1 = "", formaPagoFP2 = "", formaPagoFP3 = "", formaPagoFP4 = "";
+        decimal montoRecibidoFP1 = 0, montoRecibidoFP2 = 0, montoRecibidoFP3 = 0, montoRecibidoFP4 = 0;
+
+        var pagos = _formaPagoSelector?.Pagos ?? new List<FormaPagoSelector<DetalleProductoSelector.DetalleProductoItem>.PagoDetalle>();
+
+        // Recorremos los pagos igual que hacías con dgvDataFormasPago
+        for (int i = 0; i < pagos.Count && i < 4; i++)
+        {
+            var pago = pagos[i];
+
+            int idFormaPago = pago.FormaPagoId;
+
+            // Saltar id 9999 (como en WinForms)
+            if (idFormaPago == 9999)
+                continue;
+
+            string formaPago = pago.FormaPagoNombre;
+            decimal montoPago = pago.Importe;
+            decimal montoRecibido = pago.Importe; // asumido, ajustar si tiene otro nombre
+
+            if (i == 0)
+            {
+                formaPagoFP1 = formaPago;
+                montoPagoFP1 = montoPago;
+                montoRecibidoFP1 = montoRecibido;
+            }
+            else if (i == 1)
+            {
+                formaPagoFP2 = formaPago;
+                montoPagoFP2 = montoPago;
+                montoRecibidoFP2 = montoRecibido;
+            }
+            else if (i == 2)
+            {
+                formaPagoFP3 = formaPago;
+                montoPagoFP3 = montoPago;
+                montoRecibidoFP3 = montoRecibido;
+            }
+            else if (i == 3)
+            {
+                formaPagoFP4 = formaPago;
+                montoPagoFP4 = montoPago;
+                montoRecibidoFP4 = montoRecibido;
+            }
+        }
+
+        // Correlativo y número de documento
+        int idCorrelativo = await  VentaService.ObtenerCorrelativo(); // o await si es async
+        string numeroDocumento = string.Format("{0:00000}", idCorrelativo);
+        var vendedor = vm.Vendedores.FirstOrDefault(v => v.IdVendedor == (vm.VendedorId ?? 0));
+
+        return new Venta
+        {
+            OUsuario = _usuarioLogueado, // ajustar
+            IdNegocio = _idSucursal,
+            FechaRegistro = vm.Fecha ?? DateTime.Today,
+            TipoDocumento = vm.TipoDocumento,
+            DocumentoCliente = vm.DniCliente,
+            NombreCliente = vm.NombreCliente,
+            IdVendedor = vm.VendedorId ?? 0,
+            NombreVendedor = vendedor is not null? $"{vendedor.Nombre}, {vendedor.Apellido}" : string.Empty,
+            MontoCambio = 0m, // si tenés el cambio en algún lado, lo asignás acá
+            MontoTotal = montoPagoFP1 + montoPagoFP2 + montoPagoFP3 + montoPagoFP4,
+            FormaPago = formaPagoFP1,
+            FormaPago2 = formaPagoFP2,
+            FormaPago3 = formaPagoFP3,
+            FormaPago4 = formaPagoFP4,
+            Descuento = 0m,           // si tenés descuento en la UI, ponelo acá
+            MontoDescuento = 0m,      // idem
+            CotizacionDolar = _cotizacionActual,
+            MontoFP1 = montoPagoFP1,
+            MontoFP2 = montoPagoFP2,
+            MontoFP3 = montoPagoFP3,
+            MontoFP4 = montoPagoFP4,
+            MontoPago = montoRecibidoFP1,
+            MontoPagoFP2 = montoRecibidoFP2,
+            MontoPagoFP3 = montoRecibidoFP3,
+            MontoPagoFP4 = montoRecibidoFP4,
+            Observaciones = "",       // si agregás observaciones al VM, poner acá
+            NroDocumento = numeroDocumento
+        };
+    }
+
+    private async Task<(bool exito, string mensaje, int idVentaGenerado)> ProcesarVentaAsync(Venta venta,DataTable detalleVenta)
+    {
+        
+
+        var resultado = await VentaService.Registrar(venta, detalleVenta); // ejemplo
+        
+
+        
+            
+            return (resultado.exito, resultado.mensaje, resultado.idVentaSalida);
+        
+    }
+
+    private async Task DarDeBajaPagosParcialesAsync(int idVentaGenerado)
+    {
+        var pagos = _formaPagoSelector?.Pagos
+                    ?? new List<FormaPagoSelector<DetalleProductoSelector.DetalleProductoItem>.PagoDetalle>();
+
+        foreach (var pago in pagos)
+        {
+            var formaPago = pago.FormaPagoNombre;
+
+            if (!string.IsNullOrWhiteSpace(formaPago) &&
+                formaPago.StartsWith("PAGO PARCIAL", StringComparison.OrdinalIgnoreCase))
+            {
+                bool ok = await PagoParcialService.DarDeBaja(pago.FormaPagoId, idVentaGenerado);
+
+                if (!ok)
+                {
+                    Snackbar.Add("No se pudo dar de baja el pago parcial", Severity.Warning);
+                }
+            }
+        }
+    }
+
+    private async Task<string> ActualizarStockAsync(DataTable detalleVenta, int idVentaGenerado)
+    {
+        var sb = new StringBuilder();
+
+        foreach (var item in _detalle)
+        {
+            int idProducto = item.IdProducto;
+            int idEmpresa = item.IdEmpresa;
+            int cantidad = (int)item.Cantidad;
+
+            string nombreProducto = await ProductoService.ObtenerNombreProductoAsync(idProducto);
+
+            await ProductoNegocioService.CargarOActualizarStockProductoAsync(idProducto, _idSucursal, -cantidad);
+
+            sb.AppendLine($"Stock actualizado para el producto {nombreProducto}, cantidad reducida en {cantidad}.");
+
+            // Si el producto es serializado y tenés IdProductoDetalle en el item:
+            if (item.SerialNumber != string.Empty)
+            {
+                
+               var(actualizarSerial, mensaje) = await ProductoDetalleService.DesactivarProductoDetalleAsync(item.IdProductoDetalle,idVentaGenerado);
+
+                if (actualizarSerial != 0)
+                {
+                    sb.AppendLine($"Número de serie desactivado para el producto {nombreProducto}.");
+                }
+                else
+                {
+                    sb.AppendLine($"Error al desactivar el número de serie para el producto {nombreProducto}: {mensaje}");
+                    break;
+                }
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private async Task<string> RegistrarTransaccionesCajaAsync(Venta venta, int idVentaGenerado)
+    {
+        var sb = new StringBuilder();
+
+        var formasDePago = new List<(string formaPago, decimal monto)>
+    {
+        (venta.FormaPago,  venta.MontoFP1),
+        (venta.FormaPago2, venta.MontoFP2),
+        (venta.FormaPago3, venta.MontoFP3),
+        (venta.FormaPago4, venta.MontoFP4),
+    };
+
+        foreach (var (formaPago, monto) in formasDePago)
+        {
+            if (monto <= 0 || string.IsNullOrWhiteSpace(formaPago))
+                continue;
+
+            if (formaPago.Equals("DESCUENTO", StringComparison.OrdinalIgnoreCase) ||
+                formaPago.Equals("RECARGO", StringComparison.OrdinalIgnoreCase) ||
+                formaPago.StartsWith("PAGO PARCIAL", StringComparison.OrdinalIgnoreCase))
+            {
+                sb.AppendLine($"Movimiento omitido para la forma de pago: {formaPago}.");
+                continue;
+            }
+
+            var fp = await FormaPagoService.ObtenerFPPorDescripcion(formaPago);
+
+            if (fp == null)
+            {
+                sb.AppendLine($"Error: No se encontró la forma de pago: {formaPago}.");
+                continue;
+            }
+
+            if (fp.IdCajaAsociada <= 0)
+            {
+                sb.AppendLine($"Error: La forma de pago {formaPago} no tiene caja asociada.");
+                continue;
+            }
+
+            var cajaRegistradoraAbierta = await CajaRegistradoraEmpresaService.ObtenerCajaActual();
+
+            if (cajaRegistradoraAbierta == null)
+            {
+                sb.AppendLine($"No hay una caja registradora abierta para registrar el movimiento.");
+                continue;
+            }
+
+            var transaccion = new TransaccionCajaEmpresa
+            {
+                IdCajaRegistradora = cajaRegistradoraAbierta.IdCajaRegistradora,
+                IdCaja = fp.IdCajaAsociada,
+
+                // Si tu service ya lo toma desde UsuarioSessionService, podés no setearlo.
+                IdEmpresa = cajaRegistradoraAbierta.IdEmpresa,
+
+                IdNegocio = _idSucursal,
+                FechaTransaccion = DateTime.Now,
+
+                TipoTransaccion = "INGRESO",
+                TipoOperacion = "VENTA",
+
+                Monto = monto,
+                Detalle = $"Venta Número: {idVentaGenerado} Cliente: {venta.NombreCliente}",
+                UsuarioTransaccion = venta.NombreVendedor,
+
+                IdFormaPago = fp.IdFormaPago,
+                IdVenta = idVentaGenerado,
+                IdCompra = null,
+                IdPagoParcial = null,
+                IdConcepto = null,
+
+                DescripcionCaja = fp.NombreCajaAsociada,
+                DescripcionFormaPago = formaPago
+            };
+
+            var (idTransaccionGenerada, mensaje) =
+                await TransaccionCajaEmpresaService.RegistrarMovimientoCompletoAsync(transaccion);
+
+            if (idTransaccionGenerada > 0)
+            {
+                sb.AppendLine($"Movimiento registrado con éxito para {formaPago}, monto: {monto}.");
+            }
+            else
+            {
+                sb.AppendLine($"Error al registrar movimiento para {formaPago}: {mensaje}.");
+            }
+        }
+
+        return sb.ToString();
+    }
+
+
+    private void OnPagosChanged(List<FormaPagoSelector<DetalleProductoSelector.DetalleProductoItem>.PagoDetalle> pagos)
     {
         // acá podés actualizar la Venta, Caja, etc.
     }
@@ -85,7 +583,7 @@
     {
         var parameters = new DialogParameters
         {
-            { nameof(MDPagoParcial.IdCliente), 142 },
+            { nameof(MDPagoParcial.IdCliente), vm.ClienteId },
             // { nameof(MDPagoParcial.TotalPendiente), TotalPendiente },
         };
 
@@ -103,7 +601,7 @@
         if (!result.Canceled && result.Data is PagoParcial pagoParcial)
         {
             // armamos el PagoDetalle que usa el selector
-            var pagoDetalle = new FormaPagoSelector<Producto>.PagoDetalle
+            var pagoDetalle = new FormaPagoSelector<DetalleProductoSelector.DetalleProductoItem>.PagoDetalle
             {
                 FormaPagoId = pagoParcial.IdPagoParcial,
                 // Acá ponemos la leyenda "Pago parcial - "
@@ -141,7 +639,7 @@
         {
             vm.DniCliente = cliente.Documento;
             vm.NombreCliente = cliente.NombreCompleto;
-
+            vm.ClienteId = cliente.IdCliente;
         }
     }
 
@@ -151,9 +649,10 @@
 
         
         public int? VendedorId { get; set; }
-
+        public int? ClienteId { get; set; }
         public string? DniCliente { get; set; }
         public string? NombreCliente { get; set; }
+        public string? NombreVendedor { get; set; }
 
         public string? TipoDocumento { get; set; }       // ej: "Factura A"
         public List<OpcionDocumento> TiposDocumento { get; set; } = new();
@@ -162,3 +661,39 @@
     }
 
 }
+
+    <style>
+
+    /* CONTENEDOR PRINCIPAL */
+    .venta-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 70px); /* resta la barra superior */
+    }
+
+    /* TODO LO QUE VA ARRIBA DEL FOOTER */
+    .venta-content {
+        flex: 1 1 auto;
+        overflow-y: auto; /* permite scroll SOLO al contenido de arriba */
+        padding-bottom: 16px;
+    }
+
+    /* FOOTER FIJO SIEMPRE VISIBLE */
+    .venta-footer {
+        flex: 0 0 auto;
+        border-top: 1px solid var(--mud-palette-primary);
+        
+        padding-top: 8px;
+    }
+
+    .registrar-btn-container {
+        width: 100%;
+        display: flex;
+        justify-content: flex-end;
+        padding: 16px 24px; /* separado del borde */
+        box-sizing: border-box;
+    }
+
+
+
+    </style>

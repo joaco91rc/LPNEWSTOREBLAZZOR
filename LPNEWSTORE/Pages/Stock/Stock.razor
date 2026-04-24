@@ -4,6 +4,9 @@
 @using Entities
 @using System.Globalization
 @using Services
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
 @inject IDialogService DialogService
@@ -37,6 +40,7 @@
 <MudPaper Class="p-0" Elevation="1">
     <MudTable T="Producto"
               Items="_filtered"
+              RowClassFunc="@( (row, index) => row.EstaEnSucursal ? "" : "fila-no-sucursal")"
               Dense="true" Hover="true" Bordered="true"
               @key="_tableVersion"
               Breakpoint="Breakpoint.Sm"
@@ -191,63 +195,86 @@
     private string SearchPlaceholder => "Buscar por código o producto...";
     private bool ShowSoloSucursal { get; set; } = false;
 
+
     private int SucursalId { get; set; } = 0;
+    private int IdEmpresa { get; set; } = 0;
+
     private string SucursalNombre => MapSucursal(SucursalId);
     private bool _permiteCancelar => _snapshot is not null;
 
     private static bool IsNavKey(KeyboardEventArgs e)
     => e.Key is "ArrowUp" or "ArrowDown" or "ArrowLeft" or "ArrowRight" or "Enter";
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if (!firstRender) return;
-
-        _loading = true; StateHasChanged();
+        _loading = true;
 
         try
         {
-            var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-            if (!int.TryParse(sucursal, out var idSucursal)) idSucursal = 0;
-            SucursalId = idSucursal;
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
 
-            _productos = await ProductoService.ListarAsync(SucursalId) ?? new();
+            if (user.Identity == null || !user.Identity.IsAuthenticated)
+            {
+                Snackbar.Add("El usuario no está autenticado.", Severity.Error);
+                return;
+            }
 
-            // 🔽 Normalizar precios sincrónicamente (maneja nulls/faltantes)
+            var idNegocioClaim = user.Claims.FirstOrDefault(c => c.Type == "IdNegocio")?.Value;
+            var idEmpresaClaim = user.Claims.FirstOrDefault(c => c.Type == "IdEmpresa")?.Value;
+
+            if (!int.TryParse(idNegocioClaim, out var idNegocio))
+            {
+                Snackbar.Add("No se pudo obtener el IdNegocio desde los claims.", Severity.Error);
+                return;
+            }
+
+            if (!int.TryParse(idEmpresaClaim, out var idEmpresa))
+            {
+                Snackbar.Add("No se pudo obtener el IdEmpresa desde los claims.", Severity.Error);
+                return;
+            }
+
+            SucursalId = idNegocio;
+            IdEmpresa = idEmpresa;
+
+            // NUEVO:
+            _productos = await ProductoService.ListarPorNegocioAsync( SucursalId) ?? new();
+
             foreach (var p in _productos)
             {
-                // Null-safe por si el mapeo llega con null (si tus props son decimal no-null, esto sobra)
+                // Normalización de precios por seguridad
                 p.CostoPesos = p.CostoPesos;
-                p.PrecioCompra = p.PrecioCompra;   // USD (de tu SELECT)
-                p.PrecioVenta = p.PrecioVenta;    // si es ARS y viene 0, lo arreglamos abajo
+                p.PrecioCompra = p.PrecioCompra;
+                p.PrecioVenta = p.PrecioVenta;
                 p.PrecioLista = p.PrecioLista;
                 p.VentaPesos = p.VentaPesos;
 
-                // Si el producto NO es en dólares, usá los precios en pesos para mostrar/editar
                 if (!p.ProductoDolar)
                 {
-                    // En tu SELECT "ventaPesos" trae el precio venta ARS
+                    // Si no tiene precio venta USD pero sí pesos:
                     if (p.PrecioVenta == 0 && p.VentaPesos > 0)
                         p.PrecioVenta = p.VentaPesos;
 
-                    // Si por algún motivo precioLista ARS vino 0, dejalo en 0 explícito
-                    p.PrecioLista = p.PrecioLista;
+                    // Precio lista ya viene desde query
                 }
                 else
                 {
-                    // Si trabajás USD y no tenés precioLista USD en la SELECT, calculalo como hacés al guardar
+                    // Si es dolarizado y no tiene lista:
                     if (p.PrecioLista == 0 && p.PrecioVenta > 0)
                         p.PrecioLista = Math.Round(p.PrecioVenta * 1.40m, 2);
                 }
 
-                // A prueba de faltantes: si algo vino null/0, al menos que se vea 0 y no quede “en blanco”
-                // (con MudNumericField decimal, 0 se muestra bien)
+                // seguridad extra: si no está en sucursal, stock en 0
+                if (!p.EstaEnSucursal)
+                    p.Stock = 0;
             }
 
-            // 🔁 Cambiamos referencia para que MudTable detecte cambios
             _productos = _productos.ToList();
-            ApplyFilter();                 // _filtered = _productos filtrados (ToList adentro)
-            await InvokeAsync(StateHasChanged);
-            _snapshot = Clonar(_productos); // si usás Cancelar
+
+            ApplyFilter();
+
+            _snapshot = Clonar(_productos);
         }
         catch (Exception ex)
         {
@@ -255,12 +282,11 @@
         }
         finally
         {
-            _loading = false; 
+            _loading = false;
             _tableVersion++;
-            await InvokeAsync(StateHasChanged);
+            StateHasChanged();
         }
     }
-
 
 
     private async Task PrefetchPreciosAsync()
@@ -304,7 +330,7 @@
     {
         try
         {
-            var r = await PrecioProductoService.ObtenerPreciosPorProductoYMonedaAsync(idProducto, idMoneda);
+            var r = await PrecioProductoService.ObtenerPreciosPorProductoYMonedaAsync(idProducto,  idMoneda);
             if (r == null)
                 return new PrecioProducto
                 {
@@ -428,7 +454,8 @@
                 int stockActual = await ProductoNegocioService.ObtenerStockProductoEnSucursalAsync(idProducto, SucursalId);
                 if (prod.Stock != stockActual)
                 {
-                    await ProductoNegocioService.SobrescribirStockAsync(idProducto, SucursalId, prod.Stock);
+                    await ProductoNegocioService.SobrescribirStockAsync(idProducto,  SucursalId, prod.Stock);
+                    prod.EstaEnSucursal = true;
                     totalActualizadosStock++;
                 }
             }
@@ -444,123 +471,195 @@
 
             try
             {
-                // Podrían venir null si no hay registro
-                var precioPesosActual = await PrecioProductoService.ObtenerPreciosPorProductoYMonedaAsync(idProducto, 1);
-                var precioDolarActual = await PrecioProductoService.ObtenerPreciosPorProductoYMonedaAsync(idProducto, 2);
+                var precioPesosActual = await PrecioProductoService.ObtenerPreciosPorProductoYMonedaAsync(idProducto,  1);
+                var precioDolarActual = await PrecioProductoService.ObtenerPreciosPorProductoYMonedaAsync(idProducto,  2);
 
                 if (!prod.ProductoDolar)
                 {
                     // -------- Base ARS --------
-                    if (precioPesosActual is null)
-                        goto limpiarCampos; // omitimos si no existe registro en ARS
+                    decimal nuevoCompraARS = Math.Round(prod.NuevoCosto ?? precioPesosActual?.PrecioCompra ?? 0m, 2);
+                    decimal nuevoVentaARS = Math.Round(prod.NuevoPrecioVenta ?? precioPesosActual?.PrecioVenta ?? 0m, 2);
 
-                    var nuevoCompraARS = Math.Round(prod.NuevoCosto ?? precioPesosActual.PrecioCompra, 2);
-                    var nuevoVentaARS = Math.Round(prod.NuevoPrecioVenta ?? precioPesosActual.PrecioVenta, 2);
-
-                    bool hayCambioARS = nuevoCompraARS != precioPesosActual.PrecioCompra
-                                     || nuevoVentaARS != precioPesosActual.PrecioVenta;
+                    bool hayCambioARS = precioPesosActual is null
+                        || nuevoCompraARS != precioPesosActual.PrecioCompra
+                        || nuevoVentaARS != precioPesosActual.PrecioVenta;
 
                     if (hayCambioARS)
                     {
-                        var nuevoPesos = new PrecioProducto
+                        if (precioPesosActual is not null)
                         {
-                            IdPrecioProducto = precioPesosActual.IdPrecioProducto,
-                            IdProducto = idProducto,
-                            IdMoneda = 1,
-                            PrecioCompra = nuevoCompraARS,
-                            PrecioVenta = nuevoVentaARS,
-                            PrecioLista = nuevoVentaARS, // calc
-                            PrecioEfectivo = Math.Round(nuevoVentaARS * 0.85m, 2)
-                        };
+                            var nuevoPesos = new PrecioProducto
+                            {
+                                IdEmpresa = IdEmpresa,
+                                IdPrecioProducto = precioPesosActual.IdPrecioProducto,
+                                IdProducto = idProducto,
+                                IdMoneda = 1,
+                                PrecioCompra = nuevoCompraARS,
+                                PrecioVenta = nuevoVentaARS,
+                                PrecioLista = nuevoVentaARS,
+                                PrecioEfectivo = Math.Round(nuevoVentaARS * 0.85m, 2)
+                            };
 
-                        _ = await PrecioProductoService.EditarPrecioProductoAsync(nuevoPesos);
+                            _ = await PrecioProductoService.EditarPrecioProductoAsync(nuevoPesos);
+                        }
+                        else
+                        {
+                            var nuevoPesos = new PrecioProducto
+                            {
+                                IdEmpresa = IdEmpresa,
+                                IdProducto = idProducto,
+                                IdMoneda = 1,
+                                PrecioCompra = nuevoCompraARS,
+                                PrecioVenta = nuevoVentaARS,
+                                PrecioLista = nuevoVentaARS,
+                                PrecioEfectivo = Math.Round(nuevoVentaARS * 0.85m, 2),
+                                FechaRegistro = DateTime.Now
+                            };
+
+                            _ = await PrecioProductoService.RegistrarPrecioProductoAsync(nuevoPesos);
+                        }
+
                         totalActualizadosPesos++;
 
-                        // Actualización espejo a USD si existe y hay cotización
-                        if (precioDolarActual is not null && tieneCotizacion)
+                        if (tieneCotizacion)
                         {
                             decimal compraUSD = Math.Round(nuevoCompraARS / cotizacionActiva!.Importe, 2);
                             decimal ventaUSD = Math.Round(nuevoVentaARS / cotizacionActiva!.Importe, 2);
 
-                            var nuevoUsd = new PrecioProducto
+                            if (precioDolarActual is not null)
                             {
-                                IdPrecioProducto = precioDolarActual.IdPrecioProducto,
-                                IdProducto = idProducto,
-                                IdMoneda = 2,
-                                PrecioCompra = compraUSD,
-                                PrecioVenta = ventaUSD,
-                                PrecioLista = Math.Round(ventaUSD * 1.40m, 2),
-                                PrecioEfectivo = ventaUSD
-                            };
-                            _ = await PrecioProductoService.EditarPrecioProductoAsync(nuevoUsd);
-                            totalActualizadosDolares++;
-                            prod.CostoPesos = nuevoCompraARS;
+                                var nuevoUsd = new PrecioProducto
+                                {
+                                    IdEmpresa = IdEmpresa,
+                                    IdPrecioProducto = precioDolarActual.IdPrecioProducto,
+                                    IdProducto = idProducto,
+                                    IdMoneda = 2,
+                                    PrecioCompra = compraUSD,
+                                    PrecioVenta = ventaUSD,
+                                    PrecioLista = Math.Round(ventaUSD * 1.40m, 2),
+                                    PrecioEfectivo = ventaUSD
+                                };
 
+                                _ = await PrecioProductoService.EditarPrecioProductoAsync(nuevoUsd);
+                            }
+                            else
+                            {
+                                var nuevoUsd = new PrecioProducto
+                                {
+                                    IdEmpresa = IdEmpresa,
+                                    IdProducto = idProducto,
+                                    IdMoneda = 2,
+                                    PrecioCompra = compraUSD,
+                                    PrecioVenta = ventaUSD,
+                                    PrecioLista = Math.Round(ventaUSD * 1.40m, 2),
+                                    PrecioEfectivo = ventaUSD,
+                                    FechaRegistro = DateTime.Now
+                                };
+
+                                _ = await PrecioProductoService.RegistrarPrecioProductoAsync(nuevoUsd);
+                            }
+
+                            totalActualizadosDolares++;
+
+                            prod.CostoPesos = nuevoCompraARS;
                             prod.PrecioCompra = compraUSD;
                             prod.PrecioVenta = ventaUSD;
                             prod.PrecioLista = nuevoVentaARS;
                         }
-
-                        // Refrescar modelo en memoria (opcional)
-
                     }
                 }
                 else
                 {
                     // -------- Base USD --------
-                    if (precioDolarActual is null)
-                        goto limpiarCampos; // omitimos si no existe registro en USD
+                    decimal nuevoCompraUSD = Math.Round(prod.NuevoCosto ?? precioDolarActual?.PrecioCompra ?? 0m, 2);
+                    decimal nuevoVentaUSD = Math.Round(prod.NuevoPrecioVenta ?? precioDolarActual?.PrecioVenta ?? 0m, 2);
 
-                    var nuevoCompraUSD = Math.Round(prod.NuevoCosto ?? precioDolarActual.PrecioCompra, 2);
-                    var nuevoVentaUSD = Math.Round(prod.NuevoPrecioVenta ?? precioDolarActual.PrecioVenta, 2);
-
-                    bool hayCambioUSD = nuevoCompraUSD != precioDolarActual.PrecioCompra
-                                     || nuevoVentaUSD != precioDolarActual.PrecioVenta;
+                    bool hayCambioUSD = precioDolarActual is null
+                        || nuevoCompraUSD != precioDolarActual.PrecioCompra
+                        || nuevoVentaUSD != precioDolarActual.PrecioVenta;
 
                     if (hayCambioUSD)
                     {
-                        var nuevoUsd = new PrecioProducto
+                        if (precioDolarActual is not null)
                         {
-                            IdPrecioProducto = precioDolarActual.IdPrecioProducto,
-                            IdProducto = idProducto,
-                            IdMoneda = 2,
-                            PrecioCompra = nuevoCompraUSD,
-                            PrecioVenta = nuevoVentaUSD,
-                            PrecioLista = Math.Round(nuevoVentaUSD * 1.40m, 2),
-                            PrecioEfectivo = nuevoVentaUSD
-                        };
+                            var nuevoUsd = new PrecioProducto
+                            {
+                                IdEmpresa = IdEmpresa,
+                                IdPrecioProducto = precioDolarActual.IdPrecioProducto,
+                                IdProducto = idProducto,
+                                IdMoneda = 2,
+                                PrecioCompra = nuevoCompraUSD,
+                                PrecioVenta = nuevoVentaUSD,
+                                PrecioLista = Math.Round(nuevoVentaUSD * 1.40m, 2),
+                                PrecioEfectivo = nuevoVentaUSD
+                            };
 
-                        _ = await PrecioProductoService.EditarPrecioProductoAsync(nuevoUsd);
+                            _ = await PrecioProductoService.EditarPrecioProductoAsync(nuevoUsd);
+                        }
+                        else
+                        {
+                            var nuevoUsd = new PrecioProducto
+                            {
+                                IdEmpresa = IdEmpresa,
+                                IdProducto = idProducto,
+                                IdMoneda = 2,
+                                PrecioCompra = nuevoCompraUSD,
+                                PrecioVenta = nuevoVentaUSD,
+                                PrecioLista = Math.Round(nuevoVentaUSD * 1.40m, 2),
+                                PrecioEfectivo = nuevoVentaUSD,
+                                FechaRegistro = DateTime.Now
+                            };
+
+                            _ = await PrecioProductoService.RegistrarPrecioProductoAsync(nuevoUsd);
+                        }
+
                         totalActualizadosDolares++;
 
-                        // Espejo a ARS si existe y hay cotización
-                        if (precioPesosActual is not null && tieneCotizacion)
+                        if (tieneCotizacion)
                         {
                             decimal compraARS = Math.Round(nuevoCompraUSD * cotizacionActiva!.Importe, 2);
                             decimal ventaARS = Math.Round(nuevoVentaUSD * cotizacionActiva!.Importe, 2);
 
-                            var nuevoPesos = new PrecioProducto
+                            if (precioPesosActual is not null)
                             {
-                                IdPrecioProducto = precioPesosActual.IdPrecioProducto,
-                                IdProducto = idProducto,
-                                IdMoneda = 1,
-                                PrecioCompra = compraARS,
-                                PrecioVenta = ventaARS,
-                                PrecioLista = ventaARS,
-                                PrecioEfectivo = Math.Round(ventaARS * 0.85m, 2)
-                            };
-                            _ = await PrecioProductoService.EditarPrecioProductoAsync(nuevoPesos);
+                                var nuevoPesos = new PrecioProducto
+                                {
+                                    IdEmpresa = IdEmpresa,
+                                    IdPrecioProducto = precioPesosActual.IdPrecioProducto,
+                                    IdProducto = idProducto,
+                                    IdMoneda = 1,
+                                    PrecioCompra = compraARS,
+                                    PrecioVenta = ventaARS,
+                                    PrecioLista = ventaARS,
+                                    PrecioEfectivo = Math.Round(ventaARS * 0.85m, 2)
+                                };
+
+                                _ = await PrecioProductoService.EditarPrecioProductoAsync(nuevoPesos);
+                            }
+                            else
+                            {
+                                var nuevoPesos = new PrecioProducto
+                                {
+                                    IdEmpresa = IdEmpresa,
+                                    IdProducto = idProducto,
+                                    IdMoneda = 1,
+                                    PrecioCompra = compraARS,
+                                    PrecioVenta = ventaARS,
+                                    PrecioLista = ventaARS,
+                                    PrecioEfectivo = Math.Round(ventaARS * 0.85m, 2),
+                                    FechaRegistro = DateTime.Now
+                                };
+
+                                _ = await PrecioProductoService.RegistrarPrecioProductoAsync(nuevoPesos);
+                            }
+
                             totalActualizadosPesos++;
-                            // Refrescar modelo en memoria (opcional)
+
                             prod.PrecioCompra = nuevoCompraUSD;
                             prod.PrecioVenta = nuevoVentaUSD;
                             prod.PrecioLista = Math.Round(nuevoVentaUSD * 1.40m, 2);
-
                             prod.CostoPesos = compraARS;
-
                         }
-
-                        
                     }
                 }
             }
@@ -568,11 +667,11 @@
             {
                 Snackbar.Add($"[{prod.Codigo}] Error al actualizar precios: {ex.Message}", Severity.Error);
             }
-
-        limpiarCampos:
-            // Limpiamos entradas de usuario para que no se repliquen en el próximo guardado
-            prod.NuevoCosto = null;
-            prod.NuevoPrecioVenta = null;
+            finally
+            {
+                prod.NuevoCosto = null;
+                prod.NuevoPrecioVenta = null;
+            }
         }
 
         if (totalActualizadosStock + totalActualizadosPesos + totalActualizadosDolares == 0)

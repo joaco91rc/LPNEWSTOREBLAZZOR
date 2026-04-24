@@ -1,0 +1,156 @@
+﻿@using Entities
+@using MudBlazor
+@using Services
+@using System.Security.Claims
+@inject EmpresaService EmpresaService
+@inject NegocioService NegocioService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        
+
+        <MudPaper Outlined="true" Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Empresa</MudText>
+            <MudText Typo="Typo.body1" Class="fw-bold">@NombreEmpresa</MudText>
+        </MudPaper>
+
+        <MudForm @ref="_form">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  Label="Nombre sucursal"
+                                  @bind-Value="negocio.Nombre"
+                                  Required="true"
+                                  RequiredError="Debe ingresar el nombre de la sucursal"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  Label="CUIT"
+                                  @bind-Value="negocio.CUIT"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string"
+                                  Label="Dirección"
+                                  @bind-Value="negocio.Direccion"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  Label="Teléfono"
+                                  @bind-Value="negocio.Telefono"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  Label="Mail"
+                                  @bind-Value="negocio.Mail"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string"
+                                  Label="Instagram"
+                                  @bind-Value="negocio.Instagram"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Cancelar">
+            Cancelar
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Guardar">
+            Guardar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public int? IdNegocio { get; set; }
+
+    [Parameter] public int IdEmpresa { get; set; }
+    [Parameter] public string NombreEmpresa { get; set; } = string.Empty;
+
+    private MudForm? _form;
+
+    private Negocio negocio = new();
+    private int idEmpresa;
+    private int idUsuario;
+    private string nombreEmpresa = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated != true)
+        {
+            Snackbar.Add("Usuario no autenticado.", Severity.Error);
+            MudDialog.Cancel();
+            return;
+        }
+
+        var claimIdUsuario = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (!int.TryParse(claimIdUsuario, out idUsuario))
+        {
+            Snackbar.Add("No se pudo obtener el usuario logueado.", Severity.Error);
+            MudDialog.Cancel();
+            return;
+        }
+
+        if (IdNegocio.HasValue && IdNegocio.Value > 0)
+        {
+            var sucursal = await NegocioService.ObtenerDatos(IdNegocio.Value);
+            negocio = sucursal ?? new Negocio();
+        }
+        else
+        {
+            
+        }
+    }
+
+    private async Task Guardar()
+    {
+        if (_form is not null)
+        {
+            await _form.Validate();
+            if (!_form.IsValid) return;
+        }
+
+        negocio.IdEmpresa = IdEmpresa;
+
+        (bool respuesta, string mensaje) resultado;
+
+        if (IdNegocio.HasValue && IdNegocio.Value > 0)
+            resultado = await NegocioService.Guardardatos(negocio, IdNegocio.Value);
+        else
+            resultado = await NegocioService.RegistrarSucursal(negocio, idUsuario);
+
+        if (resultado.respuesta)
+        {
+            Snackbar.Add(IdNegocio.HasValue ? "Sucursal actualizada correctamente." : "Sucursal creada correctamente.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            Snackbar.Add($"Error: {resultado.mensaje}", Severity.Error);
+        }
+    }
+
+    private void Cancelar() => MudDialog.Cancel();
+}
+}

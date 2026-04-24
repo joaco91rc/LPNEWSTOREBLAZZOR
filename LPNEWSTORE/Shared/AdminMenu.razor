@@ -16,14 +16,16 @@
 </MudNavGroup>
 
 <MudNavGroup Title="Configuraciones" Icon="@Icons.Material.Filled.Settings">
-    <MudNavLink Href="/negocio" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Negocio</MudNavLink>
+    <MudNavLink Href="/empresa" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Empresa</MudNavLink>
     <MudNavLink Href="/vendedores" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Vendedores</MudNavLink>
 </MudNavGroup>
 
 <MudNavGroup Title="Finanzas" Icon="@Icons.Material.Filled.AttachMoney">
     <MudNavLink Href="/formaspago" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Formas de Pago</MudNavLink>
     <MudNavLink Href="/cotizaciondolar" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Cotización Dólar</MudNavLink>
-    <MudNavLink Href="/monedas" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Monedas</MudNavLink>
+    <MudNavLink Href="/monedas" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Moneda Principal</MudNavLink>
+    <MudNavLink Href="/cajas" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Cajas</MudNavLink>
+
 </MudNavGroup>
 
 <MudNavLink Href="/proveedores" Icon="@Icons.Material.Filled.LocalShipping" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Proveedores</MudNavLink>
