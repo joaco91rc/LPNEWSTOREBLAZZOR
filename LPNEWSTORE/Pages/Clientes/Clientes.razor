@@ -413,18 +413,7 @@
     </MudForm>
 </div>;
 
-RenderFragment ToolbarClientes => @<MudPaper Class="px-3 py-2 d-inline-flex" Elevation="0" Outlined="true">
-        <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="1">
-            <MudText Typo="Typo.body2">
-                @(soloSucursalActual ? "Clientes de Sucursal actual" : "Todos los Clientes de la Empresa")
-            </MudText>
 
-            <MudSwitch T="bool"
-                       Value="soloSucursalActual"
-                       ValueChanged="OnSoloSucursalChanged"
-                       Color="Color.Primary" />
-        </MudStack>
-    </MudPaper>;
 
     
     RenderFragment GridClientes => @<div style="padding: 16px; padding-top : 16px">

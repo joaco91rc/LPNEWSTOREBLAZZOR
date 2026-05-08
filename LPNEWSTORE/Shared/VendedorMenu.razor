@@ -17,22 +17,49 @@
     <MudNavLink Href="/ordenestraspaso" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Ordenes de Traspaso</MudNavLink>
         </MudNavGroup>
 
-        <MudNavGroup Title="Ventas" Icon="@Icons.Material.Filled.PointOfSale">
-    <MudNavLink Href="/cobrarservicio" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Registrar Venta</MudNavLink>
-    <MudNavLink Href="/historicoventas" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Histórico Ventas</MudNavLink>
-        </MudNavGroup>
+<MudNavGroup Title="Ventas" Icon="@Icons.Material.Filled.PointOfSale">
+    <MudNavLink OnClick="@(() => NavegarSiCajaAbierta("/registrarventa", "una venta"))">
+        Registrar Venta
+    </MudNavLink>
 
-        <MudNavGroup Title="Compras" Icon="@Icons.Material.Filled.ShoppingCart">
-    <MudNavLink Href="/registrarcompra" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Registrar Compra</MudNavLink>
-    <MudNavLink Href="/historicocompras" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Histórico Compras</MudNavLink>
-        </MudNavGroup>
+    <MudNavLink Href="/historicoventas"
+                OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">
+        Histórico Ventas
+    </MudNavLink>
+</MudNavGroup>
 
-<MudNavLink Href="/clientes" Icon="@Icons.Material.Filled.People" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Clientes</MudNavLink>
+<MudNavGroup Title="Compras" Icon="@Icons.Material.Filled.ShoppingCart">
+    <MudNavLink OnClick="@(() => NavegarSiCajaAbierta("/registrarcompra", "una compra"))">
+        Registrar Compra
+    </MudNavLink>
 
-        <MudNavGroup Title="Pagos Parciales" Icon="@Icons.Material.Filled.Payments">
-    <MudNavLink Href="/pagoparcial" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Registrar Pago Parcial</MudNavLink>
-    <MudNavLink Href="/historicopagosparciales" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Histórico Pagos Parciales</MudNavLink>
-        </MudNavGroup>
+    <MudNavLink Href="/facturacompra"
+                OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">
+        Registrar Factura
+    </MudNavLink>
+
+    <MudNavLink Href="/historicocompras"
+                OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">
+        Histórico Compras
+    </MudNavLink>
+</MudNavGroup>
+
+<MudNavLink Href="/clientes"
+            Icon="@Icons.Material.Filled.People"
+            OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">
+    Clientes
+</MudNavLink>
+
+<MudNavGroup Title="Pagos Parciales" Icon="@Icons.Material.Filled.Payments">
+    <MudNavLink OnClick="@(() => NavegarSiCajaAbierta("/pagoparcial", "un pago parcial"))">
+        Registrar Pago Parcial
+    </MudNavLink>
+
+    <MudNavLink Href="/historicopagosparciales"
+                OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">
+        Histórico Pagos Parciales
+    </MudNavLink>
+</MudNavGroup>
 
         <MudNavGroup Title="Caja Registradora" Icon="@Icons.Material.Filled.AccountBalanceWallet">
     <MudNavLink OnClick="OnAperturaCajaClicked">Apertura Caja</MudNavLink>
@@ -115,6 +142,21 @@
 
         // Navegar recién ahora
         Navigation.NavigateTo("/cajadiaria");
+    }
+
+    private async Task NavegarSiCajaAbierta(string url, string modulo)
+    {
+        var cajaActual = await CajaRegistradoraService.ObtenerCajaActual();
+
+        if (cajaActual is null || cajaActual.IdCajaRegistradora <= 0)
+        {
+            Snackbar.Add($"Para registrar {modulo} debe haber una caja registradora abierta.", Severity.Warning);
+            return;
+        }
+
+        await OnNavigationItemClicked.InvokeAsync();
+
+        Navigation.NavigateTo(url);
     }
 
 }

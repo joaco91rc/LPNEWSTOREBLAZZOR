@@ -21,7 +21,9 @@
 @inject ISnackbar Snackbar
 
 
+
 <AbmLayout TEntity="Concepto"
+          
            FormContent="@FormConcepto"
            GridContent="@GridConcepto"
            OnSearchChanged="HandleSearch"
@@ -40,6 +42,7 @@
     private string rolUsuarioActual = string.Empty;
     private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
     private DateTime fecha = DateTime.Now;
+    private bool mostrarInactivos = true;
 
     private IEnumerable<Concepto> ConceptosFiltradas
     {
@@ -256,7 +259,14 @@
         }
     }
 
+    private async Task OnMostrarInactivosChanged(bool value)
+    {
+        mostrarInactivos = value;
 
+        listaConceptos = await ConceptoService.ListarAsync(mostrarInactivos);
+
+        StateHasChanged();
+    }
 
 
     private void CancelarEdicion()
@@ -307,8 +317,55 @@
     </MudForm>
 </div>;
 
+RenderFragment ToolbarConceptos => @<MudPaper Class="px-3 py-2 d-inline-flex" Elevation="0" Outlined="true">
+        <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="1">
+            <MudText Typo="Typo.body2">
+                @(mostrarInactivos ? "Conceptos Activos" : "Conceptos Inactivos")
+            </MudText>
+
+            <MudSwitch T="bool"
+                       Value="mostrarInactivos"
+                       ValueChanged="OnMostrarInactivosChanged"
+                       Color="Color.Primary" />
+        </MudStack>
+    </MudPaper>;
 
 RenderFragment GridConcepto => @<div style="padding: 16px;  padding-top : 16px">
+
+    <MudPaper Class="pa-3 mb-3" Outlined="true" Style="border-left: 4px solid var(--mud-palette-primary);">
+        <MudStack Spacing="2">
+
+            <MudText Typo="Typo.h6" Color="Color.Primary">
+                Filtros
+            </MudText>
+
+            <MudStack Direction="Row"
+                      AlignItems="AlignItems.Start"
+                      Spacing="2">
+
+                <MudText Typo="Typo.body2">
+                    @(mostrarInactivos
+                                        ? "Mostrando conceptos Activos"
+                                        : "Mostrando conceptos Inactivos")
+                </MudText>
+
+                <MudSwitch T="bool"
+                           Value="mostrarInactivos"
+                           ValueChanged="OnMostrarInactivosChanged"
+                           Color="Color.Primary" />
+
+            </MudStack>
+
+        </MudStack>
+    </MudPaper>
+
+    <MudText Typo="Typo.h6"
+             Color="Color.Primary"
+             Align="Align.Center"
+             Class="mb-3">
+        Listado de Conceptos
+    </MudText>
+
     <MudTable Items="ConceptosFiltradas"
               Dense="true"
               Hover="true"

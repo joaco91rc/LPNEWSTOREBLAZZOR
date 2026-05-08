@@ -1,0 +1,128 @@
+﻿@page "/bancos"
+@using MudBlazor
+@using Entities
+@using Services
+@inject BancoService BancoService
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="pa-4">
+
+    <MudText Typo="Typo.h5" Color="Color.Primary" Class="mb-4">
+        Gestión de Bancos
+    </MudText>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+
+        <MudText Typo="Typo.h6" Class="mb-3">
+            Nuevo Banco
+        </MudText>
+
+        <MudForm @ref="form">
+
+            <MudGrid>
+
+                <MudItem xs="12">
+                    <MudTextField Label="Nombre"
+                                  @bind-Value="bancoActual.Nombre"
+                                  Required="true"
+                                  FullWidth="true" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField Label="CUIT"
+                                  @bind-Value="bancoActual.Cuit"
+                                  FullWidth="true" />
+                </MudItem>
+
+                <MudItem xs="12" Class="d-flex gap-2 mt-2">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               OnClick="Guardar">
+                        Guardar
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Text"
+                               OnClick="Limpiar">
+                        Limpiar
+                    </MudButton>
+                </MudItem>
+
+            </MudGrid>
+
+        </MudForm>
+
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Elevation="1">
+
+        <MudText Typo="Typo.h6" Class="mb-3">
+            Bancos Registrados
+        </MudText>
+
+        <MudTable Items="bancos" Dense="true" Hover="true" Bordered="true">
+
+            <HeaderContent>
+                <MudTh>Nombre</MudTh>
+                <MudTh>CUIT</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd>@context.Nombre</MudTd>
+                <MudTd>@context.Cuit</MudTd>
+            </RowTemplate>
+
+        </MudTable>
+
+    </MudPaper>
+
+</MudContainer>
+
+@code {
+    private MudForm? form;
+
+    private List<Banco> bancos = new();
+    private Banco bancoActual = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        bancos = await BancoService.ListarAsync();
+    }
+
+    private async Task Guardar()
+    {
+        if (form is null)
+            return;
+
+        await form.Validate();
+
+        if (!form.IsValid)
+        {
+            Snackbar.Add("Complete los campos requeridos", Severity.Warning);
+            return;
+        }
+
+        var (ok, msg) = await BancoService.RegistrarAsync(bancoActual);
+
+        if (ok)
+        {
+            Snackbar.Add(msg, Severity.Success);
+            Limpiar();
+            await Cargar();
+        }
+        else
+        {
+            Snackbar.Add(msg, Severity.Error);
+        }
+    }
+
+    private void Limpiar()
+    {
+        bancoActual = new Banco();
+        form?.ResetValidation();
+    }
+}

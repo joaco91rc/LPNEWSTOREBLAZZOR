@@ -8,8 +8,9 @@
 @using System.Text
 @using System.Globalization
 @using ClosedXML
-@inject TransaccionCajaService TransaccionCajaService
-@inject CajaRegistradoraService CajaRegistradoraService
+@inject TransaccionCajaEmpresaService TransaccionCajaEmpresaService
+@inject CajaRegistradoraEmpresaService CajaRegistradoraEmpresaService
+@inject CajaRegistradoraEmpresaDetalleService CajaRegistradoraEmpresaDetalleService
 @inject RolService rolService
 @inject NavigationManager Nav;
 @inject IJSRuntime JS
@@ -23,68 +24,88 @@
 
 
 @code {
-    // Example backing variables in a page that consumes the layout component
-    private List<string> _cols = new() { "Id Transaccion", "Movimiento", "Tipo", "Monto", "Forma de Pago", "Detalle", "Vendedor" };
-    List<TransaccionCaja> _TransaccionCajas = new();
-    private List<TransaccionCaja> _TransaccionCajasFiltradas = new();
-    private CajaRegistradora CajaRegistradoraActual = new();
+    private List<string> _cols = new()
+    {
+        "Id Transaccion", "Movimiento", "Tipo", "Monto", "Forma de Pago", "Detalle", "Vendedor"
+    };
+
+    private List<TransaccionCajaEmpresa> Transacciones = new();
+    private List<TransaccionCajaEmpresa> _TransaccionCajas = new();
+    private List<TransaccionCajaEmpresa> _TransaccionCajasFiltradas = new();
+
+    private CajaRegistradoraEmpresa? CajaPorFechaElegida;
+    private List<CajaRegistradoraEmpresaDetalle> DetallesCajaElegida = new();
+
     private bool _busy;
-    private int? _idSucursal;
+    private int _idEmpresa;
+    private int _idNegocio;
+
     private DateTime? DateFrom { get; set; }
     private DateTime? DateTo { get; set; }
 
+    
 
 
 
 
 
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if (!firstRender) return;
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
 
-        var sucursal = await JS.InvokeAsync<string>("getCookie", "sucursalSeleccionada");
-        if (int.TryParse(sucursal, out var idSucursal))
+        if (user.Identity?.IsAuthenticated == true)
         {
-            _idSucursal = idSucursal;
-            var desde = DateTime.Now;
-            var hasta = DateTime.Now;
+            int.TryParse(user.FindFirst("IdEmpresa")?.Value, out _idEmpresa);
+            int.TryParse(user.FindFirst("IdNegocio")?.Value, out _idNegocio);
+        }
+    }
 
+    private async Task CargarCajaPorFechaAsync(DateTime fecha)
+    {
+        CajaPorFechaElegida = await CajaRegistradoraEmpresaService
+            .ObtenerCajaCerradaPorFecha(fecha);
 
-            StateHasChanged();
+        if (CajaPorFechaElegida is not null && CajaPorFechaElegida.IdCajaRegistradora > 0)
+        {
+            Transacciones = await TransaccionCajaEmpresaService
+                .ListarPorCajaRegistradoraAsync(CajaPorFechaElegida.IdCajaRegistradora);
+
+            DetallesCajaElegida = await CajaRegistradoraEmpresaDetalleService
+                .Listar(CajaPorFechaElegida.IdCajaRegistradora);
+
+            _TransaccionCajas = new List<TransaccionCajaEmpresa>(Transacciones);
+            _TransaccionCajasFiltradas = new List<TransaccionCajaEmpresa>(_TransaccionCajas);
+        }
+        else
+        {
+            Transacciones = new();
+            DetallesCajaElegida = new();
+            _TransaccionCajas = new();
+            _TransaccionCajasFiltradas = new();
+
+            Snackbar.Add("No se encontró una caja cerrada para la fecha seleccionada.", Severity.Warning);
         }
     }
 
     private async Task DoSearch((DateTime? from, DateTime? to) args)
     {
         _busy = true;
+
         try
         {
-            if (_idSucursal is null)
-                return; // o mostrás un mensaje
-
-            var fechaInicio = args.from ?? DateFrom ?? DateTime.Now.AddDays(-15);
-            var fechaFin = args.to ?? DateTo ?? DateTime.Now;
-            string fechaDetalleCaja = args.from.Value.ToString("yyyy-MM-dd");
-
-            //string fechaDetalleCaja = args.from.Value.Year.ToString() + "-" + args.from.Value.Month.ToString() + "-" + args.from.Value.Day.ToString();
-            CajaRegistradoraActual = await CajaRegistradoraService.ObtenerCajaPorFechaAsync(fechaDetalleCaja, _idSucursal.Value);
-            if (CajaRegistradoraActual.FechaCierre != null)
+            if (_idEmpresa <= 0 || _idNegocio <= 0)
             {
-                _TransaccionCajas = await TransaccionCajaService.ListarAsync(CajaRegistradoraActual.IdCajaRegistradora, _idSucursal.Value);
-                _TransaccionCajasFiltradas = new List<TransaccionCaja>(_TransaccionCajas);
-
-            }
-            else
-            {
-                Snackbar.Add("No hay cajas cerradas para la fecha consultada", Severity.Error);
+                Snackbar.Add("No se pudo obtener la empresa o sucursal del usuario.", Severity.Error);
+                return;
             }
 
+            var fecha = args.from ?? DateTime.Now;
 
-            
-            DateFrom = fechaInicio;
-            DateTo = fechaFin;
-            
+            await CargarCajaPorFechaAsync(fecha);
+
+            DateFrom = fecha;
+            DateTo = args.to;
         }
         finally
         {
@@ -92,13 +113,35 @@
         }
     }
 
+    static bool TryParseFecha(string input, out DateTime fecha)
+    {
+        var formatos = new[]
+        {
+        "dd/MM/yyyy HH:mm",
+        "dd/MM/yyyy",
+        "d/M/yyyy HH:mm",
+        "d/M/yyyy"
+    };
+
+        var esAR = new CultureInfo("es-AR");
+
+        return DateTime.TryParseExact(input, formatos, esAR, DateTimeStyles.None, out fecha)
+            || DateTime.TryParse(input, esAR, DateTimeStyles.AllowWhiteSpaces, out fecha)
+            || DateTime.TryParse(input, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out fecha);
+    }
 
     private Task DoClearSearch()
     {
         DateFrom = null;
         DateTo = null;
+
+        CajaPorFechaElegida = null;
+
         _TransaccionCajas = new();
         _TransaccionCajasFiltradas = new();
+        Transacciones = new();
+        DetallesCajaElegida = new();
+
         return Task.CompletedTask;
     }
 
@@ -110,14 +153,20 @@
 
         if (string.IsNullOrWhiteSpace(col) || string.IsNullOrWhiteSpace(text))
         {
-            _TransaccionCajasFiltradas = new List<TransaccionCaja>(_TransaccionCajas);
+            _TransaccionCajasFiltradas = new List<TransaccionCajaEmpresa>(_TransaccionCajas);
             return Task.CompletedTask;
         }
 
-        var key = col!.ToLowerInvariant();
-        var filtro = text!.ToLowerInvariant();
+        var key = col.ToLowerInvariant();
 
-        // Helpers locales
+        static bool TryParseDecimalFlexible(string input, out decimal value)
+        {
+            var esAR = new CultureInfo("es-AR");
+
+            return decimal.TryParse(input, NumberStyles.Number | NumberStyles.AllowCurrencySymbol, esAR, out value)
+                || decimal.TryParse(input, NumberStyles.Number | NumberStyles.AllowCurrencySymbol, CultureInfo.InvariantCulture, out value);
+        }
+
         static bool TryParseFecha(string input, out DateTime fecha)
         {
             var formatos = new[]
@@ -127,52 +176,51 @@
             "d/M/yyyy HH:mm",
             "d/M/yyyy"
         };
-            var esAR = new CultureInfo("es-AR");
-            return DateTime.TryParseExact(input, formatos, esAR, DateTimeStyles.None, out fecha)
-                   || DateTime.TryParse(input, esAR, DateTimeStyles.AllowWhiteSpaces, out fecha)
-                   || DateTime.TryParse(input, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out fecha);
-        }
 
-        static bool TryParseDecimalFlexible(string input, out decimal value)
-        {
             var esAR = new CultureInfo("es-AR");
-            // Primero intentamos con es-AR (1.234,56), luego Invariant (1,234.56 o 1234.56)
-            return decimal.TryParse(input, NumberStyles.Number | NumberStyles.AllowCurrencySymbol, esAR, out value)
-                   || decimal.TryParse(input, NumberStyles.Number | NumberStyles.AllowCurrencySymbol, CultureInfo.InvariantCulture, out value);
+
+            return DateTime.TryParseExact(input, formatos, esAR, DateTimeStyles.None, out fecha)
+                || DateTime.TryParse(input, esAR, DateTimeStyles.AllowWhiteSpaces, out fecha)
+                || DateTime.TryParse(input, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out fecha);
         }
 
         _TransaccionCajasFiltradas = key switch
         {
-            // Texto llano
-            "tipo" or "tipo movimiento"  =>
-                _TransaccionCajas.FindAll(c => (c.TipoTransaccion ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+            "tipo" or "tipo movimiento" or "tipo documento" =>
+                _TransaccionCajas.FindAll(c =>
+                    (c.TipoTransaccion ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
 
-           
+            "movimiento" =>
+                TryParseFecha(text, out var fechaBuscada)
+                    ? _TransaccionCajas.FindAll(c =>
+                        c.FechaTransaccion.Date == fechaBuscada.Date)
+                    : _TransaccionCajas.FindAll(c =>
+                        c.FechaTransaccion
+                            .ToString("dd/MM/yyyy HH:mm")
+                            .Contains(text, StringComparison.OrdinalIgnoreCase)),
+
             "vendedor" or "usuario transaccion" =>
-            _TransaccionCajas.FindAll(c => (c.UsuarioTransaccion ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+                _TransaccionCajas.FindAll(c =>
+                    (c.UsuarioTransaccion ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
 
-            "detalle" or "docAsociado" =>
-                _TransaccionCajas.FindAll(c => (c.DocAsociado ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
-           
+            "detalle" or "docasociado" =>
+                _TransaccionCajas.FindAll(c =>
+                    (c.Detalle ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
 
             "forma de pago" or "forma pago" =>
-                _TransaccionCajas.FindAll(c => (c.FormaPago ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
+                _TransaccionCajas.FindAll(c =>
+                    (c.DescripcionFormaPago ?? "").Contains(text, StringComparison.OrdinalIgnoreCase)),
 
-            // Fecha: intento parse fuerte, si no, fallback a contains de la representación formateada
-            
-
-            // Monto Total: intento parse decimal fuerte; si no, fallback a contains del formateo es-AR
-            "total" or "monto total" =>
+            "monto" or "total" or "monto total" =>
                 TryParseDecimalFlexible(text, out var montoBuscado)
-                    ? _TransaccionCajas.FindAll(c => Math.Abs(c.Monto - montoBuscado) < 0.005m) // ≈ 2 decimales
-                    : _TransaccionCajas.FindAll(c => c.Monto
-                                                .ToString("C", new CultureInfo("es-AR"))
-                                                .Contains(text, StringComparison.OrdinalIgnoreCase)
-                                            || c.Monto
-                                                .ToString("#,0.##", new CultureInfo("es-AR"))
-                                                .Contains(text, StringComparison.OrdinalIgnoreCase)),
+                    ? _TransaccionCajas.FindAll(c => Math.Abs(c.Monto - montoBuscado) < 0.005m)
+                    : _TransaccionCajas.FindAll(c =>
+                        c.Monto.ToString("C", new CultureInfo("es-AR"))
+                            .Contains(text, StringComparison.OrdinalIgnoreCase)
+                        || c.Monto.ToString("#,0.##", new CultureInfo("es-AR"))
+                            .Contains(text, StringComparison.OrdinalIgnoreCase)),
 
-            _ => new List<TransaccionCaja>(_TransaccionCajas)
+            _ => new List<TransaccionCajaEmpresa>(_TransaccionCajas)
         };
 
         return Task.CompletedTask;
@@ -181,7 +229,7 @@
 
     private Task DoClearFilter()
     {
-        _TransaccionCajasFiltradas = new List<TransaccionCaja>(_TransaccionCajas);
+        _TransaccionCajasFiltradas = new List<TransaccionCajaEmpresa>(_TransaccionCajas);
         return Task.CompletedTask;
     }
 
@@ -192,61 +240,66 @@
     {
         var esAR = new CultureInfo("es-AR");
 
-        // ---------- nombre del archivo con fechas ----------
-        string fromPart = DateFrom?.ToString("yyyyMMdd") ?? "inicio";
-        string toPart = DateTo?.ToString("yyyyMMdd") ?? "hoy";
-        var fileName = $"Historico TransaccionCajas desde {fromPart} hasta {toPart}.xlsx";
-        // ---------------------------------------------------
+        string fechaPart = DateFrom?.ToString("yyyyMMdd") ?? "sin_fecha";
+        var fileName = $"Detalle Caja Cerrada {fechaPart}.xlsx";
 
         using var wb = new XLWorkbook();
-        var ws = wb.Worksheets.Add("TransaccionCajas");
+        var ws = wb.Worksheets.Add("DetalleCaja");
 
-        // Encabezados
         int r = 1, c = 1;
-        ws.Cell(r, c++).Value = "IdTransaccionCaja";
-        ws.Cell(r, c++).Value = "Movimiento";
-        ws.Cell(r, c++).Value = "Tipo";
+
+        ws.Cell(r, c++).Value = "Id Transacción";
+        ws.Cell(r, c++).Value = "Fecha Movimiento";
+        ws.Cell(r, c++).Value = "Tipo Transacción";
+        ws.Cell(r, c++).Value = "Tipo Operación";
         ws.Cell(r, c++).Value = "Monto";
         ws.Cell(r, c++).Value = "Forma de Pago";
         ws.Cell(r, c++).Value = "Detalle";
-        ws.Cell(r, c++).Value = "Vendedor";
+        ws.Cell(r, c++).Value = "Usuario";
 
-        ws.Range(1, 1, 1, 6).Style.Font.SetBold();
-        ws.Range(1, 1, 1, 6).Style.Fill.SetBackgroundColor(XLColor.FromTheme(XLThemeColor.Accent1, 0.7));
+        ws.Range(1, 1, 1, 8).Style.Font.SetBold();
+        ws.Range(1, 1, 1, 8).Style.Fill.SetBackgroundColor(
+            XLColor.FromTheme(XLThemeColor.Accent1, 0.7)
+        );
 
-        // Datos
         r = 2;
+
         foreach (var x in _TransaccionCajasFiltradas)
         {
             c = 1;
+
             ws.Cell(r, c++).Value = x.IdTransaccion;
-            ws.Cell(r, c++).Value = x.Hora;
+            ws.Cell(r, c++).Value = x.FechaTransaccion;
             ws.Cell(r, c++).Value = x.TipoTransaccion ?? "";
+            ws.Cell(r, c++).Value = x.TipoOperacion ?? "";
             ws.Cell(r, c++).Value = x.Monto;
-            ws.Cell(r, c++).Value = x.FormaPago ?? "";
-            ws.Cell(r, c++).Value = x.DocAsociado;
-            ws.Cell(r, c++).Value = x.UsuarioTransaccion;
+            ws.Cell(r, c++).Value = x.DescripcionFormaPago ?? "";
+            ws.Cell(r, c++).Value = x.Detalle ?? "";
+            ws.Cell(r, c++).Value = x.UsuarioTransaccion ?? "";
+
             r++;
         }
 
-        // Formatos
         ws.Column(2).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
-        ws.Column(6).Style.NumberFormat.Format = "$ #.##0,00";
+        ws.Column(5).Style.NumberFormat.Format = "$ #.##0,00";
 
         ws.Columns().AdjustToContents();
-        ws.RangeUsed().SetAutoFilter();
+
+        if (ws.RangeUsed() is not null)
+            ws.RangeUsed().SetAutoFilter();
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
+
         var base64 = Convert.ToBase64String(ms.ToArray());
 
-        await JS.InvokeVoidAsync("downloadFileFromBytes",
+        await JS.InvokeVoidAsync(
+            "downloadFileFromBytes",
             fileName,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            base64);
+            base64
+        );
     }
-
-
 }
 
 <style>
@@ -272,13 +325,139 @@
 </style>
 
 <!-- Título centrado con espacio antes de la navbar -->
-<MudText Typo="Typo.h6" Align="Align.Center" Class="mt-navbar-gap mb-3">
-    Histórico TransaccionCajas
+<MudText Typo="Typo.h6"
+         Color="Color.Primary"
+         Align="Align.Center"
+         Class="mb-3">
+    @if (CajaPorFechaElegida is not null)
+    {
+        @($"Detalle de Transacciones de la Caja Registradora desde el {CajaPorFechaElegida.FechaApertura:dd/MM/yyyy HH:mm} " +
+            $"hasta el {(CajaPorFechaElegida.FechaCierre?.ToString("dd/MM/yyyy HH:mm") ?? "Sin cerrar")}")
+        }
 </MudText>
 
-<ReportListLayout TItem="TransaccionCaja"
+
+@if (CajaPorFechaElegida is not null && CajaPorFechaElegida.IdCajaRegistradora > 0)
+{
+    var totalIngresos = _TransaccionCajas
+        .Where(x => x.TipoTransaccion?.ToUpper() == "INGRESO")
+        .Sum(x => x.Monto);
+
+    var totalEgresos = _TransaccionCajas
+        .Where(x => x.TipoTransaccion?.ToUpper() == "EGRESO")
+        .Sum(x => x.Monto);
+
+    var saldoFinal = DetallesCajaElegida.Sum(x => x.SaldoActual);
+    var saldoInicial = DetallesCajaElegida.Sum(x => x.SaldoInicial);
+
+    <MudPaper Class="pa-5 mb-4" Elevation="2" Style="border-radius:18px;">
+        <MudGrid Spacing="3">
+
+            <MudItem xs="12" md="3">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Apertura</MudText>
+                <MudText Typo="Typo.body1">
+                    @CajaPorFechaElegida.FechaApertura.ToString("dd/MM/yyyy HH:mm")
+                </MudText>
+
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">Cierre</MudText>
+                <MudText Typo="Typo.body1">
+                    @CajaPorFechaElegida.FechaCierre?.ToString("dd/MM/yyyy HH:mm")
+                </MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Usuarios</MudText>
+                <MudText Typo="Typo.body2">
+                    Apertura: <b>@CajaPorFechaElegida.UsuarioAperturaCaja</b>
+                </MudText>
+                <MudText Typo="Typo.body2">
+                    Cierre: <b>@CajaPorFechaElegida.UsuarioCierreCaja</b>
+                </MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="2">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Saldo inicial</MudText>
+                <MudText Typo="Typo.h6">
+                    @saldoInicial.ToString("C", new System.Globalization.CultureInfo("es-AR"))
+                </MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="2">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Ingresos</MudText>
+                <MudText Typo="Typo.h6" Color="Color.Success">
+                    @totalIngresos.ToString("C", new System.Globalization.CultureInfo("es-AR"))
+                </MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="2">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Egresos</MudText>
+                <MudText Typo="Typo.h6" Color="Color.Error">
+                    @totalEgresos.ToString("C", new System.Globalization.CultureInfo("es-AR"))
+                </MudText>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudDivider Class="my-3" />
+                <MudText Typo="Typo.subtitle2" Color="Color.Primary">
+                    Saldos por caja
+                </MudText>
+
+                <MudGrid Spacing="2" Class="mt-2">
+                    @foreach (var d in DetallesCajaElegida)
+                    {
+                        var ingresosCaja = _TransaccionCajas
+                        .Where(x => x.IdCaja == d.IdCaja && (x.TipoTransaccion ?? "").ToUpper().Contains("INGR"))
+                        .Sum(x => x.Monto);
+
+                        var egresosCaja = _TransaccionCajas
+                        .Where(x => x.IdCaja == d.IdCaja && (x.TipoTransaccion ?? "").ToUpper().Contains("EGRE"))
+                        .Sum(x => x.Monto);
+
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudPaper Class="pa-3" Elevation="0" Style="border:1px solid #e0e0e0; border-radius:14px;">
+
+                                <MudText Typo="Typo.caption" Color="Color.Primary">
+                                    @d.DescripcionCaja
+                                </MudText>
+
+                                <MudText Typo="Typo.body2">
+                                    Inicial: @d.SaldoInicial.ToString("C")
+                                </MudText>
+
+                                <MudText Typo="Typo.body2" Color="Color.Success">
+                                    Ingresos: @ingresosCaja.ToString("C")
+                                </MudText>
+
+                                <MudText Typo="Typo.body2" Color="Color.Error">
+                                    Egresos: @egresosCaja.ToString("C")
+                                </MudText>
+
+                                <MudDivider Class="my-1" />
+
+                                <MudText Typo="Typo.subtitle1">
+                                    Actual: <b>@d.SaldoActual.ToString("C")</b>
+                                </MudText>
+
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudDivider Class="my-3" />
+                <MudText Typo="Typo.h6" Align="Align.Right">
+                    Saldo final:
+                    <b>@saldoFinal.ToString("C", new System.Globalization.CultureInfo("es-AR"))</b>
+                </MudText>
+            </MudItem>
+
+        </MudGrid>
+    </MudPaper>
+}
+<ReportListLayout TItem="TransaccionCajaEmpresa"
                   Items="@_TransaccionCajasFiltradas"
-                  FilterColumns="@(new[] {  "Id Transaccion", "Movimiento","Tipo", "Monto", "Forma de Pago", "Detalle", "Vendedor" })"
+                  FilterColumns="@(new[] { "Id Transaccion", "Movimiento", "Tipo", "Monto", "Forma de Pago", "Detalle", "Vendedor" })"
                   ShowDateTo="false"
                   OnSearchParameters="DoSearch"
                   OnFilter="DoFilter"
@@ -287,34 +466,37 @@
                   OnExport="DoExport">
 
     <Columns>
-        <PropertyColumn T="TransaccionCaja" TProperty="int" Property="e => e.IdTransaccion"
+        <PropertyColumn T="TransaccionCajaEmpresa" TProperty="int"
+                        Property="e => e.IdTransaccion"
                         Title="Id TransaccionCaja"
                         Visible="false" />
 
-        <PropertyColumn T="TransaccionCaja" TProperty="string" Property="e => e.Hora"
-                        Title="Movimiento"  />
+        <PropertyColumn T="TransaccionCajaEmpresa" TProperty="DateTime"
+                        Property="e => e.FechaTransaccion"
+                        Title="Movimiento"
+                        Format="dd/MM/yyyy HH:mm" />
 
-        <PropertyColumn T="TransaccionCaja" TProperty="string" Property="e => e.TipoTransaccion"
+        <PropertyColumn T="TransaccionCajaEmpresa" TProperty="string"
+                        Property="e => e.TipoTransaccion"
                         Title="Tipo Documento" />
 
-        
-
-        <PropertyColumn T="TransaccionCaja" TProperty="decimal"
+        <PropertyColumn T="TransaccionCajaEmpresa" TProperty="decimal"
                         Property="e => e.Monto"
                         Title="Monto"
                         Format="C"
                         Culture="@(new System.Globalization.CultureInfo("es-AR"))" />
 
-        <PropertyColumn T="TransaccionCaja" TProperty="string" Property="e => e.FormaPago"
+        <PropertyColumn T="TransaccionCajaEmpresa" TProperty="string"
+                        Property="e => e.DescripcionFormaPago"
                         Title="Forma de pago" />
 
-        <PropertyColumn T="TransaccionCaja" TProperty="string" Property="e => e.DocAsociado"
+        <PropertyColumn T="TransaccionCajaEmpresa" TProperty="string"
+                        Property="e => e.Detalle"
                         Title="Detalle" />
 
-        <PropertyColumn T="TransaccionCaja" TProperty="string" Property="e => e.UsuarioTransaccion"
+        <PropertyColumn T="TransaccionCajaEmpresa" TProperty="string"
+                        Property="e => e.UsuarioTransaccion"
                         Title="Vendedor" />
-
-       
     </Columns>
 </ReportListLayout>
 

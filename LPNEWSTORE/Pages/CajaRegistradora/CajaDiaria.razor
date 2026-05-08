@@ -80,6 +80,54 @@
         }
     }
 
+    private Task OnFormaPagoChanged(int? idFormaPago)
+    {
+        TransaccionActual.IdFormaPago = idFormaPago;
+
+        if (idFormaPago is null or 0)
+        {
+            TransaccionActual.IdCaja = 0;
+            return Task.CompletedTask;
+        }
+
+        var formaPago = _formasPago
+            .FirstOrDefault(x => x.IdFormaPago == idFormaPago.Value);
+
+        if (formaPago is null)
+        {
+            TransaccionActual.IdCaja = 0;
+            return Task.CompletedTask;
+        }
+
+        TransaccionActual.IdCaja = formaPago.IdCajaAsociada;
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnConceptoChanged(int? idConcepto)
+    {
+        TransaccionActual.IdConcepto = idConcepto;
+
+        if (idConcepto is null or 0)
+        {
+            TransaccionActual.TipoTransaccion = string.Empty;
+            return Task.CompletedTask;
+        }
+
+        var concepto = _conceptos
+            .FirstOrDefault(x => x.IdConcepto == idConcepto.Value);
+
+        if (concepto is null)
+        {
+            TransaccionActual.TipoTransaccion = string.Empty;
+            return Task.CompletedTask;
+        }
+
+        TransaccionActual.TipoTransaccion = concepto.Tipo;
+
+        return Task.CompletedTask;
+    }
+
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
@@ -297,7 +345,13 @@
     <MudForm @ref="formTransaccion" OnValidSubmit="Registrar">
         <MudStack Spacing="2">
 
-            <MudSelect T="int?" Label="Concepto" @bind-Value="TransaccionActual.IdConcepto" Required="true" Dense="true" FullWidth="true">
+            <MudSelect T="int?"
+                       Label="Concepto"
+                       Value="TransaccionActual.IdConcepto"
+                       ValueChanged="OnConceptoChanged"
+                       Required="true"
+                       Dense="true"
+                       FullWidth="true">
                 @foreach (var c in _conceptos)
                                 {
                 <MudSelectItem T="int?" Value="@c.IdConcepto">@c.Descripcion</MudSelectItem>
@@ -309,14 +363,16 @@
                        @bind-Value="TransaccionActual.TipoTransaccion"
                        Required="true"
                        Dense="true"
-                       FullWidth="true">
+                       FullWidth="true"
+                       Disabled="true">
                 <MudSelectItem T="string" Value="@("INGRESO")">Ingreso</MudSelectItem>
                 <MudSelectItem T="string" Value="@("EGRESO")">Egreso</MudSelectItem>
             </MudSelect>
 
             <MudSelect T="int?"
                        Label="Forma de Pago"
-                       @bind-Value="TransaccionActual.IdFormaPago"
+                       Value="TransaccionActual.IdFormaPago"
+                       ValueChanged="OnFormaPagoChanged"
                        Dense="true"
                        Required="true"
                        FullWidth="true">
@@ -327,11 +383,12 @@
             </MudSelect>
 
             <MudSelect T="int"
-                       Label="Caja"
+                       Label="Caja Asociada"
                        @bind-Value="TransaccionActual.IdCaja"
                        Dense="true"
                        Required="true"
-                       FullWidth="true">
+                       FullWidth="true"
+                       Disabled="true">
                 @foreach (var caja in _cajas)
                                 {
                 <MudSelectItem T="int" Value="@caja.IdCaja">

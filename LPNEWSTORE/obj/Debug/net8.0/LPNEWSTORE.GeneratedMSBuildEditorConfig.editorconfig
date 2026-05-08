@@ -59,6 +59,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ29tcHJhc1xMaXN0YWRvQ29tcHJhcy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Compras/RegistrarFacturaCompra.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ29tcHJhc1xSZWdpc3RyYXJGYWN0dXJhQ29tcHJhLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Configuraciones/Empresa.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ29uZmlndXJhY2lvbmVzXEVtcHJlc2EucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
@@ -87,8 +91,20 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcRmV0Y2hEYXRhLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Finanzas/Bancos.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcRmluYW56YXNcQmFuY29zLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Finanzas/Cajas.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcRmluYW56YXNcQ2FqYXMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Finanzas/Chequeras.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcRmluYW56YXNcQ2hlcXVlcmFzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Finanzas/ChequesEmitidos.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcRmluYW56YXNcQ2hlcXVlc0VtaXRpZG9zLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Finanzas/CotizacionDolar.razor]
@@ -135,6 +151,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUHJvZHVjdG9zXFNlcmlhbGl6YXJQcm9kdWN0by5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Proveedores/CuentaCorrienteProveedor.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUHJvdmVlZG9yZXNcQ3VlbnRhQ29ycmllbnRlUHJvdmVlZG9yLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Proveedores/Proveedores.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUHJvdmVlZG9yZXNcUHJvdmVlZG9yZXMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
@@ -177,6 +197,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Ventas/ListadoVentas.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcVmVudGFzXExpc3RhZG9WZW50YXMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Pages/Ventas/RegistrarVenta.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcVmVudGFzXFJlZ2lzdHJhclZlbnRhLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Shared/AbmLayout.razor]
@@ -225,6 +249,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Shared/Modals/MDPagoParcial.razor]
 build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXE1vZGFsc1xNRFBhZ29QYXJjaWFsLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Shared/Modals/MDPagoProveedor.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXE1vZGFsc1xNRFBhZ29Qcm92ZWVkb3IucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/jaalvarez/Documents/Joaco/LPNEWSTORE_WEB/LPNEWSTORE/Shared/Modals/MDProducto.razor]

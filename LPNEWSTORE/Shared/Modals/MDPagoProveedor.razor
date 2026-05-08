@@ -1,0 +1,740 @@
+﻿@using MudBlazor
+@using Entities
+@using Services
+@using Entities.DTO
+
+@inject FormaPagoService FormaPagoService
+@inject PagoProveedorEmpresaService PagoProveedorService
+@inject ChequeraService ChequeraService
+@inject ChequeService ChequeService
+@inject BancoService BancoService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+
+            <MudText Typo="Typo.h6" Color="Color.Primary">
+               Pago a Proveedores
+            </MudText>
+
+            <MudPaper Class="pa-3" Outlined="true" Style="border-left:4px solid var(--mud-palette-primary);">
+                <MudText Typo="Typo.subtitle2" Color="Color.Primary">
+                    Facturas seleccionadas
+                </MudText>
+
+                <MudTable Items="Facturas" Dense="true" Hover="true">
+                    <HeaderContent>
+                        <MudTh>Factura</MudTh>
+                        <MudTh>Fecha</MudTh>
+                        <MudTh>Saldo</MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        <MudTd>@context.TipoDocumento @context.NroDocumento</MudTd>
+                        <MudTd>@(context.FechaFactura?.ToString("dd/MM/yyyy") ?? "-")</MudTd>
+                        <MudTd>@context.SaldoPendiente.ToString("C")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+
+                <MudDivider Class="my-2" />
+
+                <MudGrid>
+                    <MudItem xs="12" md="4">
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Total seleccionado
+                        </MudText>
+                        <MudText Typo="Typo.h6" Color="Color.Error">
+                            @TotalSeleccionado.ToString("C")
+                        </MudText>
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Total cargado
+                        </MudText>
+                        <MudText Typo="Typo.h6" Color="Color.Success">
+                            @TotalPagos.ToString("C")
+                        </MudText>
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Resta pagar
+                        </MudText>
+                        <MudText Typo="Typo.h6" Color="@(RestaPagar == 0 ? Color.Success : Color.Warning)">
+                            @RestaPagar.ToString("C")
+                        </MudText>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            <MudPaper Class="pa-3" Outlined="true">
+                <MudText Typo="Typo.subtitle2" Color="Color.Primary" Class="mb-2">
+                    Agregar forma de pago
+                </MudText>
+
+                <MudGrid>
+                    <MudItem xs="12" md="4">
+                        <MudSelect T="int"
+                                   Label="Forma de pago"
+                                   Value="pagoActual.IdFormaPago"
+                                   ValueChanged="OnFormaPagoChanged"
+                                   Dense="true"
+                                   FullWidth="true">
+                            @foreach (var fp in formasPago)
+                            {
+                                <MudSelectItem Value="@fp.IdFormaPago">
+                                    @fp.Descripcion
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudNumericField T="decimal"
+                                         Label="Monto"
+                                         @bind-Value="pagoActual.Monto"
+                                         Dense="true"
+                                         FullWidth="true"
+                                         Adornment="Adornment.Start"
+                                         AdornmentText="$"
+                                         Format="N2" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudTextField Label="Detalle"
+                                      @bind-Value="pagoActual.Detalle"
+                                      Dense="true"
+                                      FullWidth="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" Class="d-flex justify-end">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="AgregarPago">
+                            Agregar forma de pago
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            <MudPaper Class="pa-3" Outlined="true" Style="border-left:4px solid var(--mud-palette-secondary);">
+                <MudStack Direction="Row" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.subtitle2" Color="Color.Secondary">
+                        Cheques
+                    </MudText>
+
+                    <MudStack Direction="Row" Spacing="2">
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Secondary"
+                                   StartIcon="@Icons.Material.Filled.ReceiptLong"
+                                   OnClick="@(() => AbrirFormularioCheque("FISICA"))">
+                            Agregar cheque físico
+                        </MudButton>
+
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Info"
+                                   StartIcon="@Icons.Material.Filled.ReceiptLong"
+                                   OnClick="@(() => AbrirFormularioCheque("ELECTRONICA"))">
+                            Agregar cheque electrónico
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+
+                @if (mostrarFormularioCheque)
+                {
+                    <MudDivider Class="my-3" />
+
+                    <MudGrid>
+                        @if (tipoChequeSeleccionado == "FISICA")
+                        {
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="int?"
+                                           Label="Chequera"
+                                           Value="chequeActual.IdChequera"
+                                           ValueChanged="OnChequeraChequeChanged"
+                                           Dense="true"
+                                           FullWidth="true">
+                                    @foreach (var ch in chequeras.Where(x => x.Tipo.Equals("FISICA", StringComparison.OrdinalIgnoreCase)))
+                                    {
+                                        <MudSelectItem T="int?" Value="@((int?)ch.IdChequera)">
+                                            @ch.Descripcion (@ch.Tipo)
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="int?"
+                                           Label="Cheque disponible"
+                                           @bind-Value="chequeActual.IdCheque"
+                                           Dense="true"
+                                           FullWidth="true">
+                                    @foreach (var cheque in chequesDisponibles)
+                                    {
+                                        <MudSelectItem T="int?" Value="@cheque.IdCheque">
+                                            @cheque.NumeroCheque
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                        }
+
+                        @if (tipoChequeSeleccionado == "ELECTRONICA")
+                        {
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="int?"
+                                           Label="Banco"
+                                           @bind-Value="chequeActual.IdBanco"
+                                           Dense="true"
+                                           FullWidth="true"
+                                           Clearable="true"
+                                           Placeholder="Seleccione banco">
+                                    @foreach (var b in bancos)
+                                    {
+                                        <MudSelectItem T="int?" Value="@((int?)b.IdBanco)">
+                                            @b.Nombre
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudTextField Label="N° cheque electrónico"
+                                              @bind-Value="chequeActual.NumeroCheque"
+                                              Dense="true"
+                                              FullWidth="true" />
+                            </MudItem>
+                        }
+
+                        <MudItem xs="12" md="4">
+                            <MudNumericField T="decimal"
+                                             Label="Importe"
+                                             @bind-Value="chequeActual.Monto"
+                                             Dense="true"
+                                             FullWidth="true"
+                                             Adornment="Adornment.Start"
+                                             AdornmentText="$"
+                                             Format="N2" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudDatePicker Label="Fecha emisión"
+                                           @bind-Date="chequeActual.FechaEmision"
+                                           Dense="true" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudDatePicker Label="Fecha pago"
+                                           @bind-Date="chequeActual.FechaPago"
+                                           Dense="true" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudTextField Label="Detalle"
+                                          @bind-Value="chequeActual.Detalle"
+                                          Dense="true"
+                                          FullWidth="true" />
+                        </MudItem>
+
+                        <MudItem xs="12" Class="d-flex justify-end">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Secondary"
+                                       StartIcon="@Icons.Material.Filled.Add"
+                                       OnClick="AgregarCheque">
+                                Agregar cheque al pago
+                            </MudButton>
+                        </MudItem>
+                    </MudGrid>
+                }
+            </MudPaper>
+
+            <MudPaper Class="pa-3" Outlined="true">
+                <MudText Typo="Typo.subtitle2" Color="Color.Primary" Class="mb-2">
+                    Medios cargados
+                </MudText>
+
+                <MudTable Items="pagos" Dense="true" Hover="true" Bordered="true">
+                    <HeaderContent>
+                        <MudTh>Medio</MudTh>
+                        <MudTh>Banco</MudTh>
+                        <MudTh>Cheque</MudTh>
+                        <MudTh>Fecha pago</MudTh>
+                        <MudTh>Monto</MudTh>
+                        <MudTh>Detalle</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        <MudTd>@context.DescripcionFormaPago</MudTd>
+
+                        <MudTd>
+                            @(string.IsNullOrWhiteSpace(context.NombreBanco)
+                                                        ? "-"
+                                                        : context.NombreBanco)
+                        </MudTd>
+
+                        <MudTd>@context.NumeroCheque</MudTd>
+
+                        <MudTd>
+                            @context.FechaPago?.ToString("dd/MM/yyyy")
+                        </MudTd>
+
+                        <MudTd>@context.Monto.ToString("C")</MudTd>
+
+                        <MudTd>@context.Detalle</MudTd>
+
+                        <MudTd>
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           OnClick="@(() => QuitarPago(context))" />
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text"
+                   OnClick="Cancelar">
+            Cancelar
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Success"
+                   StartIcon="@Icons.Material.Filled.Payments"
+                   Disabled="@guardando"
+                   OnClick="ConfirmarPago">
+            @(guardando ? "Registrando..." : "Confirmar pago")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    private class PagoProveedorDetalleTemp
+    {
+        public int IdFormaPago { get; set; }
+        public string DescripcionFormaPago { get; set; } = string.Empty;
+        public decimal Monto { get; set; }
+        public string? Detalle { get; set; }
+        public int? IdBanco { get; set; }
+        public string? NombreBanco { get; set; }
+        public int? IdChequera { get; set; }
+        public int? IdCheque { get; set; }
+        public string? NumeroCheque { get; set; }
+        public DateTime? FechaEmision { get; set; }
+        public DateTime? FechaPago { get; set; }
+    }
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public int IdProveedor { get; set; }
+    [Parameter] public List<FacturaCompraEmpresa> Facturas { get; set; } = new();
+    [Parameter] public string NombreProveedor { get; set; } = string.Empty;
+
+    private List<FormaPago> formasPago = new();
+    private List<Chequera> chequeras = new();
+    private List<Cheque> chequesDisponibles = new();
+    private List<Banco> bancos = new();
+    private List<PagoProveedorDetalleTemp> pagos = new();
+
+    private PagoProveedorDetalleTemp pagoActual = new();
+    private PagoProveedorDetalleTemp chequeActual = new();
+    private string tipoChequeSeleccionado = string.Empty;
+    private bool mostrarFormularioCheque;
+    private bool guardando;
+
+    private decimal TotalSeleccionado => Facturas.Sum(x => x.SaldoPendiente);
+    private decimal TotalPagos => pagos.Sum(x => x.Monto);
+    private decimal RestaPagar => Math.Max(0, TotalSeleccionado - TotalPagos);
+
+    private Chequera? ChequeraChequeSeleccionada =>
+        chequeras.FirstOrDefault(x => x.IdChequera == chequeActual.IdChequera);
+
+    private string DetallePagoProveedor =>
+string.IsNullOrWhiteSpace(NombreProveedor)
+    ? $"Pago a proveedor - {Facturas.Count} factura(s)"
+    : $"Pago a proveedor {NombreProveedor} - {Facturas.Count} factura(s)";
+
+    protected override async Task OnInitializedAsync()
+    {
+        formasPago = await FormaPagoService.ListarFormasDePago();
+        chequeras = await ChequeraService.ListarAsync();
+        bancos = await BancoService.ListarAsync();
+
+        pagoActual.Detalle = DetallePagoProveedor;
+        chequeActual.Detalle = DetallePagoProveedor;
+    }
+
+    private Task OnFormaPagoChanged(int idFormaPago)
+    {
+        pagoActual.IdFormaPago = idFormaPago;
+
+        var fp = formasPago.FirstOrDefault(x => x.IdFormaPago == idFormaPago);
+        pagoActual.DescripcionFormaPago = fp?.Descripcion ?? "";
+
+        return Task.CompletedTask;
+    }
+
+    private void AgregarPago()
+    {
+        if (pagoActual.IdFormaPago <= 0)
+        {
+            Snackbar.Add("Seleccione una forma de pago.", Severity.Warning);
+            return;
+        }
+
+        if (pagoActual.Monto <= 0)
+        {
+            Snackbar.Add("Ingrese un monto válido.", Severity.Warning);
+            return;
+        }
+
+        if (TotalPagos + pagoActual.Monto > TotalSeleccionado)
+        {
+            Snackbar.Add("El total cargado no puede superar el total seleccionado.", Severity.Warning);
+            return;
+        }
+
+        pagos.Add(new PagoProveedorDetalleTemp
+        {
+            IdFormaPago = pagoActual.IdFormaPago,
+            DescripcionFormaPago = pagoActual.DescripcionFormaPago,
+            Monto = pagoActual.Monto,
+            Detalle = pagoActual.Detalle
+        });
+
+        pagoActual = new PagoProveedorDetalleTemp
+        {
+            Monto = Math.Max(0, TotalSeleccionado - TotalPagos),
+            Detalle = DetallePagoProveedor
+        };
+    }
+
+    private async Task AbrirFormularioCheque(string tipo)
+    {
+        tipoChequeSeleccionado = tipo;
+        mostrarFormularioCheque = true;
+
+        chequeActual = new PagoProveedorDetalleTemp
+        {
+            Monto = RestaPagar,
+            Detalle = DetallePagoProveedor,
+            FechaEmision = DateTime.Today
+        };
+
+        chequesDisponibles = new();
+
+        if (tipo.Equals("ELECTRONICA", StringComparison.OrdinalIgnoreCase))
+        {
+            chequeActual.IdChequera = null;
+            chequeActual.IdCheque = null;
+            chequeActual.IdBanco = bancos.FirstOrDefault()?.IdBanco;
+            return;
+        }
+
+        var primeraChequera = chequeras
+            .FirstOrDefault(x => x.Tipo.Equals("FISICA", StringComparison.OrdinalIgnoreCase));
+
+        if (primeraChequera is null)
+        {
+            Snackbar.Add("No hay chequeras físicas cargadas.", Severity.Warning);
+            return;
+        }
+
+        chequeActual.IdChequera = primeraChequera.IdChequera;
+
+        chequesDisponibles = (await ChequeService.ListarDisponibles(primeraChequera.IdChequera))
+            .OrderBy(x => int.TryParse(x.NumeroCheque, out var n) ? n : int.MaxValue)
+            .ThenBy(x => x.NumeroCheque)
+            .ToList();
+
+        var primerCheque = chequesDisponibles
+            .FirstOrDefault(x => !pagos.Any(p => p.IdCheque == x.IdCheque));
+
+        chequeActual.IdCheque = primerCheque?.IdCheque;
+    }
+
+    private async Task OnChequeraChequeChanged(int? idChequera)
+    {
+        chequeActual.IdChequera = idChequera;
+        chequeActual.IdCheque = null;
+        chequeActual.NumeroCheque = null;
+
+        if (!idChequera.HasValue)
+        {
+            chequesDisponibles = new();
+            return;
+        }
+
+        var chequera = chequeras.FirstOrDefault(x => x.IdChequera == idChequera.Value);
+
+        if (chequera?.Tipo?.Equals("FISICA", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            chequesDisponibles = (await ChequeService.ListarDisponibles(idChequera.Value))
+                .OrderBy(x => int.TryParse(x.NumeroCheque, out var n) ? n : int.MaxValue)
+                .ThenBy(x => x.NumeroCheque)
+                .ToList();
+
+            var primerChequeDisponible = chequesDisponibles
+                .FirstOrDefault(x => !pagos.Any(p => p.IdCheque == x.IdCheque));
+
+            chequeActual.IdCheque = primerChequeDisponible?.IdCheque;
+        }
+        else
+        {
+            chequesDisponibles = new();
+        }
+    }
+
+    private void AgregarCheque()
+    {
+        if (tipoChequeSeleccionado == "FISICA" && chequeActual.IdChequera <= 0)
+        {
+            Snackbar.Add("Seleccione una chequera.", Severity.Warning);
+            return;
+        }
+
+        if (chequeActual.Monto <= 0)
+        {
+            Snackbar.Add("Ingrese un importe válido para el cheque.", Severity.Warning);
+            return;
+        }
+
+        if (TotalPagos + chequeActual.Monto > TotalSeleccionado)
+        {
+            Snackbar.Add("El total cargado no puede superar el total seleccionado.", Severity.Warning);
+            return;
+        }
+
+
+
+
+
+        if (tipoChequeSeleccionado == "FISICA")
+
+        {
+
+            var chequera = ChequeraChequeSeleccionada;
+
+
+
+            if (chequera is null)
+
+            {
+
+                Snackbar.Add("La chequera seleccionada no es válida.", Severity.Warning);
+
+                return;
+
+            }
+
+
+
+            if (chequera.Tipo.Equals("FISICA", StringComparison.OrdinalIgnoreCase))
+
+            {
+
+                if (chequeActual.IdCheque is null)
+
+                {
+
+                    Snackbar.Add("Seleccione un cheque disponible.", Severity.Warning);
+
+                    return;
+
+                }
+
+                if (pagos.Any(x => x.IdCheque == chequeActual.IdCheque))
+
+                {
+
+                    Snackbar.Add("Ese cheque ya fue agregado al pago.", Severity.Warning);
+
+                    return;
+
+                }
+
+
+
+                var cheque = chequesDisponibles.FirstOrDefault(x => x.IdCheque == chequeActual.IdCheque);
+
+                chequeActual.NumeroCheque = cheque?.NumeroCheque;
+
+
+
+                if (chequeActual.FechaEmision is null || chequeActual.FechaPago is null)
+
+                {
+
+                    Snackbar.Add("Ingrese fecha de emisión y fecha de pago.", Severity.Warning);
+
+                    return;
+
+                }
+
+            }
+        }
+
+        if (tipoChequeSeleccionado == "ELECTRONICA")
+        {
+            if (chequeActual.IdBanco is null || chequeActual.IdBanco <= 0)
+            {
+                Snackbar.Add("Seleccione el banco del cheque electrónico.", Severity.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(chequeActual.NumeroCheque))
+            {
+                Snackbar.Add("Ingrese el número de cheque electrónico.", Severity.Warning);
+                return;
+            }
+        }
+        string? nombreBanco = null;
+
+        if (tipoChequeSeleccionado == "FISICA")
+        {
+            var chequera = chequeras
+                .FirstOrDefault(x => x.IdChequera == chequeActual.IdChequera);
+
+            nombreBanco = bancos
+                .FirstOrDefault(b => b.IdBanco == chequera?.IdBanco)
+                ?.Nombre;
+        }
+        else
+        {
+            nombreBanco = bancos
+                .FirstOrDefault(b => b.IdBanco == chequeActual.IdBanco)
+                ?.Nombre;
+        }
+       
+
+
+        pagos.Add(new PagoProveedorDetalleTemp
+        {
+            IdFormaPago = 0,
+            DescripcionFormaPago = tipoChequeSeleccionado == "ELECTRONICA"
+        ? "Cheque electrónico"
+        : "Cheque físico",
+
+            Monto = chequeActual.Monto,
+            Detalle = chequeActual.Detalle,
+
+            IdBanco = tipoChequeSeleccionado == "ELECTRONICA"
+        ? chequeActual.IdBanco
+        : null,
+            NombreBanco = nombreBanco,
+
+            IdChequera = tipoChequeSeleccionado == "FISICA"
+        ? chequeActual.IdChequera
+        : null,
+
+            IdCheque = tipoChequeSeleccionado == "FISICA"
+        ? chequeActual.IdCheque
+        : null,
+
+            NumeroCheque = chequeActual.NumeroCheque,
+            FechaEmision = chequeActual.FechaEmision,
+            FechaPago = chequeActual.FechaPago
+        });
+
+        chequeActual = new PagoProveedorDetalleTemp
+        {
+            Monto = Math.Max(0, TotalSeleccionado - TotalPagos),
+            Detalle = DetallePagoProveedor
+        };
+
+        chequesDisponibles = new();
+        mostrarFormularioCheque = false;
+    }
+
+    private void QuitarPago(PagoProveedorDetalleTemp pago)
+    {
+        pagos.Remove(pago);
+
+        pagoActual.Monto = Math.Max(0, TotalSeleccionado - TotalPagos);
+        chequeActual.Monto = Math.Max(0, TotalSeleccionado - TotalPagos);
+    }
+
+    private async Task ConfirmarPago()
+    {
+        if (!pagos.Any())
+        {
+            Snackbar.Add("Debe cargar al menos una forma de pago o cheque.", Severity.Warning);
+            return;
+        }
+
+        if (Math.Abs(TotalPagos - TotalSeleccionado) > 0.01m)
+        {
+            Snackbar.Add("El total cargado debe coincidir con el total seleccionado.", Severity.Warning);
+            return;
+        }
+
+        guardando = true;
+
+        try
+        {
+            var request = new PagoProveedorCompletoRequest
+            {
+                IdProveedor = IdProveedor,
+                DetalleGeneral = DetallePagoProveedor,
+
+                Facturas = Facturas.Select(f => new FacturaPagoProveedorItem
+                {
+                    IdFacturaCompra = f.IdFacturaCompra,
+                    SaldoPendiente = f.SaldoPendiente
+                }).ToList(),
+
+                FormasPago = pagos
+                    .Where(p => p.IdFormaPago > 0)
+                    .Select(p => new FormaPagoProveedorItem
+                    {
+                        IdFormaPago = p.IdFormaPago,
+                        Monto = p.Monto,
+                        Detalle = p.Detalle
+                    }).ToList(),
+
+                Cheques = pagos
+                    .Where(p => p.IdCheque.HasValue || !string.IsNullOrWhiteSpace(p.NumeroCheque))
+                    .Select(p => new ChequePagoProveedorItem
+                    {
+                        IdBanco = p.IdBanco,
+                        IdChequera = p.IdChequera,
+                        IdCheque = p.IdCheque,
+                        NumeroCheque = p.NumeroCheque,
+                        Monto = p.Monto,
+                        FechaEmision = p.FechaEmision!.Value,
+                        FechaPago = p.FechaPago!.Value,
+                        Detalle = p.Detalle
+                    }).ToList()
+            };
+
+            var (ok, idPago, msg) = await PagoProveedorService.RegistrarCompletoAsync(request);
+
+            if (ok)
+            {
+                Snackbar.Add(msg, Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add(msg, Severity.Error);
+            }
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private void Cancelar()
+    {
+        MudDialog.Cancel();
+    }
+}

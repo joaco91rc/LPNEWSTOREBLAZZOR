@@ -21,14 +21,21 @@
 </MudNavGroup>
 
 <MudNavGroup Title="Finanzas" Icon="@Icons.Material.Filled.AttachMoney">
+    <MudNavLink Href="/bancos" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Bancos</MudNavLink>
     <MudNavLink Href="/formaspago" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Formas de Pago</MudNavLink>
     <MudNavLink Href="/cotizaciondolar" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Cotización Dólar</MudNavLink>
     <MudNavLink Href="/monedas" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Moneda Principal</MudNavLink>
     <MudNavLink Href="/cajas" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Cajas</MudNavLink>
+    <MudNavLink Href="/chequeras" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Chequeras</MudNavLink>
+    <MudNavLink Href="/chequesemitidos" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Cheques Emitidos </MudNavLink>
 
 </MudNavGroup>
 
-<MudNavLink Href="/proveedores" Icon="@Icons.Material.Filled.LocalShipping" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Proveedores</MudNavLink>
+<MudNavGroup Title="Proveedores" Icon="@Icons.Material.Filled.LocalShipping">
+    <MudNavLink Href="/proveedores">Proveedores</MudNavLink>
+    <MudNavLink Href="/cuentacorrienteproveedor">Cuenta Corriente</MudNavLink>
+    <MudNavLink Href="/pagosproveedor">Pagos a Proveedor</MudNavLink>
+</MudNavGroup>
 
 
 <MudNavLink Href="/reportes" Icon="@Icons.Material.Filled.BarChart" OnClick="@(() => OnNavigationItemClicked.InvokeAsync())">Reportes</MudNavLink>

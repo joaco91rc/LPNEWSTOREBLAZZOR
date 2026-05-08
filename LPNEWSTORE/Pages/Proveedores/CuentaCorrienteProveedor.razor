@@ -1,0 +1,289 @@
+﻿@page "/cuentacorrienteproveedor"
+@using Entities.Enums
+@using LPNEWSTORE.Shared.Modals
+@using MudBlazor
+@using Entities
+@using Services
+@inject ProveedorService ProveedorService
+@inject FacturaCompraEmpresaService FacturaCompraEmpresaService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+
+    <MudText Typo="Typo.h5" Color="Color.Primary" Class="mb-4">
+        Cuenta Corriente de Proveedores
+    </MudText>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudGrid AlignItems="Center">
+            <MudItem xs="12" md="6">
+                <MudSelect T="int?"
+                           Label="Proveedor"
+                           Value="idProveedorSeleccionado"
+                           ValueChanged="OnProveedorChanged"
+                           Dense="true"
+                           FullWidth="true"
+                           Clearable="true"
+                           Placeholder="Seleccione un proveedor">
+
+                    @foreach (var p in proveedores)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)p.IdProveedor)">
+                            @p.RazonSocial
+                        </MudSelectItem>
+                    }
+
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudSwitch T="bool"
+                           Value="mostrarPagadas"
+                           ValueChanged="OnMostrarPagadasChanged"
+                           Color="Color.Primary" />
+                <MudText Typo="Typo.body2">Mostrar pagadas/anuladas</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="3" Class="d-flex justify-end">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Success"
+                           Disabled="@(!FacturasSeleccionadas.Any())"
+                           StartIcon="@Icons.Material.Filled.Payments"
+                           OnClick="AbrirModalPago">
+                    Registrar pago
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @if (proveedorActual is not null)
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="1" Style="border-radius:16px;">
+            <MudGrid>
+                <MudItem xs="12" md="3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Proveedor</MudText>
+                    <MudText Typo="Typo.h6">@proveedorActual.RazonSocial</MudText>
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">CUIT / Documento</MudText>
+                    <MudText Typo="Typo.body1">@proveedorActual.Documento</MudText>
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Teléfono</MudText>
+                    <MudText Typo="Typo.body1">@proveedorActual.Telefono</MudText>
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Dirección</MudText>
+                    <MudText Typo="Typo.body1">@proveedorActual.Direccion</MudText>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudDivider Class="my-3" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-3" Elevation="0" Style="border:1px solid #ddd; border-radius:14px;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Total facturado</MudText>
+                        <MudText Typo="Typo.h6">@TotalFacturado.ToString("C")</MudText>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-3" Elevation="0" Style="border:1px solid #ddd; border-radius:14px;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Saldo pendiente</MudText>
+                        <MudText Typo="Typo.h6" Color="Color.Error">@SaldoPendiente.ToString("C")</MudText>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-3" Elevation="0" Style="border:1px solid #ddd; border-radius:14px;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Seleccionado a pagar</MudText>
+                        <MudText Typo="Typo.h6" Color="Color.Success">@TotalSeleccionado.ToString("C")</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    }
+
+    <MudPaper Class="pa-4" Elevation="1">
+        <MudText Typo="Typo.h6" Color="Color.Primary" Class="mb-3">
+            Facturas adeudadas
+        </MudText>
+
+        <MudTable Items="FacturasVisibles"
+                  Dense="true"
+                  Hover="true"
+                  Bordered="true"
+                  Striped="true">
+            <HeaderContent>
+                <MudTh></MudTh>
+                <MudTh>Fecha</MudTh>
+                <MudTh>Documento</MudTh>
+                <MudTh>Total</MudTh>
+                <MudTh>Saldo</MudTh>
+                <MudTh>Estado</MudTh>
+                <MudTh>Vencimiento</MudTh>
+                <MudTh>Observaciones</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd>
+                    <MudCheckBox T="bool"
+                                 Disabled="@(context.SaldoPendiente <= 0 || context.EstadoFactura == EstadoFacturaCompra.Anulada)"
+                                 Value="@FacturasSeleccionadas.Any(x => x.IdFacturaCompra == context.IdFacturaCompra)"
+                                 ValueChanged="@((bool v) => ToggleFactura(context, v))" />
+                </MudTd>
+
+                <MudTd>
+                    @(context.FechaFactura?.ToString("dd/MM/yyyy") ?? "-")
+                </MudTd>
+                <MudTd>@context.TipoDocumento @context.NroDocumento</MudTd>
+                <MudTd>@context.MontoTotal.ToString("C")</MudTd>
+                <MudTd>
+                    @((context.EstadoFactura == EstadoFacturaCompra.Anulada ? 0 : context.SaldoPendiente).ToString("C"))
+                </MudTd>
+                <MudTd>
+                    <MudChip T="string"
+                             Color="@GetColorEstado(context.EstadoFactura)"
+                             Size="Size.Small">
+                        @context.EstadoFactura
+                    </MudChip>
+                </MudTd>
+                <MudTd>@context.FechaVencimiento?.ToString("dd/MM/yyyy")</MudTd>
+                <MudTd>@context.Observaciones</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+
+</MudContainer>
+
+@code {
+    private List<Proveedor> proveedores = new();
+    private Proveedor? proveedorActual;
+
+    private List<FacturaCompraEmpresa> facturas = new();
+    private List<FacturaCompraEmpresa> FacturasSeleccionadas = new();
+
+    private int? idProveedorSeleccionado;
+    private bool mostrarPagadas = false;
+
+    private IEnumerable<FacturaCompraEmpresa> FacturasVisibles =>
+    mostrarPagadas
+        ? facturas
+        : facturas.Where(x =>
+            x.EstadoFactura != EstadoFacturaCompra.Pagada &&
+            x.EstadoFactura != EstadoFacturaCompra.Anulada);
+
+    private decimal TotalFacturado =>
+        facturas
+            .Where(x => x.EstadoFactura != EstadoFacturaCompra.Anulada)
+            .Sum(x => x.MontoTotal);
+
+    private decimal SaldoPendiente =>
+        facturas
+            .Where(x => x.EstadoFactura != EstadoFacturaCompra.Anulada)
+            .Sum(x => x.SaldoPendiente);
+
+    private decimal TotalSeleccionado =>
+        FacturasSeleccionadas.Sum(x => x.SaldoPendiente);
+
+    protected override async Task OnInitializedAsync()
+    {
+        proveedores = await ProveedorService.Listar();
+    }
+
+    private async Task OnProveedorChanged(int? idProveedor)
+    {
+        idProveedorSeleccionado = idProveedor;
+
+        FacturasSeleccionadas.Clear();
+
+        if (!idProveedor.HasValue || idProveedor <= 0)
+        {
+            proveedorActual = null;
+            facturas = new();
+            return;
+        }
+
+        proveedorActual = proveedores
+            .FirstOrDefault(x => x.IdProveedor == idProveedor.Value);
+
+        facturas = await FacturaCompraEmpresaService
+            .ListarCuentaCorrienteProveedorAsync(idProveedor.Value);
+    }
+
+    private async Task OnMostrarPagadasChanged(bool value)
+    {
+        mostrarPagadas = value;
+        await Task.CompletedTask;
+    }
+
+    private void ToggleFactura(FacturaCompraEmpresa factura, bool selected)
+    {
+        if (selected)
+        {
+            if (!FacturasSeleccionadas.Any(x => x.IdFacturaCompra == factura.IdFacturaCompra))
+                FacturasSeleccionadas.Add(factura);
+        }
+        else
+        {
+            var item = FacturasSeleccionadas
+                .FirstOrDefault(x => x.IdFacturaCompra == factura.IdFacturaCompra);
+
+            if (item is not null)
+                FacturasSeleccionadas.Remove(item);
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task AbrirModalPago()
+    {
+        if (!FacturasSeleccionadas.Any())
+        {
+            Snackbar.Add("Seleccione al menos una factura.", Severity.Warning);
+            return;
+        }
+
+        var parameters = new DialogParameters
+        {
+            ["IdProveedor"] = idProveedorSeleccionado ?? 0,
+            ["NombreProveedor"] = proveedorActual?.RazonSocial ?? "",
+            ["Facturas"] = FacturasSeleccionadas.ToList()
+        };
+
+        var dialog = DialogService.Show<MDPagoProveedor>(
+            "",
+            parameters,
+            new DialogOptions
+            {
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseButton = true
+            });
+
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            FacturasSeleccionadas.Clear();
+            await OnProveedorChanged(idProveedorSeleccionado);
+        }
+    }
+
+    private Color GetColorEstado(EstadoFacturaCompra estado)
+    {
+        return estado switch
+        {
+            EstadoFacturaCompra.Pendiente => Color.Error,
+            EstadoFacturaCompra.Parcial => Color.Warning,
+            EstadoFacturaCompra.Pagada => Color.Success,
+            EstadoFacturaCompra.Anulada => Color.Default,
+            _ => Color.Default
+        };
+    }
+}

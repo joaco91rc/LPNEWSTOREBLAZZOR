@@ -1,0 +1,147 @@
+﻿@page "/facturacompra"
+@using Entities
+@using Entities.Enums
+@using Entities.Extensions
+@using MudBlazor
+@using Services
+@inject FacturaCompraEmpresaService FacturaService
+@inject ProveedorService ProveedorService
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="pa-4">
+
+    <MudText Typo="Typo.h5" Color="Color.Primary" Class="mb-4">
+        Registrar Factura de Compra
+    </MudText>
+
+    <MudPaper Class="pa-4" Elevation="1">
+
+        <MudGrid>
+
+            <MudItem xs="12">
+                <MudSelect T="int?"
+                           Label="Proveedor"
+                           @bind-Value="idProveedorSeleccionado"
+                           Required="true"
+                           Dense="true"
+                           FullWidth="true"
+                           Clearable="true"
+                           Placeholder="Seleccione un proveedor">
+                    @foreach (var p in proveedores)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)p.IdProveedor)">
+                            @p.RazonSocial
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="6">
+                <MudSelect T="TipoComprobanteCompra"
+                           Label="Tipo Documento"
+                           @bind-Value="tipoComprobanteSeleccionado"
+                           Required="true"
+                           Dense="true"
+                           FullWidth="true">
+
+                    @foreach (TipoComprobanteCompra tipo in Enum.GetValues<TipoComprobanteCompra>())
+                    {
+                        <MudSelectItem Value="@tipo">
+                            @tipo.ToDisplay()
+                        </MudSelectItem>
+                    }
+
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="6">
+                <MudTextField Label="Número"
+                              @bind-Value="factura.NroDocumento"
+                              Required="true" />
+            </MudItem>
+
+            <MudItem xs="6">
+                <MudDatePicker Label="Fecha Factura"
+                               @bind-Date="factura.FechaFactura" />
+            </MudItem>
+
+            <MudItem xs="6">
+                <MudDatePicker Label="Vencimiento"
+                               @bind-Date="factura.FechaVencimiento" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudNumericField T="decimal"
+                                 Label="Monto Total"
+                                 @bind-Value="factura.MontoTotal"
+                                 Required="true" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField Label="Observaciones"
+                              @bind-Value="factura.Observaciones" />
+            </MudItem>
+
+        </MudGrid>
+
+        <MudDivider Class="my-4" />
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   FullWidth="true"
+                   OnClick="Guardar">
+            Registrar Factura
+        </MudButton>
+
+    </MudPaper>
+
+</MudContainer>
+
+@code {
+        private FacturaCompraEmpresa factura = new()
+        {
+            FechaFactura = DateTime.Today,
+        FechaVencimiento = DateTime.Today.AddDays(30)
+        };
+
+    private int? idProveedorSeleccionado;
+    private TipoComprobanteCompra tipoComprobanteSeleccionado = TipoComprobanteCompra.FacturaA;
+    private List<Proveedor> proveedores = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        proveedores = await ProveedorService.Listar();
+
+    }
+
+    private async Task Guardar()
+    {
+        factura.TipoDocumento = tipoComprobanteSeleccionado.ToDisplay();
+        if (idProveedorSeleccionado is null)
+        {
+            Snackbar.Add("Debe seleccionar un proveedor.", Severity.Warning);
+            return;
+        }
+
+        factura.IdProveedor = idProveedorSeleccionado.Value;
+        
+
+        var (id, msg) = await FacturaService.RegistrarAsync(factura);
+
+        if (id > 0)
+        {
+            Snackbar.Add(msg, Severity.Success);
+
+            factura = new FacturaCompraEmpresa
+            {
+                FechaFactura = DateTime.Today
+            };
+
+            tipoComprobanteSeleccionado = TipoComprobanteCompra.FacturaA;
+        }
+        else
+        {
+            Snackbar.Add(msg, Severity.Error);
+        }
+    }
+}

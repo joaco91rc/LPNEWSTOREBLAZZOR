@@ -1,0 +1,322 @@
+﻿@page "/chequesemitidos"
+@using MudBlazor
+@using Entities
+@using Services
+
+@inject BancoService BancoService
+@inject ChequeraService ChequeraService
+@inject ChequeService ChequeService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+
+    <MudText Typo="Typo.h5" Color="Color.Primary" Class="mb-4">
+        Cheques Emitidos
+    </MudText>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudGrid AlignItems="Center">
+
+            <MudItem xs="12" md="3">
+                <MudSelect T="int?"
+                           Label="Banco"
+                           Value="idBancoFiltro"
+                           ValueChanged="OnBancoChanged"
+                           Dense="true"
+                           Clearable="true"
+                           FullWidth="true">
+                    @foreach (var b in bancos)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)b.IdBanco)">
+                            @b.Nombre
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudSelect T="int?"
+                           Label="Chequera"
+                           @bind-Value="idChequeraFiltro"
+                           Dense="true"
+                           Clearable="true"
+                           FullWidth="true">
+                    @foreach (var c in ChequerasFiltradas)
+                    {
+                        <MudSelectItem T="int?" Value="@c.IdChequera">
+                            @c.Descripcion (@c.Tipo)
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudSelect T="string"
+                           Label="Estado"
+                           Value="estadoFiltro"
+                           ValueChanged="OnEstadoChanged"
+                           Dense="true"
+                           Clearable="true"
+                           FullWidth="true">
+                    <MudSelectItem Value="@("EMITIDO")">Emitido</MudSelectItem>
+                    <MudSelectItem Value="@("COBRADO")">Cobrado</MudSelectItem>
+                    <MudSelectItem Value="@("RECHAZADO")">Rechazado</MudSelectItem>
+                    <MudSelectItem Value="@("ANULADO")">Anulado</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" md="3" Class="d-flex justify-end gap-2">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="Cargar">
+                    Buscar
+                </MudButton>
+
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.CleaningServices"
+                           OnClick="LimpiarFiltros">
+                    Limpiar
+                </MudButton>
+            </MudItem>
+
+        </MudGrid>
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Elevation="1">
+
+        <MudText Typo="Typo.h6" Color="Color.Primary" Class="mb-3">
+            Listado de cheques
+        </MudText>
+
+        <MudTable Items="ChequesFiltrados"
+                  Dense="true"
+                  Hover="true"
+                  Bordered="true"
+                  Striped="true"
+                  RowsPerPageOptions="new int[] { 10, 20, 50, 100 }"
+                  PagerAlwaysVisible="true">
+
+            <HeaderContent>
+                <MudTh>Banco</MudTh>
+                <MudTh>Chequera</MudTh>
+                <MudTh>N° Cheque</MudTh>
+                <MudTh>Emisión</MudTh>
+                <MudTh>Pago</MudTh>
+                <MudTh>Importe</MudTh>
+                <MudTh>Estado</MudTh>
+                <MudTh>Detalle</MudTh>
+                <MudTh>Acciones</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd>@ObtenerBanco(context)</MudTd>
+                <MudTd>@ObtenerChequera(context.IdChequera)</MudTd>
+                <MudTd>@context.NumeroCheque</MudTd>
+                <MudTd>@context.FechaEmision?.ToString("dd/MM/yyyy")</MudTd>
+                <MudTd>@context.FechaPago?.ToString("dd/MM/yyyy")</MudTd>
+                <MudTd>@((context.Importe ?? 0).ToString("C"))</MudTd>
+                <MudTd>
+                    <MudChip T="string"
+                             Size="Size.Small"
+                             Color="@ColorEstado(context.EstadoCheque)">
+                        @context.EstadoCheque
+                    </MudChip>
+                </MudTd>
+                <MudTd>@context.Detalle</MudTd>
+                <MudTd>
+                    @if (context.EstadoCheque == "EMITIDO")
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.CheckCircle"
+                                       Color="Color.Success"
+                                       Size="Size.Small"
+                                       Title="Marcar cobrado"
+                                       OnClick="@(() => CambiarEstado(context, "COBRADO"))" />
+
+                        <MudIconButton Icon="@Icons.Material.Filled.Block"
+                                       Color="Color.Warning"
+                                       Size="Size.Small"
+                                       Title="Marcar rechazado"
+                                       OnClick="@(() => CambiarEstado(context, "RECHAZADO"))" />
+
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                       Color="Color.Error"
+                                       Size="Size.Small"
+                                       Title="Anular"
+                                       OnClick="@(() => CambiarEstado(context, "ANULADO"))" />
+                    }
+                </MudTd>
+            </RowTemplate>
+
+            <PagerContent>
+                <MudTablePager RowsPerPageString="Registros por página" />
+            </PagerContent>
+
+        </MudTable>
+
+    </MudPaper>
+
+</MudContainer>
+
+@code {
+    private List<Banco> bancos = new();
+    private List<Chequera> chequeras = new();
+    private List<Cheque> cheques = new();
+
+    private int? idBancoFiltro;
+    private int? idChequeraFiltro;
+    private string? estadoFiltro = "EMITIDO";
+
+    private IEnumerable<Chequera> ChequerasFiltradas =>
+        idBancoFiltro.HasValue
+            ? chequeras.Where(x => x.IdBanco == idBancoFiltro.Value)
+            : chequeras;
+
+    private IEnumerable<Cheque> ChequesFiltrados =>
+    cheques.Where(x =>
+        (!idBancoFiltro.HasValue || ObtenerIdBancoCheque(x) == idBancoFiltro.Value) &&
+        (!idChequeraFiltro.HasValue || x.IdChequera == idChequeraFiltro.Value) &&
+        (string.IsNullOrWhiteSpace(estadoFiltro) || x.EstadoCheque == estadoFiltro)
+    );
+
+    private int? ObtenerIdBancoCheque(Cheque cheque)
+    {
+        if (cheque.IdBanco.HasValue)
+            return cheque.IdBanco.Value;
+
+        if (cheque.IdChequera.HasValue)
+        {
+            var chequera = chequeras.FirstOrDefault(x => x.IdChequera == cheque.IdChequera.Value);
+            return chequera?.IdBanco;
+        }
+
+        return null;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        bancos = await BancoService.ListarAsync();
+        chequeras = await ChequeraService.ListarAsync();
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        cheques = await ChequeService.ListarEmitidosAsync(
+            idBancoFiltro,
+            idChequeraFiltro,
+            estadoFiltro
+        );
+    }
+
+    private async Task LimpiarFiltros()
+    {
+        idBancoFiltro = null;
+        idChequeraFiltro = null;
+        estadoFiltro = "EMITIDO";
+        await Cargar();
+    }
+
+    private async Task CambiarEstado(Cheque cheque, string nuevoEstado)
+    {
+        bool? confirmado = await DialogService.ShowMessageBox(
+            "Confirmar acción",
+            $"¿Desea cambiar el cheque {cheque.NumeroCheque} a estado {nuevoEstado}?",
+            yesText: "Sí",
+            cancelText: "Cancelar");
+
+        if (confirmado != true)
+            return;
+
+        var (ok, msg) = await ChequeService.CambiarEstadoAsync(
+            cheque.IdCheque,
+            nuevoEstado
+        );
+
+        if (ok)
+        {
+            Snackbar.Add(msg, Severity.Success);
+            await Cargar();
+        }
+        else
+        {
+            Snackbar.Add(msg, Severity.Error);
+        }
+    }
+
+    private async Task OnBancoChanged(int? value)
+    {
+        idBancoFiltro = value;
+
+        if (idChequeraFiltro.HasValue)
+        {
+            var chequera = chequeras.FirstOrDefault(x => x.IdChequera == idChequeraFiltro.Value);
+
+            if (chequera is null || !value.HasValue || chequera.IdBanco != value.Value)
+                idChequeraFiltro = null;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private async Task OnChequeraChanged(int? value)
+    {
+        idChequeraFiltro = value;
+        await Cargar();
+    }
+
+    private async Task OnEstadoChanged(string? value)
+    {
+        estadoFiltro = value;
+        await Cargar();
+    }
+
+    private string ObtenerChequera(int? idChequera)
+    {
+        if (!idChequera.HasValue)
+            return "-";
+
+        return chequeras
+            .FirstOrDefault(x => x.IdChequera == idChequera.Value)
+            ?.Descripcion ?? "-";
+    }
+
+    private string ObtenerBanco(Cheque cheque)
+    {
+        if (cheque.IdBanco.HasValue)
+        {
+            return bancos
+                .FirstOrDefault(x => x.IdBanco == cheque.IdBanco.Value)
+                ?.Nombre ?? "-";
+        }
+
+        if (cheque.IdChequera.HasValue)
+        {
+            var chequera = chequeras
+                .FirstOrDefault(x => x.IdChequera == cheque.IdChequera.Value);
+
+            if (chequera is not null)
+            {
+                return bancos
+                    .FirstOrDefault(x => x.IdBanco == chequera.IdBanco)
+                    ?.Nombre ?? "-";
+            }
+        }
+
+        return "-";
+    }
+
+    private Color ColorEstado(string estado)
+    {
+        return estado switch
+        {
+            "EMITIDO" => Color.Warning,
+            "COBRADO" => Color.Success,
+            "RECHAZADO" => Color.Error,
+            "ANULADO" => Color.Default,
+            _ => Color.Default
+        };
+    }
+}

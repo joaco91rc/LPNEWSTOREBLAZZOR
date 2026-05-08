@@ -9,6 +9,8 @@
 @using System.Text
 
 @inject PagoParcialService PagoParcialService
+@inject CajaRegistradoraEmpresaService CajaRegistradoraEmpresaService
+@inject FormaPagoService FormaPagoService
 @inject VendedorService VendedoresService
 @inject MonedaService MonedasService
 @inject RolService rolService
@@ -40,6 +42,7 @@
     private bool esEdicion = false;
     private string rolUsuarioActual = string.Empty;
     private int sucursalSeleccionada => SesionNegocioService.ObtenerIdNegocio();
+    private List<FormaPago> listaFormasPago = new();
 
     private IEnumerable<PagoParcial> PagoParcialesFiltrados
     {
@@ -199,6 +202,7 @@
         listaRoles = await rolService.Listar();
         listaVendedores = await VendedoresService.ListarVendedores();
         listaMonedas = await MonedasService.ListarMonedas();
+        listaFormasPago = await FormaPagoService.ListarFormasDePago();
 
         listaPagoParciales = await PagoParcialService.Listar();
 
@@ -208,6 +212,10 @@
         if (listaMonedas.Any())
         {
             PagoParcialActual.Moneda = listaMonedas[0].Nombre;
+        }
+        if (listaFormasPago.Any())
+        {
+            PagoParcialActual.FormaPago = listaFormasPago[0].Descripcion;
         }
     }
 
@@ -249,8 +257,52 @@
             return;
         }
 
-        string mensaje = string.Empty;
-        bool resultado = false;
+        if (PagoParcialActual.IdFormaPago <= 0)
+        {
+            Snackbar.Add("Debe seleccionar una forma de pago.", Severity.Error);
+            return;
+        }
+
+        var fp = listaFormasPago.FirstOrDefault(x => x.IdFormaPago == PagoParcialActual.IdFormaPago);
+
+        if (fp is null)
+        {
+            Snackbar.Add("Forma de pago inválida.", Severity.Error);
+            return;
+        }
+
+        PagoParcialActual.FormaPago = fp.Descripcion;
+
+        string mensaje;
+        bool resultado;
+
+        var caja = await CajaRegistradoraEmpresaService.ObtenerCajaActual();
+
+        if (caja == null)
+        {
+            Snackbar.Add("No hay una caja abierta.", Severity.Error);
+            return;
+        }
+
+        if (fp.IdCajaAsociada <= 0)
+        {
+            Snackbar.Add("La forma de pago seleccionada no tiene caja asociada.", Severity.Error);
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(PagoParcialActual.ProductoReservado))
+        {
+            Snackbar.Add("Debe ingresar o seleccionar un producto reservado.", Severity.Error);
+            return;
+        }
+
+        bool productoSeleccionado = PagoParcialActual.IdProducto.GetValueOrDefault() > 0;
+
+        PagoParcialActual.EsProductoCargado = productoSeleccionado;
+        PagoParcialActual.EstadoReserva = productoSeleccionado ? "RESERVADO" : "ENCARGADO";
+
+        if (!productoSeleccionado)
+            PagoParcialActual.IdProducto = null;
+       
 
         if (esEdicion)
         {
@@ -260,26 +312,35 @@
         }
         else
         {
-            var (idGenerado, msg) = await PagoParcialService.Registrar(PagoParcialActual);
-            resultado = idGenerado > 0;
+            var (idGenerado, msg) = await PagoParcialService.Registrar(
+                PagoParcialActual,
+                caja.IdCajaRegistradora,
+                fp.IdCajaAsociada,
+                fp.IdFormaPago
+            );
 
+            resultado = idGenerado > 0;
             mensaje = msg;
         }
 
         if (resultado)
         {
             Snackbar.Add(mensaje, Severity.Success);
-            PagoParcialActual = new PagoParcial();
+
+            PagoParcialActual = new PagoParcial
+            {
+                Estado = true,
+                FechaRegistro = DateTime.Now.Date,
+                Moneda = listaMonedas.FirstOrDefault()?.Nombre ?? "",
+                IdFormaPago = listaFormasPago.FirstOrDefault().IdFormaPago
+            };
+
             esEdicion = false;
             listaPagoParciales = await PagoParcialService.Listar();
-            await formPagoParcial.ResetAsync(); // resetea el form
-            PagoParcialActual.Estado = true;
-            PagoParcialActual.Moneda = listaMonedas[0].Nombre;
-            PagoParcialActual.FechaRegistro = DateTime.Now.Date;
+            await formPagoParcial.ResetAsync();
         }
         else
         {
-
             Snackbar.Add(mensaje, Severity.Error);
         }
     }
@@ -308,6 +369,38 @@
             {
                 Snackbar.Add(mensaje, Severity.Error);
             }
+        }
+    }
+
+    private void QuitarProductoSeleccionado()
+    {
+        PagoParcialActual.IdProducto = null;
+        PagoParcialActual.ProductoReservado = string.Empty;
+        PagoParcialActual.EsProductoCargado = false;
+        PagoParcialActual.EstadoReserva = "ENCARGADO";
+        StateHasChanged();
+    }
+
+    private async Task AbrirSeleccionProducto()
+    {
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Large,
+            FullWidth = true
+        };
+
+        var dialog = DialogService.Show<MDProducto>("Seleccionar producto", options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is Producto producto)
+        {
+            PagoParcialActual.IdProducto = producto.IdProducto;
+            PagoParcialActual.ProductoReservado = producto.Nombre;
+            PagoParcialActual.EsProductoCargado = true;
+            PagoParcialActual.EstadoReserva = "RESERVADO";
+
+            
         }
     }
 
@@ -368,16 +461,51 @@
                                aria-label="Buscar cliente" />
             </div>
 
-            <MudTextField Label="Producto Reservado"
-                          @bind-Value="PagoParcialActual.ProductoReservado"
-                          Required="true" />
+            <div class="d-flex align-end">
+                <MudTextField Label="Producto reservado / encargado"
+                              @bind-Value="PagoParcialActual.ProductoReservado"
+                              Required="true"
+                              ReadOnly="@(PagoParcialActual.IdProducto.HasValue)"
+                              Class="flex-grow-1 me-2" />
 
-            <MudTextField Label="Forma de Pago"
-                          @bind-Value="PagoParcialActual.FormaPago" />
+                <MudIconButton Icon="@Icons.Material.Filled.Search"
+                               Color="Color.Primary"
+                               Size="Size.Medium"
+                               OnClick="AbrirSeleccionProducto"
+                               aria-label="Buscar producto" />
+
+                @if (PagoParcialActual.IdProducto.HasValue)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                   Color="Color.Error"
+                                   Size="Size.Medium"
+                                   OnClick="QuitarProductoSeleccionado" />
+                }
+            </div>
+
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                Si el producto no existe todavía, escribilo manualmente. Si ya existe, buscalo con la lupa.
+            </MudText>
+
+            <MudSelect T="int"
+                       Label="Forma de Pago"
+                       @bind-Value="PagoParcialActual.IdFormaPago"
+                       Required="true"
+                       Dense="true"
+                       FullWidth="true"
+                       Disabled="@esEdicion">
+                @foreach (var fp in listaFormasPago)
+                {
+                    <MudSelectItem T="int" Value="@fp.IdFormaPago">
+                        @fp.Descripcion
+                    </MudSelectItem>
+                }
+            </MudSelect>
             <MudSelect T="string"
                        Label="Moneda"
                        @bind-Value="PagoParcialActual.Moneda"
-                       Required="true">
+                       Required="true"
+                       Disabled="@esEdicion">
                 @foreach (var moneda in listaMonedas)
                 {
 
@@ -386,7 +514,8 @@
             </MudSelect>
 
             <MudTextField Label="Monto"
-                          @bind-Value="PagoParcialActual.Monto" />
+                          @bind-Value="PagoParcialActual.Monto"
+                          Disabled="@esEdicion" />
 
            
 

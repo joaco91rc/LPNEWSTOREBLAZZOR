@@ -11,7 +11,11 @@ using MudBlazor;
 using MudBlazor.Services;
 using Services;
 using Services.Extensions;
+using System.Globalization;
 
+var culture = new CultureInfo("es-AR");
+CultureInfo.DefaultThreadCurrentCulture = culture;
+CultureInfo.DefaultThreadCurrentUICulture = culture;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>

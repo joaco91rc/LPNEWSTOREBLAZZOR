@@ -1,13 +1,13 @@
-﻿@page "/cobrarservicio"
+﻿@page "/registrarventa"
 @using LPNEWSTORE.Shared.Components
-         @using Entities
+@using Entities
 @using LPNEWSTORE.Shared.Modals
 @using MudBlazor
 @using Services
 @using System.Data
 @using System.Text
 @using static LPNEWSTORE.Shared.Components.CabeceraSelector
-@inject FormaPagoService FormaPagoService  
+@inject FormaPagoService FormaPagoService
 @inject VendedorService VendedorService
 @inject CotizacionService CotizacionService
 @inject VentaEmpresaService VentaEmpresaService
@@ -56,7 +56,7 @@
     <div class="registrar-btn-container">
         <MudButton Color="Color.Success"
                    Variant="Variant.Filled"
-                   OnClick="RegistrarVenta"
+                   OnClick="RegistrarVentaEmpresa"
                    Size="Size.Large"
                    StartIcon="@Icons.Material.TwoTone.MonetizationOn">
             Registrar
@@ -72,7 +72,7 @@
 @code {
 
 
-    private List<FormaPago> _formasPago = new(); 
+    private List<FormaPago> _formasPago = new();
     private FormaPagoSelector<DetalleProductoSelector.DetalleProductoItem>? _formaPagoSelector;
 
     private VentaViewModel vm = new();
@@ -116,7 +116,7 @@
         _formasPago = formasPagoTask.Result ?? new List<FormaPago>();
         vm.Vendedores = vendedoresTask.Result ?? new List<Vendedor>();
 
-        
+
         // 👉 Tipos de documento
         vm.TiposDocumento = new List<OpcionDocumento>
     {
@@ -135,51 +135,51 @@
             vm.TipoDocumento = vm.TiposDocumento[0].Valor;
     }
 
-   private async Task RegistrarVenta()
-{
-    if (!ValidarFormulario())
-        return;
-
-    var venta = CrearVentaEmpresa();
-
-    var resultado = await VentaEmpresaService.RegistrarAsync(venta);
-
-    if (!resultado.resultado)
+    private async Task RegistrarVentaEmpresa()
     {
-        Snackbar.Add($"Error al registrar la venta: {resultado.mensaje}", Severity.Error);
-        return;
-    }
+        if (!ValidarFormulario())
+            return;
 
-    int idVentaGenerado = resultado.idVenta;
+        var venta = CrearVentaEmpresa();
 
-    try
-    {
-        await DarDeBajaPagosParcialesAsync(idVentaGenerado);
+        var resultado = await VentaEmpresaService.RegistrarAsync(venta);
 
-        if (vm.ClienteId.HasValue)
+        if (!resultado.resultado)
         {
-            var perteneceANegocio = await ClienteNegocioService.ClienteAsignadoANegocio(vm.ClienteId.Value, _idSucursal);
-
-            if (!perteneceANegocio)
-            {
-                await ClienteNegocioService.AsignarClienteANegocio(vm.ClienteId.Value, _idSucursal);
-            }
+            Snackbar.Add($"Error al registrar la venta: {resultado.mensaje}", Severity.Error);
+            return;
         }
 
-        string stockActualizado = await ActualizarStockAsync(idVentaGenerado);
-        string mensajeTransaccion = await RegistrarTransaccionesCajaAsync(venta, idVentaGenerado);
+        int idVentaGenerado = resultado.idVenta;
 
-        Snackbar.Add(
-            $"Venta registrada correctamente. Número: {idVentaGenerado}. {stockActualizado} {mensajeTransaccion}",
-            Severity.Success);
+        try
+        {
+            await DarDeBajaPagosParcialesAsync(idVentaGenerado);
 
-        await LimpiarVentaAsync();
+            if (vm.ClienteId.HasValue)
+            {
+                var perteneceANegocio = await ClienteNegocioService.ClienteAsignadoANegocio(vm.ClienteId.Value, _idSucursal);
+
+                if (!perteneceANegocio)
+                {
+                    await ClienteNegocioService.AsignarClienteANegocio(vm.ClienteId.Value, _idSucursal);
+                }
+            }
+
+            string stockActualizado = await ActualizarStockAsync(idVentaGenerado);
+            string mensajeTransaccion = await RegistrarTransaccionesCajaAsync(venta, idVentaGenerado);
+
+            Snackbar.Add(
+                $"Venta registrada correctamente. Número: {idVentaGenerado}. {stockActualizado} {mensajeTransaccion}",
+                Severity.Success);
+
+            await LimpiarVentaAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"La venta se registró, pero ocurrió un error posterior: {ex.Message}", Severity.Warning);
+        }
     }
-    catch (Exception ex)
-    {
-        Snackbar.Add($"La venta se registró, pero ocurrió un error posterior: {ex.Message}", Severity.Warning);
-    }
-}
 
     private bool ValidarFormulario()
     {
@@ -282,7 +282,7 @@
     }
 
 
-  
+
 
     private VentaEmpresa CrearVentaEmpresa()
     {
@@ -355,7 +355,7 @@
         return venta;
     }
 
-   
+
 
     private async Task DarDeBajaPagosParcialesAsync(int idVentaGenerado)
     {
@@ -566,7 +566,7 @@
     {
         public DateTime? Fecha { get; set; } = DateTime.Today;
 
-        
+
         public int? VendedorId { get; set; }
         public int? ClienteId { get; set; }
         public string? DniCliente { get; set; }
@@ -575,13 +575,13 @@
 
         public string? TipoDocumento { get; set; }       // ej: "Factura A"
         public List<OpcionDocumento> TiposDocumento { get; set; } = new();
-    
+
         public List<Vendedor>? Vendedores { get; set; }
     }
 
 }
 
-    <style>
+<style>
 
     /* CONTENEDOR PRINCIPAL */
     .venta-container {
@@ -601,7 +601,6 @@
     .venta-footer {
         flex: 0 0 auto;
         border-top: 1px solid var(--mud-palette-primary);
-        
         padding-top: 8px;
     }
 
@@ -613,6 +612,4 @@
         box-sizing: border-box;
     }
 
-
-
-    </style>
+</style>

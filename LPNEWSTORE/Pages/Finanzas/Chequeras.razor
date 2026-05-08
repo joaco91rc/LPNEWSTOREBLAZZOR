@@ -1,0 +1,261 @@
+﻿@page "/chequeras"
+@using MudBlazor
+@using Entities
+@using Services
+@inject BancoService BancoService
+@inject ChequeraService ChequeraService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+
+    <MudText Typo="Typo.h5" Color="Color.Primary" Class="mb-4">
+        Gestión de Chequeras
+    </MudText>
+
+    <MudGrid Spacing="3">
+
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.h6" Color="Color.Primary" Class="mb-3">
+                    Nueva chequera
+                </MudText>
+
+                <MudForm @ref="form">
+                    <MudStack Spacing="2">
+
+                        <MudSelect T="int"
+                                   Label="Banco"
+                                   @bind-Value="chequeraActual.IdBanco"
+                                   Required="true"
+                                   Dense="true"
+                                   FullWidth="true">
+                            @foreach (var b in bancos)
+                            {
+                                <MudSelectItem Value="@b.IdBanco">@b.Nombre</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudTextField Label="Descripción"
+                                      @bind-Value="chequeraActual.Descripcion"
+                                      Required="true"
+                                      Dense="true"
+                                      FullWidth="true" />
+
+                        <MudSelect T="string"
+                                   Label="Tipo"
+                                   Value="chequeraActual.Tipo"
+                                   ValueChanged="OnTipoChanged"
+                                   Required="true"
+                                   Dense="true"
+                                   FullWidth="true">
+                            <MudSelectItem Value="@("FISICA")">Física</MudSelectItem>
+                           
+                        </MudSelect>
+
+                        <MudTextField Label="Cuenta"
+                                      @bind-Value="chequeraActual.Cuenta"
+                                      Dense="true"
+                                      FullWidth="true" />
+
+                        @if (chequeraActual.Tipo == "FISICA")
+                        {
+                            <MudTextField Label="Serie"
+                                          @bind-Value="chequeraActual.Serie"
+                                          Dense="true"
+                                          FullWidth="true"
+                                          Placeholder="Ej: A, B, EC, 0001" />
+
+                            <MudNumericField T="int?"
+                                             Label="Número desde"
+                                             @bind-Value="chequeraActual.NumeroDesde"
+                                             Required="true"
+                                             Dense="true"
+                                             FullWidth="true" />
+
+                            <MudNumericField T="int?"
+                                             Label="Número hasta"
+                                             @bind-Value="chequeraActual.NumeroHasta"
+                                             Required="true"
+                                             Dense="true"
+                                             FullWidth="true" />
+
+                            <MudAlert Severity="Severity.Info" Dense="true">
+                                Al guardar, se generarán automáticamente los cheques disponibles en ese rango.
+                            </MudAlert>
+                        }
+                        
+
+                        <MudStack Direction="Row" Spacing="2">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Save"
+                                       OnClick="Guardar">
+                                Guardar
+                            </MudButton>
+
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Default"
+                                       OnClick="Limpiar">
+                                Limpiar
+                            </MudButton>
+                        </MudStack>
+
+                    </MudStack>
+                </MudForm>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="8">
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.h6" Color="Color.Primary" Class="mb-3">
+                    Chequeras registradas
+                </MudText>
+
+                <MudTable Items="chequeras"
+                          Dense="true"
+                          Hover="true"
+                          Bordered="true"
+                          Striped="true">
+                    <HeaderContent>
+                        <MudTh>Banco</MudTh>
+                        <MudTh>Descripción</MudTh>
+                        <MudTh>Tipo</MudTh>
+                        <MudTh>Cuenta</MudTh>
+                        <MudTh>Desde</MudTh>
+                        <MudTh>Hasta</MudTh>
+                        <MudTh>Estado</MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        <MudTd>@ObtenerNombreBanco(context.IdBanco)</MudTd>
+                        <MudTd>@context.Descripcion</MudTd>
+                        <MudTd>
+                            <MudChip T="string"
+                                     Size="Size.Small"
+                                     Color="@(context.Tipo == "FISICA" ? Color.Primary : Color.Info)">
+                                @context.Tipo
+                            </MudChip>
+                        </MudTd>
+                        <MudTd>@context.Cuenta</MudTd>
+                        <MudTd>@context.NumeroDesde</MudTd>
+                        <MudTd>@context.NumeroHasta</MudTd>
+                        <MudTd>@(context.Estado ? "Activa" : "Inactiva")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private MudForm? form;
+
+    private List<Banco> bancos = new();
+    private List<Chequera> chequeras = new();
+
+    private Chequera chequeraActual = new()
+    {
+        Tipo = "FISICA"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        bancos = await BancoService.ListarAsync();
+        await CargarChequeras();
+    }
+
+    private async Task CargarChequeras()
+    {
+        chequeras = await ChequeraService.ListarAsync();
+    }
+
+    private Task OnTipoChanged(string tipo)
+    {
+        chequeraActual.Tipo = tipo;
+
+        if (tipo == "ELECTRONICA")
+        {
+            chequeraActual.NumeroDesde = null;
+            chequeraActual.NumeroHasta = null;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task Guardar()
+    {
+        if (form is null)
+            return;
+
+        await form.Validate();
+
+        if (!form.IsValid)
+        {
+            Snackbar.Add("Complete los campos requeridos.", Severity.Warning);
+            return;
+        }
+
+        if (chequeraActual.Tipo == "FISICA")
+        {
+            if (chequeraActual.NumeroDesde is null || chequeraActual.NumeroHasta is null)
+            {
+                Snackbar.Add("Debe ingresar el rango de numeración.", Severity.Warning);
+                return;
+            }
+
+            if (chequeraActual.NumeroDesde <= 0 || chequeraActual.NumeroHasta <= 0)
+            {
+                Snackbar.Add("Los números de cheque deben ser mayores a cero.", Severity.Warning);
+                return;
+            }
+
+            if (chequeraActual.NumeroHasta < chequeraActual.NumeroDesde)
+            {
+                Snackbar.Add("El número hasta no puede ser menor al número desde.", Severity.Warning);
+                return;
+            }
+
+            var cantidad = chequeraActual.NumeroHasta.Value - chequeraActual.NumeroDesde.Value + 1;
+
+            bool? confirmado = await DialogService.ShowMessageBox(
+                "Confirmar generación",
+                $"Se generarán {cantidad} cheques disponibles. ¿Desea continuar?",
+                yesText: "Sí",
+                cancelText: "Cancelar");
+
+            if (confirmado != true)
+                return;
+        }
+
+        var (ok, id, msg) = await ChequeraService.RegistrarAsync(chequeraActual);
+
+        if (ok)
+        {
+            Snackbar.Add(msg, Severity.Success);
+            Limpiar();
+            await CargarChequeras();
+        }
+        else
+        {
+            Snackbar.Add(msg, Severity.Error);
+        }
+    }
+
+    private void Limpiar()
+    {
+        chequeraActual = new Chequera
+        {
+            Tipo = "FISICA",
+            Estado = true
+        };
+
+        form?.ResetValidation();
+    }
+
+    private string ObtenerNombreBanco(int idBanco)
+    {
+        return bancos.FirstOrDefault(x => x.IdBanco == idBanco)?.Nombre ?? "-";
+    }
+}
